@@ -206,6 +206,10 @@ html.embed .top,html.embed .ctl,html.embed .note,html.embed .snd{display:none!im
 </div>
 
 <script>
+
+// --- remote sync: tell the host page which remote key the "viewer" is pressing ---
+let _lastKey='', _lastKeyAt=0;
+function emitKey(k){ const now=performance.now(); if(k===_lastKey && now-_lastKeyAt<260) return; _lastKey=k; _lastKeyAt=now; try{ parent.postMessage({iionKey:k},'*'); }catch(e){} }
 /* ===================== config ===================== */
 const AD_VIDEO_SRC = "assets/whopper-30s.mp4";   // the real 30 s spot; set to "" for the placeholder
 const SLOT_MS       = 30000;        // one ad slot
@@ -250,7 +254,7 @@ let msgI=0, msgAt=0;
 /* ===================== video ===================== */
 if (AD_VIDEO_SRC){
   const v=document.createElement('video');
-  v.src=AD_VIDEO_SRC; v.muted=true; v.loop=false; v.playsInline=true; v.autoplay=true; v.preload='auto'; v.id='vid';
+  v.src=AD_VIDEO_SRC; v.muted=true; v.defaultMuted=true; v.setAttribute("muted",""); v.loop=false; v.playsInline=true; v.autoplay=true; v.preload='auto'; v.id='vid';
   $('video').innerHTML=''; $('video').appendChild(v);
 }
 
@@ -284,7 +288,7 @@ function catchIt(){
 function miss(){
   ingActive=false; falling.hidden=true; paused=true; retry.classList.add('on'); status.textContent='Missed — waiting for OK';
 }
-function doRetry(){
+function doRetry(){ emitKey("ok");
   retryBtn.classList.add('press');
   setTimeout(()=>{ retryBtn.classList.remove('press'); retry.classList.remove('on'); resetStack(); paused=false; nextAt=performance.now()+400; status.textContent=''; },180);
 }
@@ -323,6 +327,7 @@ function tick(now){
         const willMiss = (!missedOnce && idx===SCRIPTED_MISS);
         targetX = willMiss ? (ingX>0.5 ? 0.30 : 0.70) : ingX;
       }
+      { const dx=targetX-bunX; if (Math.abs(dx)>0.02) emitKey(dx<0?"left":"right"); }
       bunX += (targetX-bunX)*0.14;
     } else {
       if (keys.left)  bunX-=0.018;

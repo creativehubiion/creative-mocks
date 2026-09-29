@@ -171,6 +171,10 @@ html.embed .top,html.embed .ctl,html.embed .note,html.embed .snd{display:none!im
 </div>
 
 <script>
+
+// --- remote sync: tell the host page which remote key the "viewer" is pressing ---
+let _lastKey='', _lastKeyAt=0;
+function emitKey(k){ const now=performance.now(); if(k===_lastKey && now-_lastKeyAt<260) return; _lastKey=k; _lastKeyAt=now; try{ parent.postMessage({iionKey:k},'*'); }catch(e){} }
 /* ===================== config ===================== */
 const AD_VIDEO_SRC = "assets/gyg-30s.mp4";   // 30 s spot (GYG ALL IN, 720p)
 const SLOT_MS      = 30000;
@@ -207,7 +211,7 @@ let msgI=0, msgAt=0;
 
 /* ===================== video ===================== */
 if (AD_VIDEO_SRC){
-  const v=document.createElement('video'); v.src=AD_VIDEO_SRC; v.muted=true; v.playsInline=true; v.autoplay=true; v.preload='auto'; v.id='vid';
+  const v=document.createElement('video'); v.src=AD_VIDEO_SRC; v.muted=true; v.defaultMuted=true; v.setAttribute("muted",""); v.playsInline=true; v.autoplay=true; v.preload='auto'; v.id='vid';
   $('video').innerHTML=''; $('video').appendChild(v);
 }
 
@@ -219,7 +223,7 @@ function spawn(now){ ingX=0.32+Math.random()*0.36; falling.innerHTML=imgIng(ING[
 function stackTopY(){ const fr=field.getBoundingClientRect(), sr=stack.getBoundingClientRect(); return sr.top-fr.top; }
 function catchIt(){ const el=document.createElement('div'); el.className='ing pop'; el.innerHTML=imgIng(ING[idx]); stack.appendChild(el); idx++; setCount(); ingActive=false; falling.hidden=true; if(idx>=ING.length){ finished=true; setTimeout(()=>{ stack.classList.add('away'); shadow.style.opacity='0'; },500); setTimeout(()=>{ done.classList.add('on'); $('final').classList.add('on'); $('fshadow').classList.add('on'); },700); } }
 function missIt(){ ingActive=false; falling.hidden=true; paused=true; miss.classList.add('on'); }
-function doRetry(){ retryBtn.classList.add('press'); setTimeout(()=>{ retryBtn.classList.remove('press'); miss.classList.remove('on'); paused=false; nextAt=performance.now()+400; },180); }
+function doRetry(){ emitKey("ok"); retryBtn.classList.add('press'); setTimeout(()=>{ retryBtn.classList.remove('press'); miss.classList.remove('on'); paused=false; nextAt=performance.now()+400; },180); }
 
 /* ===================== main loop ===================== */
 function start(){
@@ -241,7 +245,7 @@ function tick(now){
 
   if (mode==='game' && !finished){
     const w=field.clientWidth, h=field.clientHeight, auto=autoBox.checked;
-    if (auto){ if (ingActive){ const willMiss=(!missedOnce && idx===SCRIPTED_MISS); targetX = willMiss ? (ingX>0.5?0.30:0.70) : ingX; } bunX+=(targetX-bunX)*0.14; }
+    if (auto){ if (ingActive){ const willMiss=(!missedOnce && idx===SCRIPTED_MISS); targetX = willMiss ? (ingX>0.5?0.30:0.70) : ingX; } { const dx=targetX-bunX; if (Math.abs(dx)>0.02) emitKey(dx<0?"left":"right"); } bunX+=(targetX-bunX)*0.14; }
     else { if(keys.left) bunX-=0.018; if(keys.right) bunX+=0.018; }
     bunX=Math.max(0.30,Math.min(0.70,bunX)); placeStack();
     if (!paused){

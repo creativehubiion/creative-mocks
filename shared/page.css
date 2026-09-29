@@ -3,7 +3,7 @@
   --bg:#f5f5f7; --ink:#1d1d1f; --ink-2:#6e6e73; --line:#d2d2d7;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.47 "Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.011em}
+html,body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--ink);font:17px/1.47 "Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.011em}
 
 .nav{height:52px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(0,0,0,.06);background:rgba(245,245,247,.8);backdrop-filter:saturate(180%) blur(20px);position:sticky;top:0;z-index:10}
 .nav img{height:22px;width:auto;display:block}
@@ -36,3 +36,13 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.47 "Inter",
   .hero{padding-top:40px}
   .stage{padding:24px 10px 8px}
 }
+
+/* ---------- animated remote ---------- */
+.remote{position:absolute;right:-4.2%;bottom:-2%;width:6.6%;transform:rotate(-9deg);transform-origin:50% 100%;z-index:3;
+  filter:drop-shadow(0 18px 18px rgba(0,0,0,.28)) drop-shadow(0 4px 4px rgba(0,0,0,.2));transition:transform .12s}
+.remote.pressing{transform:rotate(-9deg) translateY(1px)}
+.remote-svg{display:block;width:100%;height:auto}
+.remote .k{transition:fill .12s}
+.remote .k.on{fill:rgba(0,113,227,.85)}
+.remote .k-ok.on{fill:#0071e3}
+@media (max-width:900px){.remote{display:none}}
