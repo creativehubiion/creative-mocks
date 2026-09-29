@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>iion · Guzman y Gomez interactive CTV</title>
+<link rel="icon" href="../shared/iion-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../shared/page.css">
+</head>
+<body>
+<nav class="nav"><img src="../shared/iion-logo.png" alt="iion"></nav>
+
+<section class="hero">
+  <div class="eyebrow">Interactive CTV · Guzman y Gomez</div>
+  <h1>Build your burrito.</h1>
+  <p>An L‑band playable inside a 30‑second CTV ad break, with a scannable QR to order in the GYG app.</p>
+</section>
+
+<section class="stage">
+  <div class="display">
+    <div class="frame">
+      <div class="screen">
+        <iframe src="mock.html?embed=1" title="Guzman y Gomez interactive CTV mock" allow="autoplay"></iframe>
+        <div class="glass"></div>
+      </div>
+    </div>
+    <div class="chin"></div>
+    <div class="neck"></div>
+    <div class="base"></div>
+    <div class="contact"></div>
+  </div>
+  <div class="controls"><button class="snd" id="snd" type="button"></button></div>
+</section>
+
+<footer class="foot"><img src="../shared/iion-logo.png" alt="iion"><span>Concept demonstration prepared for Guzman y Gomez. Not a live campaign.</span></footer>
+
+<script>
+  const ON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
+  const OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+  const f=document.querySelector('iframe'), b=document.getElementById('snd'); let on=false;
+  function paint(){ b.classList.toggle('on',on); b.innerHTML=(on?ON:OFF)+(on?'Sound on':'Turn sound on'); }
+  b.addEventListener('click',()=>{ on=!on; try{ const w=f.contentWindow; if(w.DEMO&&w.DEMO.setSound) w.DEMO.setSound(on); else { const v=w.document.getElementById('vid'); if(v) v.muted=!on; } }catch(e){} paint(); });
+  paint();
+</script>
+</body>
+</html>
