@@ -14,7 +14,8 @@
   function apply() {
     root.classList.toggle('night', on);
     if (logo && dark) logo.setAttribute('src', on ? dark : light);
-    btn.innerHTML = (on ? SUN : MOON) + '<span>' + (on ? 'Light mode' : 'Night mode') + '</span>';
+    btn.innerHTML = on ? SUN : MOON;
+    btn.title = on ? 'Light mode' : 'Night mode';
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     btn.setAttribute('aria-label', on ? 'Switch to light mode' : 'Switch to night mode');
   }

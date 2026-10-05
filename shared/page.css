@@ -54,10 +54,10 @@ html.night .nav{background:rgba(11,11,12,.8);border-bottom-color:rgba(255,255,25
 html.night .eyebrow{color:#ff9f5a}
 html.night .snd.on{background:#3a3a3c}
 html.night .tv .floor{background:radial-gradient(closest-side,rgba(0,0,0,.65),rgba(0,0,0,0))}
-.night-toggle{position:absolute;top:64px;right:20px;z-index:9;appearance:none;display:inline-flex;align-items:center;gap:7px;font:500 13px/1 "Inter",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;letter-spacing:-.01em;color:var(--ink);background:rgba(0,0,0,.05);border:1px solid var(--line);border-radius:980px;padding:8px 13px 8px 11px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.night-toggle{position:absolute;top:64px;right:20px;z-index:9;appearance:none;display:grid;place-items:center;width:36px;height:36px;padding:0;color:var(--ink);background:rgba(0,0,0,.05);border:1px solid var(--line);border-radius:50%;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
 .night-toggle:hover{background:rgba(0,0,0,.09)}
 .night-toggle:focus-visible{outline:2px solid #0071e3;outline-offset:2px}
 html.night .night-toggle{background:rgba(255,255,255,.08)}
 html.night .night-toggle:hover{background:rgba(255,255,255,.14)}
-.night-toggle svg{width:15px;height:15px;display:block}
-@media (max-width:700px){.night-toggle{top:60px;right:12px;padding:8px}.night-toggle span{display:none}}
+.night-toggle svg{width:17px;height:17px;display:block}
+@media (max-width:700px){.night-toggle{top:60px;right:12px}}
