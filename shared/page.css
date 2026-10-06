@@ -61,3 +61,33 @@ html.night .night-toggle{background:rgba(255,255,255,.08)}
 html.night .night-toggle:hover{background:rgba(255,255,255,.14)}
 .night-toggle svg{width:17px;height:17px;display:block}
 @media (max-width:700px){.night-toggle{top:60px;right:12px}}
+
+/* ---------- edge-to-edge showcase (v6): one screen tall; the TV fills whatever space the hero leaves ---------- */
+body{height:100svh;display:flex;flex-direction:column}
+.nav{flex:none}
+.hero{flex:none;padding:clamp(10px,1.6vh,20px) 24px 0;max-width:1100px}
+.eyebrow{margin-bottom:2px}
+.hero h1{font-size:clamp(26px,min(3.3vw,4.2vh),42px)}
+.hero p{font-size:clamp(14px,min(1.3vw,1.8vh),17px);margin-top:4px;max-width:1080px}
+.stage{flex:1 1 auto;min-height:0;width:100%;max-width:none;margin:0;container-type:size;display:flex;align-items:center;justify-content:center;
+  padding:clamp(8px,1.6vh,18px) clamp(24px,5vw,84px) clamp(22px,3.4vh,40px)}
+.tv{width:min(100cqw,100cqh * 1537 / 945);margin:0;flex:none}
+.tv .controls{position:absolute;left:50%;bottom:2.4%;transform:translateX(-50%);padding:0;z-index:4}   /* moved into the TV by theme.js: sits in the stand */
+@media (max-width:700px){
+  body{height:auto;display:block}
+  .stage{container-type:normal;display:block;padding:20px 10px 84px}
+  .tv{width:100%}
+  .tv .controls{top:100%;bottom:auto;margin-top:18px}
+}
+
+/* ---------- slim header (v8): logo left · mock name centre · night toggle right; no hero block ---------- */
+.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;justify-content:normal;padding:0 16px;gap:16px}
+.nav > img{justify-self:start}
+.nav-title{justify-self:center;display:flex;align-items:baseline;gap:10px;min-width:0;white-space:nowrap}
+.nav-title .brand{font-size:12px;font-weight:600;letter-spacing:.02em;color:#bf4800}
+html.night .nav-title .brand{color:#ff9f5a}
+.nav-title h1{margin:0;font-size:15px;line-height:1;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis}
+.nav .night-toggle{position:static;justify-self:end;width:32px;height:32px}
+.nav .night-toggle svg{width:16px;height:16px}
+body.slim .hero{display:none}
+@media (max-width:700px){.nav-title .brand{display:none}.nav-title h1{font-size:14px}}

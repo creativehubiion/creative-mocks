@@ -20,6 +20,18 @@
     btn.setAttribute('aria-label', on ? 'Switch to light mode' : 'Switch to night mode');
   }
   btn.addEventListener('click', () => { on = !on; try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {} apply(); });
-  document.body.appendChild(btn);
+  // slim header: logo left, mock name centre (brand + headline from the hero), toggle right; the hero block is hidden
+  const nav = document.querySelector('.nav'), h1 = document.querySelector('.hero h1'), eb = document.querySelector('.hero .eyebrow');
+  if (nav && h1) {
+    const t = document.createElement('div'); t.className = 'nav-title';
+    const brand = document.createElement('span'); brand.className = 'brand';
+    brand.textContent = eb ? eb.textContent.split('·').pop().trim() : '';
+    t.append(brand, h1); nav.appendChild(t);
+    document.body.classList.add('slim');
+  }
+  (nav || document.body).appendChild(btn);
+  // keep the sound button inside the TV so it always sits in the stand, at any window size
+  const tv = document.querySelector('.tv'), ctl = document.querySelector('.controls');
+  if (tv && ctl && ctl.parentNode !== tv) tv.appendChild(ctl);
   apply();
 })();
