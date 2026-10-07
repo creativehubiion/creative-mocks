@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Gepuk It · build · first-person pestle</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
-<script src="_core/draw.js?v=1791398672"></script><script src="_core/layers.js?v=1791398672"></script><script src="_core/gepuk-core.js?v=1791398672"></script></head>
+<script src="_core/draw.js?v=1791399489"></script><script src="_core/layers.js?v=1791399489"></script><script src="_core/gepuk-core.js?v=1791399489"></script></head>
 <body><script>
 /* VIEW: first-person, v2 (concept v3: ONE skill, timing). Standing at the tray looking down at ~35°: the mortar with the
    chicken in front of us, our own fist on a short pestle above it, forearm from the right. The mortar, chicken, pestle and
@@ -65,17 +65,21 @@ const VIEW = {
   ],
   drawFrame(ctx, S, W, H) {
     const L = id => VIEW.layers.find(l => l.id === id), heat = S.heat;
+    // full-screen passes that never change between resizes (vignette, tints, the contact shadow) are painted once into offscreen
+    // canvases and composited with one drawImage each: a phone cannot afford a fresh radial gradient fill per pass per frame
+    const FXC = (VIEW.__fxc = VIEW.__fxc || {}), scale = (ctx.getTransform ? ctx.getTransform().a : 1) || 1;
+    const cached = (key, paint) => { const k = `${key}|${W}x${H}@${scale}`; let c = FXC[k]; if (!c) { Object.keys(FXC).forEach(kk => { if (kk.startsWith(key + '|')) delete FXC[kk]; }); c = document.createElement('canvas'); c.width = Math.ceil(W * scale); c.height = Math.ceil(H * scale); const x = c.getContext('2d'); x.setTransform(scale, 0, 0, scale, 0, 0); paint(x); FXC[k] = c; } return c; };
     LAYERS.draw(ctx, L('L1'), S, W, H);
-    if (LAYERS.ART.L1) { const v = ctx.createRadialGradient(W / 2, H * .55, W * .45, W / 2, H * .55, W * 1.05); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.42)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H); }
-    if (heat > 0.25) { const g = ctx.createRadialGradient(W / 2, H / 2, W * .3, W / 2, H / 2, W * .8); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(224,48,32,${(heat - .25) * .7})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
-    if (S.cold > 0) { const g = ctx.createRadialGradient(W / 2, H / 2, W * .25, W / 2, H / 2, W * .85); g.addColorStop(0, 'rgba(127,212,255,0)'); g.addColorStop(1, `rgba(127,212,255,${S.cold * .75})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }   // the cold flash: the sambal just lost heat
+    if (LAYERS.ART.L1) ctx.drawImage(cached('vig', x => { const v = x.createRadialGradient(W / 2, H * .55, W * .45, W / 2, H * .55, W * 1.05); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.42)'); x.fillStyle = v; x.fillRect(0, 0, W, H); }), 0, 0, W, H);
+    if (heat > 0.25) { ctx.save(); ctx.globalAlpha = (heat - .25) * .7; ctx.drawImage(cached('heat', x => { const g = x.createRadialGradient(W / 2, H / 2, W * .3, W / 2, H / 2, W * .8); g.addColorStop(0, 'rgba(224,48,32,0)'); g.addColorStop(1, 'rgba(224,48,32,1)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }), 0, 0, W, H); ctx.restore(); }
+    if (S.cold > 0) { ctx.save(); ctx.globalAlpha = S.cold * .75; ctx.drawImage(cached('cold', x => { const g = x.createRadialGradient(W / 2, H / 2, W * .25, W / 2, H / 2, W * .85); g.addColorStop(0, 'rgba(127,212,255,0)'); g.addColorStop(1, 'rgba(127,212,255,1)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }), 0, 0, W, H); ctx.restore(); }   // the cold flash: the sambal just lost heat
     const sb = LAYERS.boxPx(L('L2'), W, H);
     const foot = (LAYERS.META['mortar-chicken'] || {}).foot;
     if (LAYERS.ART.L2 && foot) {   // contact shadow from the measured foot (meta.json): the light is from above, so the shadow pools straight under the underside and spills past it; drawn before the mortar so the bowl covers its top half
       const fx = sb.x + sb.w * foot.cx, fy = sb.y + sb.h * foot.cy, rx = sb.w * foot.rx, ry = sb.h * foot.ry;
-      const pool = (cx, cy, ax, ay, a0, a1) => { ctx.save(); ctx.translate(cx, cy); ctx.scale(1, ay / ax); const g = ctx.createRadialGradient(0, 0, ax * .35, 0, 0, ax); g.addColorStop(0, `rgba(0,0,0,${a0})`); g.addColorStop(1, `rgba(0,0,0,${a1})`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, ax, 0, 7); ctx.fill(); ctx.restore(); };
-      pool(fx, fy + ry * 1.15, rx * 1.45, ry * 2.4, .42, 0);   // the soft spill on the tray
-      pool(fx, fy + ry * .55, rx * 1.04, ry * 1.5, .7, 0);     // the dark contact line right under the underside
+      ctx.drawImage(cached('shadow', x => { const pool = (cx, cy, ax, ay, a0, a1) => { x.save(); x.translate(cx, cy); x.scale(1, ay / ax); const g = x.createRadialGradient(0, 0, ax * .35, 0, 0, ax); g.addColorStop(0, `rgba(0,0,0,${a0})`); g.addColorStop(1, `rgba(0,0,0,${a1})`); x.fillStyle = g; x.beginPath(); x.arc(0, 0, ax, 0, 7); x.fill(); x.restore(); };
+        pool(fx, fy + ry * 1.15, rx * 1.45, ry * 2.4, .42, 0);   // the soft spill on the tray
+        pool(fx, fy + ry * .55, rx * 1.04, ry * 1.5, .7, 0); }), 0, 0, W, H);     // the dark contact line right under the underside
     }
     const state = Math.min(3, Math.floor(S.hits / Gepuk.CONFIG.hitsPerStage)), struckK = S.struck > 0 ? Math.sin(Math.min(1, S.struck / Gepuk.CONFIG.struckSecs) * Math.PI) : 0;   // 0 raised → 1 fully down → back
     const shakeBox = S.miss > 0 ? { ...G.boxes.scene, x: G.boxes.scene.x + 0.012 * Math.sin(S.miss * 40) } : G.boxes.scene;
@@ -93,8 +97,8 @@ const VIEW = {
     const holeM = LAYERS.META && LAYERS.META['rim-front'] && LAYERS.META['rim-front'].hole; const hs = holeM ? [sb.x + sb.w * holeM.cx, sb.y + sb.h * (holeM.cy - 0.02)] : [mx, my + sb.h * .02], C = Gepuk.CONFIG, win = (C.windows || [])[Math.min(3, Math.floor(S.hits / C.hitsPerStage))] ?? C.beatWindow;
     if (S.mode === 'play' || S.mode === 'attract') {   // the spot and the falling chilis belong to the round, never to the end screens
     ctx.save(); const glow = S.glow > 0, cold = S.glow === 2, gr = W * (glow ? .15 : .12), gc = cold ? '#7fd4ff' : '#ffd23a';   // hot = yellow-orange (tap), cold = ice blue (hold)
-    ctx.shadowColor = glow ? gc : 'rgba(255,255,255,.6)'; ctx.shadowBlur = glow ? 36 : 12; ctx.lineWidth = glow ? 12 : 7; ctx.strokeStyle = glow ? gc : 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(hs[0], hs[1], gr, 0, 7); ctx.stroke();
-    if (glow) { ctx.globalAlpha = .35; ctx.fillStyle = gc; ctx.fill(); if (!cold) { ctx.globalAlpha = .9; ctx.lineWidth = 4; ctx.strokeStyle = '#ff6a2a'; ctx.beginPath(); ctx.arc(hs[0], hs[1], gr * 1.18, 0, 7); ctx.stroke(); } } ctx.restore();
+    GB.glowRing(ctx, hs[0], hs[1], gr, glow ? gc : 'rgba(255,255,255,.6)', glow ? gc : 'rgba(255,255,255,.85)', glow ? 12 : 7, glow ? 36 : 12, glow ? 1 : .5);
+    if (glow) { ctx.globalAlpha = .35; ctx.fillStyle = gc; ctx.beginPath(); ctx.arc(hs[0], hs[1], gr, 0, 7); ctx.fill(); if (!cold) { ctx.globalAlpha = .9; ctx.lineWidth = 4; ctx.strokeStyle = '#ff6a2a'; ctx.beginPath(); ctx.arc(hs[0], hs[1], gr * 1.18, 0, 7); ctx.stroke(); } } ctx.restore();
     S.notes.forEach(n => { const p = Math.max(0, Math.min(1, (S.beat.phase - (n.land - C.fallBeats)) / C.fallBeats)); const y = H * G.hudTop + (hs[1] - H * G.hudTop) * p, sz = G.boxes.chili.w * (0.55 + 0.45 * p);
       ctx.save(); ctx.globalAlpha = .25 + .35 * p; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(hs[0], hs[1] + 6, W * sz * .5 * p, W * sz * .2 * p, 0, 0, 7); ctx.fill(); ctx.restore();   // its shadow grows on the chicken
       if (n.ice) { ctx.save(); ctx.globalAlpha = .5; ctx.strokeStyle = '#bfe9ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hs[0], Math.max(H * G.hudTop, y - H * .08)); ctx.lineTo(hs[0], y); ctx.stroke(); ctx.restore(); LAYERS.draw(ctx, L('L6'), S, W, H, { box: { ...G.boxes.chili, w: sz, h: sz * 640 / 960, x: hs[0] / W, y: y / H }, rot: p * 0.4 }); }   // the ice: a frost trail and a slow tumble

@@ -341,20 +341,10 @@
     $('playBtn').onclick = startRound; $('again1').onclick = startRound; $('again2').onclick = startRound;
     $('cta1').onclick = $('cta2').onclick = () => window.open(window.clickTag || CONFIG.ctaUrl, '_blank');
     // share card: code-drawn 1080×1350 image (the measure is a souvenir, never a stake)
-    async function share(result) {
-      const c = document.createElement('canvas'); c.width = 1080; c.height = 1350; const x = c.getContext('2d');
-      x.fillStyle = result === 'win' ? '#b81e14' : '#2a2a2e'; x.fillRect(0, 0, 1080, 1350);
-      x.strokeStyle = 'rgba(255,255,255,.5)'; x.lineWidth = 6; x.setLineDash([24, 18]); x.strokeRect(80, 120, 920, 160); x.setLineDash([]);
-      x.fillStyle = '#fff'; x.font = '800 54px Inter, system-ui, sans-serif'; x.textAlign = 'center'; x.fillText('BRAND LOGO', 540, 220);
-      x.save(); x.translate(540, 620); x.rotate(-0.12); x.strokeStyle = '#fff'; x.lineWidth = 18; x.strokeRect(-430, -120, 860, 240); x.font = '900 150px Inter, system-ui, sans-serif'; x.fillText(result === 'win' ? 'BRAVE PASS' : 'DENIED', 0, 55); x.restore();
-      x.font = '700 48px Inter, system-ui, sans-serif'; x.fillText(result === 'win' ? `${stageName()} tempo · ${S.hits} hits` : (CONFIG.copy.failWhy[S.why] || CONFIG.copy.giveUpTaunt), 540, 860);
-      x.font = '600 40px Inter, system-ui, sans-serif'; x.fillText(result === 'win' ? 'Only The Brave Dares To Try.' : "This one's for people who actually makan pedas.", 540, 1000);
-      x.font = '600 34px Inter, system-ui, sans-serif'; x.fillStyle = 'rgba(255,255,255,.7)'; x.fillText('Marrybrown Ayam Gepuk · greybox', 540, 1260);
-      const url = new URL((CONFIG.brand && CONFIG.brand.passUrl) || 'pass.html', location.href); url.searchParams.set('result', result); url.searchParams.set('level', stageName());   // the shared pass opens the landing page (preview: pass.html next to the build)
-      const text = CONFIG.copy.shareText[result].replace('{level}', stageName()) + ' ' + url.href;
-      const blob = await new Promise(r => c.toBlob(r, 'image/png')); const file = new File([blob], 'brave-pass.png', { type: 'image/png' });
-      if (false && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {   /* the share action opens the sharing hub (pass.html): result card, networks, story save, the KOL/KOC challenge hook; the in-game share sheet stays as the one-tap alternative if the client prefers it */ try { await navigator.share({ files: [file], text, url: url.href }); return; } catch (e) { /* cancelled */ } }
-      window.open(url.href, '_blank', 'noopener');   // the sharing hub
+    function share(result) {   // opens the sharing hub (pass.html) with the result; synchronous, inside the tap gesture (an await before window.open gets the popup blocked on phones)
+      const url = new URL((CONFIG.brand && CONFIG.brand.passUrl) || 'pass.html', location.href); url.searchParams.set('result', result); url.searchParams.set('level', stageName());
+      if (window.top !== window) { try { if (window.open(url.href, '_blank', 'noopener')) return; } catch (e) { /* fall through */ } }   // the desktop mock: the hub in a new tab
+      location.href = url.href;   // the unit is the page (a phone, full screen): the hub replaces it
     }
     $('share1').onclick = () => share('win'); $('share2').onclick = () => share('fail');
 

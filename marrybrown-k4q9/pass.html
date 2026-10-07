@@ -118,6 +118,8 @@
   const q = new URLSearchParams(location.search), result = q.get('result') === 'fail' ? 'fail' : 'win';
   const level = RUNGS.includes(q.get('level')) ? q.get('level') : (result === 'win' ? 'Gepuk' : 'Mala'), reached = RUNGS.indexOf(level), received = q.get('from') === 'share';
   const $ = id => document.getElementById(id);
+  const gameHref = window.top !== window ? 'mock.html?embed=1' : 'index.html';   // framed in the desktop mock: the unit itself; on a phone the shell redirects to full screen anyway
+  document.querySelectorAll('a[href="index.html"]').forEach(a => { a.href = gameHref; });
   // the link the networks carry: this page, marked as received, so the friend lands on the challenge and the test
   const shareUrl = new URL(location.href); shareUrl.searchParams.set('from', 'share');
   const shareText = result === 'win' ? `I earned my Brave Pass at ${level} tempo. Only The Brave Dares To Try. Think you can take the heat? #BravePass` : `Brave Pass DENIED at ${level}. Maybe I should order something else. Can you do better? #BravePass`;
@@ -131,7 +133,7 @@
   } else if (result === 'fail') {
     $('title').textContent = 'Brave Pass denied.'; $('sub').textContent = `Cooled off at ${level}. Brave of you to share it anyway.`;
     $('chTitle').textContent = 'Denied? Dare a friend instead.'; $('chLine').innerHTML = 'Post it with <b>#BravePass</b>, tag <b>@marrybrownmy</b>, and send the test to someone who thinks they can take it.';
-    $('cta').innerHTML = 'Try Again <span>&rarr;</span>'; $('cta').href = 'index.html';
+    $('cta').innerHTML = 'Try Again <span>&rarr;</span>'; $('cta').href = gameHref;
   }
   $('ladder').innerHTML = RUNGS.map((r, i) => `<div class="rung ${i <= reached ? (result === 'fail' && i === reached ? 'cold' : 'lit') : ''}"><i></i>${r}</div>`).join('');
   // ---- the result card (the shared image), drawn like the in-game card: brand red or charcoal, the stamp, the rung, the line
