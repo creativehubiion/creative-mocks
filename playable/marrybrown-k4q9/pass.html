@@ -145,9 +145,12 @@
     x.textAlign = 'center'; x.fillStyle = '#fff';
     x.font = '700 34px Lato, system-ui, sans-serif'; x.letterSpacing = '6px'; x.fillText('ONLY THE BRAVE DARES TO TRY', 540, 360); x.letterSpacing = '0px';
     x.save(); x.translate(540, 640); x.rotate(-0.1);
-    x.fillStyle = result === 'win' ? '#fff2df' : '#140c0c'; x.strokeStyle = '#fff'; x.lineWidth = 16; const W = result === 'win' ? 820 : 620, H = 230;
+    const word = result === 'win' ? 'BRAVE PASS' : 'DENIED'; let fs = 150; x.font = `900 ${fs}px Lato, system-ui, sans-serif`;
+    while (x.measureText(word).width > 880 && fs > 90) { fs -= 4; x.font = `900 ${fs}px Lato, system-ui, sans-serif`; }   // the stamp box follows the measured word (fonts may still be loading on the first paint): the text never runs out of its box
+    const W = Math.ceil(x.measureText(word).width) + 120, H = Math.round(fs * 1.55);
+    x.fillStyle = result === 'win' ? '#fff2df' : '#140c0c'; x.strokeStyle = '#fff'; x.lineWidth = 16;
     x.beginPath(); x.roundRect(-W / 2, -H / 2, W, H, 28); x.fill(); x.stroke();
-    x.fillStyle = result === 'win' ? '#d40000' : '#fff'; x.font = '900 150px Lato, system-ui, sans-serif'; x.fillText(result === 'win' ? 'BRAVE PASS' : 'DENIED', 0, 54); x.restore();
+    x.fillStyle = result === 'win' ? '#d40000' : '#fff'; x.textBaseline = 'middle'; x.fillText(word, 0, 6); x.textBaseline = 'alphabetic'; x.restore();
     x.fillStyle = '#fff'; x.font = '900 56px Lato, system-ui, sans-serif'; x.fillText(result === 'win' ? `${level.toUpperCase()} TEMPO` : `COOLED OFF AT ${level.toUpperCase()}`, 540, 880);
     x.font = '400 40px Lato, system-ui, sans-serif'; x.fillText(result === 'win' ? 'Most people never get past the belacan.' : "This one's for people who actually makan pedas.", 540, 950);
     x.font = '700 44px Lato, system-ui, sans-serif'; x.fillText('#BravePass  ·  @marrybrownmy', 540, 1180);
