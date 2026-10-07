@@ -82,11 +82,12 @@ html,body{width:100%;height:100%;background:#0f0f10;color:var(--paper);font-fami
 @keyframes pulse{50%{scale:1.04}}
 @media (prefers-reduced-motion:reduce){.spot::before,.hint,.start .btn{animation:none}}
 </style>
-<script>if(new URLSearchParams(location.search).has('embed'))document.documentElement.classList.add('embed');</script>
+<script>{const q=new URLSearchParams(location.search); if(q.has('embed')||q.has('full'))document.documentElement.classList.add('embed'); if(q.has('full'))document.documentElement.classList.add('full');}</script>
 <style>
 html.embed,html.embed body{background:var(--letterbox);overflow:hidden}
 html.embed .page{display:block;padding:0;min-height:0;height:100%}
 html.embed .screen{position:fixed;inset:0;width:100vw;height:100vh;aspect-ratio:auto}
+html.full .screen{inset:0;margin:auto;width:min(100vw,calc(100dvh * 2 / 3));height:auto;aspect-ratio:2/3}
 </style>
 </head>
 <body>

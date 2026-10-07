@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Gepuk It · build · first-person pestle</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="_core/draw.js?v=1791398672"></script><script src="_core/layers.js?v=1791398672"></script><script src="_core/gepuk-core.js?v=1791398672"></script></head>
+<body><script>
+/* VIEW: first-person, v2 (concept v3: ONE skill, timing). Standing at the tray looking down at ~35°: the mortar with the
+   chicken in front of us, our own fist on a short pestle above it, forearm from the right. The mortar, chicken, pestle and
+   fist are ONE picture (rule 13/17): a scene layer with two frames (raised, struck) × four chicken states. Depth is draw
+   order: tray → scene → chilis/drops in front → ring → pops. */
+const CAMERA = 'first-person, standing at the tray, looking down at ~35°, lens ~35 mm, the tray edge at 42% of the frame';
+const G = {
+  canvas: [640, 960], hudTop: 0.12, horizonY: 0.42, camera: CAMERA,
+  boxes: {
+    background: { x: 0, y: 0, w: 1, h: 1, anchor: 'top-left' },
+    scene:      { x: 1.0, y: 0.60, w: 0.95, h: 0.95 * 640 / 960, anchor: 'right' },   // square canvas 2048; the forearm leaves through the right edge
+    chili:      { w: 0.27, h: 0.27 * 640 / 960, anchor: 'centre' },   // owner 23:50: a touch bigger (was 0.24) so the thin chilis read on a phone   // the chili is the cue: a quarter of the width when it lands
+    drop:       { w: 0.02, h: 0.02 * 640 / 960, anchor: 'centre' },
+    dish:       { x: 0.5, y: 0.1415, w: 0.335, h: 0.335 * 640 / 960, anchor: 'centre' },   // bottom edge stays at 25.3% (the lockup is measured from it); scaled so the top sits at 3%, never cropped   // the reveal lands in the top third; the win sheet sizes to its content below it   // the reveal lands in the top band; the win sheet takes the bottom 58%
+  },
+  scene: { mortarCx: 0.42, rimY: 0.62, rimW: 0.80, fistRaised: [0.60, 0.34], fistStruck: [0.58, 0.50], tipRaised: [0.52, 0.50], tipStruck: [0.47, 0.64] },   // fractions of the scene canvas
+  strikeDrop: 0.0,
+};
+G.beat = { x: (G.boxes.scene.x - G.boxes.scene.w) + G.scene.mortarCx * G.boxes.scene.w, y: (G.boxes.scene.y - G.boxes.scene.h / 2) + G.scene.rimY * G.boxes.scene.h, r: 0.30 };   // the ring sits on the rim
+const SQ = 2048;
+const VIEW = {
+  id: 'first-person', build: true, title: 'First-person pestle', canvas: G.canvas, camera: CAMERA, geometry: () => G,
+  layers: [
+    { id: 'L1', name: 'counter-perspective', type: 'plate', canvas: [1280, 1920], key: null, camera: CAMERA, box: G.boxes.background,
+      notes: "picture · the brand world: a glossy red tray in front, a warm restaurant interior out of focus behind; the tray's far edge on the 42% line; nothing on the tray",
+      shape(ctx, x, y, w, h, S, cell, o) { ctx.fillStyle = '#6b6b74'; ctx.fillRect(x, y, w, h * G.horizonY); ctx.fillStyle = '#7a3a3a'; ctx.fillRect(x, y + h * G.horizonY, w, h * (1 - G.horizonY)); ctx.strokeStyle = '#3c3c44'; ctx.lineWidth = 2; for (let i = 0; i <= 6; i++) { const t = i / 6; ctx.beginPath(); ctx.moveTo(x + w * (.15 + .7 * t), y + h * G.horizonY); ctx.lineTo(x + w * (-.2 + 1.4 * t), y + h); ctx.stroke(); } ctx.fillStyle = '#9a9aa2'; ctx.fillRect(x, y + h * G.horizonY - 4, w, 4);
+        if (o && o.explain) { GB.bpZone(ctx, 0, 0, w, h * G.hudTop, '#ffa500', 'HUD STRIP 0-12%: keep it plain here', true); GB.bpLabel(ctx, 30, h * G.horizonY - 60, 'TRAY FAR EDGE at 42% (the grey line): interior above, tray below', '#ffd23a', true); const b = LAYERS.boxPx({ box: G.boxes.scene }, w, h); GB.bpZone(ctx, b.x, b.y, b.w, b.h, '#00e5ff', 'KEEP CLEAR: the mortar and our hand sit here', true); } } },
+    { id: 'L2', name: 'mortar-chicken', type: 'sheet', states: true, canvas: [SQ, SQ], key: '#4A5A7A', camera: CAMERA, box: G.boxes.scene,
+      cells: { cols: 2, rows: 2, names: ['dry', 'light sambal', 'heavy sambal', 'smashed'] },
+      notes: 'picture ×4 as ONE object · the mortar WITH the chicken, cut from the scene base (hand removed), then three sambal edits (D-029)',
+      shape(ctx, x, y, w, h, S, cell, o) { const sc = G.scene, mx = x + w * sc.mortarCx, rimY = y + h * sc.rimY, rw = w * sc.rimW, ry = rw * .30, depth = h * .26;
+        ctx.beginPath(); ctx.moveTo(mx - rw / 2, rimY); ctx.lineTo(mx + rw / 2, rimY); ctx.lineTo(mx + rw * .38, rimY + depth); ctx.lineTo(mx - rw * .38, rimY + depth); ctx.closePath(); ctx.fillStyle = '#86868e'; ctx.fill(); ctx.strokeStyle = '#2a2a30'; ctx.lineWidth = Math.max(2, w * .006); ctx.stroke();
+        GB.ell(ctx, mx, rimY, rw / 2, ry, '#3a3a40', '#2a2a30'); GB.chicken(ctx, mx, rimY + ry * .1, rw * .46, cell || 0, S ? S.heat : .8);
+        ctx.beginPath(); ctx.ellipse(mx, rimY, rw / 2, ry, 0, 0, Math.PI); ctx.lineWidth = Math.max(3, w * .03); ctx.strokeStyle = '#9a9aa2'; ctx.stroke();
+        if (o && o.explain) { GB.bpLabel(ctx, 40, 60, 'Mortar WITH the chicken · the hand is its own layer (derived from the same base)', '#ffd23a', true); } } },
+    { id: 'L3', name: 'hand-pestle', type: 'viewmodel', canvas: [SQ, SQ], key: '#4A5A7A', camera: CAMERA, box: G.boxes.scene,
+      notes: 'picture · our right fist on the short vertical pestle, same canvas as the mortar (derived: base minus mortar-only); the game drops it into the bowl on each hit',
+      shape(ctx, x, y, w, h, S, cell, o) { const sc = G.scene, fist = [x + w * sc.fistRaised[0], y + h * sc.fistRaised[1]], tip = [x + w * sc.tipRaised[0], y + h * sc.tipRaised[1]], edge = [x + w * 1.04, y + h * 0.40];
+        const aa = Math.atan2(fist[1] - edge[1], fist[0] - edge[0]), al = Math.hypot(fist[0] - edge[0], fist[1] - edge[1]);
+        ctx.save(); ctx.translate(edge[0], edge[1]); ctx.rotate(aa); GB.rr(ctx, 0, -w * .085, al, w * .17, w * .06, '#ecece9', '#222'); ctx.restore();
+        const pa = Math.atan2(tip[1] - fist[1], tip[0] - fist[0]), pl = Math.hypot(tip[0] - fist[0], tip[1] - fist[1]);
+        ctx.save(); ctx.translate(fist[0], fist[1]); ctx.rotate(pa); GB.rr(ctx, -w * .03, -w * .055, pl + w * .03, w * .11, w * .05, '#9a9aa2', '#222'); GB.ell(ctx, pl, 0, w * .065, w * .05, '#6a6a72', '#222'); ctx.restore();
+        GB.ell(ctx, fist[0], fist[1], w * .125, w * .105, '#ecece9', '#222'); for (let i = 0; i < 4; i++) GB.ell(ctx, fist[0] - w * .085 + i * w * .055, fist[1] + w * .03, w * .028, w * .032, '#e0e0dc', '#222'); } },
+    { id: 'L4', name: 'rim-front', type: 'occluder', canvas: [SQ, SQ], key: '#4A5A7A', camera: CAMERA, box: G.boxes.scene,
+      notes: 'picture · the front half of the rim and body (from the rim-only edit, cut at the hole centre); drawn OVER the pestle so it goes into the bowl',
+      shape(ctx, x, y, w, h, S, cell, o) { const sc = G.scene, mx = x + w * sc.mortarCx, rimY = y + h * sc.rimY, rw = w * sc.rimW, ry = rw * .30; ctx.beginPath(); ctx.ellipse(mx, rimY, rw / 2, ry, 0, 0, Math.PI); ctx.lineWidth = Math.max(3, w * .03); ctx.strokeStyle = '#9a9aa2'; ctx.stroke(); } },
+    { id: 'L5', name: 'chilis', type: 'sheet', canvas: [SQ, SQ], key: '#4A5A7A', camera: CAMERA, box: G.boxes.chili, cells: { cols: 2, rows: 2, names: ['cili padi', 'green chili', 'cili api', 'mala peppercorn'] },
+      notes: 'picture ×4 · seen from above, whole, centred, margin all round; they burst UP out of the bowl on every hit (code)',
+      shape(ctx, x, y, w, h, S, cell) { GB.chili(ctx, x + w / 2, y + h / 2, w * .32, cell, -0.4); } },
+    { id: 'L6', name: 'ice-cube', type: 'sprite', canvas: [1024, 1024], key: '#4A5A7A', camera: CAMERA, box: G.boxes.chili,
+      notes: "picture · the coward's item: ONE ice cube, pale blue-white, wet, seen from slightly above; it falls among the chilis and must NOT be smashed (the spot glows cold)",
+      shape(ctx, x, y, w, h, S, cell, o) { GB.rr(ctx, x + w * .28, y + h * .28, w * .44, h * .44, w * .06, '#dff3ff', '#7fb8e0'); GB.rr(ctx, x + w * .34, y + h * .34, w * .14, h * .14, w * .03, '#ffffff'); if (o && o.explain) GB.bpLabel(ctx, 30, 60, 'ONE ice cube, pale blue, wet, centred, margin all round', '#ffd23a', true); } },
+    { id: 'L7', name: 'splash', type: 'particle', canvas: [512, 512], key: '#4A5A7A', camera: CAMERA, box: G.boxes.drop,
+      notes: 'picture · ONE sambal drop; the game emits many (code)',
+      shape(ctx, x, y, w, h) { GB.ell(ctx, x + w / 2, y + h / 2, w * .22, h * .26, '#e03020'); } },
+    { id: 'L8', name: 'end-dish', type: 'sprite', canvas: [SQ, SQ], key: '#4A5A7A', camera: 'top-down, directly above the plate, lens ~50 mm', box: G.boxes.dish,
+      notes: 'picture · the WIN reveal: the smashed, sambal-drenched chicken on a plain round plate, straight from above; placeholder until the client product shot arrives (rule 6)',
+      shape(ctx, x, y, w, h, S, cell, o) { GB.ell(ctx, x + w / 2, y + h / 2, w * .46, h * .46, '#f2f2f0', '#555'); GB.chicken(ctx, x + w / 2, y + h / 2, w * .5, 3, .95); if (o && o.explain) GB.bpLabel(ctx, 30, 60, 'TOP-DOWN: round plate filling the canvas, the smashed chicken + sambal centred', '#ffd23a', true); } },
+    { id: 'FX', name: 'code-effects', type: 'hud-in-code', canvas: null, key: null, notes: 'code · the beat ring on the rim, heat glow, chilis bursting up, drops, shake, stage pops, the win reveal' },
+  ],
+  drawFrame(ctx, S, W, H) {
+    const L = id => VIEW.layers.find(l => l.id === id), heat = S.heat;
+    LAYERS.draw(ctx, L('L1'), S, W, H);
+    if (LAYERS.ART.L1) { const v = ctx.createRadialGradient(W / 2, H * .55, W * .45, W / 2, H * .55, W * 1.05); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.42)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H); }
+    if (heat > 0.25) { const g = ctx.createRadialGradient(W / 2, H / 2, W * .3, W / 2, H / 2, W * .8); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(224,48,32,${(heat - .25) * .7})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+    if (S.cold > 0) { const g = ctx.createRadialGradient(W / 2, H / 2, W * .25, W / 2, H / 2, W * .85); g.addColorStop(0, 'rgba(127,212,255,0)'); g.addColorStop(1, `rgba(127,212,255,${S.cold * .75})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }   // the cold flash: the sambal just lost heat
+    const sb = LAYERS.boxPx(L('L2'), W, H);
+    const foot = (LAYERS.META['mortar-chicken'] || {}).foot;
+    if (LAYERS.ART.L2 && foot) {   // contact shadow from the measured foot (meta.json): the light is from above, so the shadow pools straight under the underside and spills past it; drawn before the mortar so the bowl covers its top half
+      const fx = sb.x + sb.w * foot.cx, fy = sb.y + sb.h * foot.cy, rx = sb.w * foot.rx, ry = sb.h * foot.ry;
+      const pool = (cx, cy, ax, ay, a0, a1) => { ctx.save(); ctx.translate(cx, cy); ctx.scale(1, ay / ax); const g = ctx.createRadialGradient(0, 0, ax * .35, 0, 0, ax); g.addColorStop(0, `rgba(0,0,0,${a0})`); g.addColorStop(1, `rgba(0,0,0,${a1})`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, ax, 0, 7); ctx.fill(); ctx.restore(); };
+      pool(fx, fy + ry * 1.15, rx * 1.45, ry * 2.4, .42, 0);   // the soft spill on the tray
+      pool(fx, fy + ry * .55, rx * 1.04, ry * 1.5, .7, 0);     // the dark contact line right under the underside
+    }
+    const state = Math.min(3, Math.floor(S.hits / Gepuk.CONFIG.hitsPerStage)), struckK = S.struck > 0 ? Math.sin(Math.min(1, S.struck / Gepuk.CONFIG.struckSecs) * Math.PI) : 0;   // 0 raised → 1 fully down → back
+    const shakeBox = S.miss > 0 ? { ...G.boxes.scene, x: G.boxes.scene.x + 0.012 * Math.sin(S.miss * 40) } : G.boxes.scene;
+    LAYERS.draw(ctx, L('L2'), S, W, H, { cell: state, box: shakeBox });
+    // the hand drops from its raised tip to the hole centre (both measured from the art when it exists; the blueprint's numbers otherwise)
+    const meta = (LAYERS.META && LAYERS.META['rim-front'] && LAYERS.META['rim-front'].hole) || null, tipM = (LAYERS.META && LAYERS.META['hand-pestle'] && LAYERS.META['hand-pestle'].tip) || null;
+    const tipF = tipM ? [tipM.x, tipM.y] : G.scene.tipRaised, holeF = meta ? [meta.cx, meta.cy] : [G.scene.mortarCx, G.scene.rimY + 0.04];
+    const dropX = (holeF[0] - tipF[0]) * G.boxes.scene.w * 0.35, dropY = (holeF[1] - tipF[1]) * G.boxes.scene.h;   // mostly straight down, a little toward the bowl centre
+    LAYERS.draw(ctx, L('L3'), S, W, H, { box: { ...shakeBox, x: shakeBox.x + dropX * struckK, y: shakeBox.y + dropY * struckK } });
+    LAYERS.draw(ctx, L('L4'), S, W, H, { box: shakeBox });   // front rim over the pestle
+    const mx = sb.x + sb.w * G.scene.mortarCx, my = sb.y + sb.h * G.scene.rimY;
+    S.chilis.forEach(c => { const p = c.y / 0.8; const x = mx + (c.x - .5) * sb.w * (0.5 + p), y = my - Math.sin(p * Math.PI) * H * .22 + p * H * .10; LAYERS.draw(ctx, L('L5'), S, W, H, { cell: c.kind, box: { ...G.boxes.chili, w: G.boxes.chili.w * .45, h: G.boxes.chili.h * .45, x: x / W, y: y / H }, rot: c.r }); });
+    S.drops.forEach(d => LAYERS.draw(ctx, L('L7'), S, W, H, { box: { ...G.boxes.drop, x: mx / W + (d.x - .5) * 1.1, y: my / H + (d.y - .72) * 1.1 * 640 / 960 } }));
+    // the chilis ARE the beats: each one falls straight down onto the hot spot on the chicken (the measured bowl centre when the art exists); the spot glows for exactly the hit window
+    const holeM = LAYERS.META && LAYERS.META['rim-front'] && LAYERS.META['rim-front'].hole; const hs = holeM ? [sb.x + sb.w * holeM.cx, sb.y + sb.h * (holeM.cy - 0.02)] : [mx, my + sb.h * .02], C = Gepuk.CONFIG, win = (C.windows || [])[Math.min(3, Math.floor(S.hits / C.hitsPerStage))] ?? C.beatWindow;
+    if (S.mode === 'play' || S.mode === 'attract') {   // the spot and the falling chilis belong to the round, never to the end screens
+    ctx.save(); const glow = S.glow > 0, cold = S.glow === 2, gr = W * (glow ? .15 : .12), gc = cold ? '#7fd4ff' : '#ffd23a';   // hot = yellow-orange (tap), cold = ice blue (hold)
+    ctx.shadowColor = glow ? gc : 'rgba(255,255,255,.6)'; ctx.shadowBlur = glow ? 36 : 12; ctx.lineWidth = glow ? 12 : 7; ctx.strokeStyle = glow ? gc : 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(hs[0], hs[1], gr, 0, 7); ctx.stroke();
+    if (glow) { ctx.globalAlpha = .35; ctx.fillStyle = gc; ctx.fill(); if (!cold) { ctx.globalAlpha = .9; ctx.lineWidth = 4; ctx.strokeStyle = '#ff6a2a'; ctx.beginPath(); ctx.arc(hs[0], hs[1], gr * 1.18, 0, 7); ctx.stroke(); } } ctx.restore();
+    S.notes.forEach(n => { const p = Math.max(0, Math.min(1, (S.beat.phase - (n.land - C.fallBeats)) / C.fallBeats)); const y = H * G.hudTop + (hs[1] - H * G.hudTop) * p, sz = G.boxes.chili.w * (0.55 + 0.45 * p);
+      ctx.save(); ctx.globalAlpha = .25 + .35 * p; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(hs[0], hs[1] + 6, W * sz * .5 * p, W * sz * .2 * p, 0, 0, 7); ctx.fill(); ctx.restore();   // its shadow grows on the chicken
+      if (n.ice) { ctx.save(); ctx.globalAlpha = .5; ctx.strokeStyle = '#bfe9ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hs[0], Math.max(H * G.hudTop, y - H * .08)); ctx.lineTo(hs[0], y); ctx.stroke(); ctx.restore(); LAYERS.draw(ctx, L('L6'), S, W, H, { box: { ...G.boxes.chili, w: sz, h: sz * 640 / 960, x: hs[0] / W, y: y / H }, rot: p * 0.4 }); }   // the ice: a frost trail and a slow tumble
+      else LAYERS.draw(ctx, L('L5'), S, W, H, { cell: n.kind, box: { ...G.boxes.chili, w: sz, h: sz * 640 / 960, x: hs[0] / W, y: y / H }, rot: -0.6 + p * 0.3 }); });
+    }
+    if (S.cold > 0) { ctx.save(); ctx.globalAlpha = S.cold * .7; ctx.fillStyle = '#dff3ff'; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28 + S.cold * 2; ctx.beginPath(); ctx.arc(hs[0] + Math.cos(a) * W * .08 * (1.4 - S.cold), hs[1] - (1 - S.cold) * H * .06 + Math.sin(a) * W * .04, W * .025 * S.cold, 0, 7); ctx.fill(); } ctx.restore(); }   // cold puff off the spot
+    GB.pops(ctx, S, mx, my - sb.h * .3);
+    if (S.mode === 'reveal' || S.mode === 'win') {
+      if (LAYERS.ART.L8) {
+        const kk = Math.min(1, S.reveal / .9), e = 1 - Math.pow(1 - kk, 3); ctx.save(); ctx.globalAlpha = e * .6; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
+        const d = G.boxes.dish, sc = .3 + .7 * e; LAYERS.draw(ctx, L('L8'), S, W, H, { box: { ...d, w: d.w * sc, h: d.h * sc, y: d.y + (1 - e) * .25 } });
+      } else GB.reveal(ctx, S, W, H, heat);
+    }
+  },
+};
+Gepuk.CONFIG.brand = { logo: 'assets/brand/logo.webp', logoOnArt: 'assets/brand/logo.webp', red: '#FF0000', accent: '#FFBC7D', font: 'Lato', fontUrl: 'https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap' };
+Gepuk.run(VIEW);
+</script></body></html>

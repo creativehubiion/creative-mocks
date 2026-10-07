@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Share your Brave Pass · Marrybrown Ayam Gepuk</title>
+<meta property="og:title" content="I earned my Brave Pass. Only The Brave Dares To Try.">
+<meta property="og:description" content="Take the spice test and earn yours. #BravePass">
+<!-- PREVIEW of the "Share my pass" page: the SOCIAL SHARING HUB the game sends players to (brief: "explore whether the Brave Pass /
+     result can be shareable or connected to the wider KOL/KOC challenge"). The player sees their result card, shares it to the
+     networks Malaysians use, saves it for an Instagram/TikTok story, and gets the KOL/KOC challenge hook (#BravePass, @marrybrownmy).
+     A friend who opens the shared link sees the same page in "received" mode with the challenge first.
+     Query: ?result=win|fail&level=<rung>&from=share. Placeholders: product shot, store-finder URL, hashtag/handles to confirm.
+     Production notes: OG image/title per result need server-side rendering; the result card would be generated once and hosted. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap">
+<style>
+  :root{--b1:#FF0000;--b2:#FFBC7D;--cream:#FFF2DF;--ink:#1a1010;--cold:#2a6fb0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#d40000;color:#fff;font-family:Lato,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;display:flex;justify-content:center}
+  .page{width:100%;max-width:480px;background:var(--b1);position:relative;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.35)}
+  .band{position:relative;background:linear-gradient(180deg,#ff0000,#f00000);text-align:center}
+  .band.top{padding:26px 24px 40px;border-radius:0 0 50% 50% / 0 0 22% 22%;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:2}
+  .band.top img{height:64px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.35))}
+  .band.top .eyebrow{margin-top:8px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+  h1{font-size:24px;font-weight:900;line-height:1.1;text-align:center;text-shadow:0 2px 0 rgba(0,0,0,.2);padding:22px 24px 0}
+  .sub{text-align:center;font-size:15px;line-height:1.45;opacity:.95;padding:8px 28px 0}
+  /* the result card: the image that gets shared, drawn on the page (same design as the in-game card) */
+  .cardwrap{padding:18px 28px 0;text-align:center}
+  .cardwrap canvas{width:100%;max-width:300px;aspect-ratio:4/5;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.4);transform:rotate(-1.5deg)}
+  .cardwrap .hint{font-size:12px;opacity:.8;margin-top:12px}
+  /* share row: the networks Malaysians share on; Instagram/TikTok have no web intent, so "Save image" + story instructions */
+  .share{padding:20px 24px 4px}
+  .share h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-align:center;opacity:.9;margin-bottom:12px}
+  .nets{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .net{display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:#fff;font-size:11px;font-weight:700}
+  .net i{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:#fff;box-shadow:0 8px 18px rgba(0,0,0,.3),inset 0 -3px 0 rgba(0,0,0,.08);transition:transform .15s}
+  .net:active i{transform:scale(.94)}
+  .net svg{width:28px;height:28px}
+  .primary{display:flex;align-items:center;justify-content:center;gap:8px;margin:16px auto 0;width:100%;max-width:360px;height:54px;border-radius:999px;border:0;background:linear-gradient(180deg,#2a2a2a,#0a0a0a);color:#fff;font:700 17px/1 Lato,system-ui,sans-serif;text-decoration:none;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.18);animation:breathe 2.4s ease-in-out 1.4s infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+  .ghost{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px auto 0;width:100%;max-width:360px;height:48px;border-radius:999px;border:2px solid rgba(255,255,255,.75);background:transparent;color:#fff;font:700 15px/1 Lato,system-ui,sans-serif;text-decoration:none;cursor:pointer}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#1a1010;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+  .toast.on{opacity:1;transform:translateX(-50%)}
+  /* the KOL/KOC challenge hook: the campaign's wider conversation */
+  .challenge{margin:24px 20px 0;background:linear-gradient(180deg,#fff,var(--cream));color:var(--ink);border-radius:18px;padding:20px 20px 18px;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.3)}
+  .challenge .tag{display:inline-block;background:var(--b1);color:#fff;font-weight:900;font-size:18px;padding:6px 16px;border-radius:999px;letter-spacing:.02em}
+  .challenge h3{font-size:19px;font-weight:900;margin-top:12px;line-height:1.15}
+  .challenge p{font-size:14px;line-height:1.45;color:#4a3a3a;margin-top:8px}
+  .handles{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .handles a{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--ink);font-weight:700;font-size:13px;border:1px solid rgba(26,16,16,.15);border-radius:999px;padding:7px 12px;background:#fff}
+  .handles svg{width:16px;height:16px}
+  .ladder{display:flex;justify-content:space-between;align-items:flex-end;gap:6px;margin:16px 0 0;padding-top:12px;border-top:1px solid rgba(26,16,16,.12)}
+  .rung{flex:1;text-align:center;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#9a8a8a}
+  .rung i{display:block;height:7px;border-radius:4px;background:#e8dccb;margin-bottom:6px}
+  .rung.lit{color:#d40000}.rung.lit i{background:linear-gradient(90deg,#ffb03a,#ff2a2a);box-shadow:0 0 8px rgba(255,90,31,.6)}
+  .rung.cold{color:var(--cold)}.rung.cold i{background:linear-gradient(90deg,#7fd4ff,var(--cold))}
+  /* the product: the brief's hero, straight from above */
+  .dish{position:relative;margin-top:26px;background:#fff;border-radius:50% 50% 0 0 / 14% 14% 0 0;padding:34px 24px 24px;color:var(--ink);text-align:center;box-shadow:0 -8px 24px rgba(0,0,0,.2)}
+  .dish img{width:min(56vw,230px);aspect-ratio:1;object-fit:contain;filter:drop-shadow(0 14px 22px rgba(0,0,0,.35))}
+  .dish h3{font-size:20px;font-weight:900;margin-top:6px}
+  .dish p{font-size:14px;color:#5a4a4a;margin-top:6px;line-height:1.45}
+  .dish .cta{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px auto 0;width:100%;max-width:360px;height:54px;border-radius:999px;background:var(--b1);color:#fff;font:700 17px/1 Lato,system-ui,sans-serif;text-decoration:none;box-shadow:0 10px 24px rgba(255,0,0,.35)}
+  .dish .note{font-size:11px;color:#9a8a8a;margin-top:12px;letter-spacing:.03em}
+  .foot{padding:16px 24px 26px;text-align:center;font-size:12px;background:#fff;color:#7a6a6a}
+  .received .share, .received .cardwrap .hint{display:none}
+</style>
+</head>
+<body>
+<main class="page" id="page">
+  <section class="band top"><img src="assets/brand/logo.webp" alt="Marrybrown"><div class="eyebrow">Only The Brave Dares To Try</div></section>
+
+  <h1 id="title">You earned your Brave Pass.</h1>
+  <p class="sub" id="sub">Show them. Most people never get past the belacan.</p>
+
+  <section class="cardwrap"><canvas id="card" width="1080" height="1350" aria-label="Your Brave Pass result card"></canvas><div class="hint">Your result card. Share it, or save it for your story.</div></section>
+
+  <section class="share">
+    <h2>Share your pass</h2>
+    <div class="nets" id="nets">
+      <a class="net" data-net="whatsapp" href="#"><i><svg viewBox="0 0 24 24" fill="#25D366"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 1.8a8.2 8.2 0 1 1-4.2 15.3l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 0 1 12 3.8zm-3.3 4.4c-.2 0-.5 0-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4 2.5 1 3 .8 3.5.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4l-.6-.3-2-1c-.3-.1-.5-.1-.7.2l-.9 1.1c-.2.2-.3.2-.6.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.3-.4.8-1.4.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6z"/></svg></i>WhatsApp</a>
+      <a class="net" data-net="facebook" href="#"><i><svg viewBox="0 0 24 24" fill="#1877F2"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z"/></svg></i>Facebook</a>
+      <a class="net" data-net="x" href="#"><i><svg viewBox="0 0 24 24" fill="#000"><path d="M17.5 3h3.1l-6.8 7.8 8 10.2h-6.3l-4.9-6.4L5 21H1.9l7.3-8.3L1.5 3h6.4l4.4 5.9L17.5 3zm-1.1 16.2h1.7L6.9 4.7H5.1l11.3 14.5z"/></svg></i>X</a>
+      <a class="net" data-net="telegram" href="#"><i><svg viewBox="0 0 24 24" fill="#26A5E4"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.6 6.8-1.6 7.6c-.1.5-.4.7-.9.4l-2.5-1.8-1.2 1.1c-.1.1-.2.2-.5.2l.2-2.5 4.6-4.1c.2-.2 0-.3-.3-.1l-5.6 3.5-2.4-.8c-.5-.2-.5-.5.1-.8l9.4-3.6c.4-.2.8.1.7.9z"/></svg></i>Telegram</a>
+    </div>
+    <button class="primary" id="save" type="button">Save image for your story</button>
+    <button class="ghost" id="copy" type="button">Copy link</button>
+  </section>
+
+  <section class="challenge" id="challenge">
+    <span class="tag">#BravePass</span>
+    <h3 id="chTitle">Join the Brave Pass challenge.</h3>
+    <p id="chLine">Post your pass to your story, tag <b>@marrybrownmy</b> and dare a friend to beat your heat. The bravest get featured.</p>
+    <div class="handles">
+      <a href="https://www.instagram.com/marrybrownmy" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="#1a1010" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#1a1010" stroke="none"/></svg>Instagram</a>
+      <a href="https://www.tiktok.com/@marrybrownmy" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="#1a1010"><path d="M16 2h-3v12.5a2.5 2.5 0 1 1-2.5-2.5V9a5.5 5.5 0 1 0 5.5 5.5V8.3A6.6 6.6 0 0 0 20 9.5v-3A3.9 3.9 0 0 1 16 2.6V2z"/></svg>TikTok</a>
+      <a href="https://www.facebook.com/MarrybrownMalaysia" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="#1a1010"><path d="M14 8h3V4h-3c-2.2 0-4 1.8-4 4v2H7v4h3v6h4v-6h3l1-4h-4V8z"/></svg>Facebook</a>
+    </div>
+    <div class="ladder" id="ladder"></div>
+    <a class="ghost" id="play" href="index.html" style="color:#1a1010;border-color:rgba(26,16,16,.35);margin-top:14px">Dare a friend: send them the test</a>
+  </section>
+
+  <section class="dish">
+    <img src="assets/game/end-dish.webp" alt="Ayam Gepuk, smashed and drenched in sambal">
+    <h3>Marrybrown Ayam Gepuk</h3>
+    <p>You've proven you can take the heat. Now taste it. Only The Brave Dares To Try.</p>
+    <a class="cta" id="cta" href="#store-finder">Try It Now <span>&rarr;</span></a>
+    <div class="note">Dish image: placeholder until the client's product shot. Store finder, hashtag and handles: to confirm with the client.</div>
+  </section>
+  <footer class="foot">iion preview of the "Share my pass" page &middot; not a live page</footer>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+  // ---- state from the link: ?result=win|fail&level=<rung>&from=share (a friend opening a shared link sees "received" mode)
+  const RUNGS = ['Belacan', 'Cili padi', 'Mala', 'Cili api', 'Gepuk'];
+  const q = new URLSearchParams(location.search), result = q.get('result') === 'fail' ? 'fail' : 'win';
+  const level = RUNGS.includes(q.get('level')) ? q.get('level') : (result === 'win' ? 'Gepuk' : 'Mala'), reached = RUNGS.indexOf(level), received = q.get('from') === 'share';
+  const $ = id => document.getElementById(id);
+  // the link the networks carry: this page, marked as received, so the friend lands on the challenge and the test
+  const shareUrl = new URL(location.href); shareUrl.searchParams.set('from', 'share');
+  const shareText = result === 'win' ? `I earned my Brave Pass at ${level} tempo. Only The Brave Dares To Try. Think you can take the heat? #BravePass` : `Brave Pass DENIED at ${level}. Maybe I should order something else. Can you do better? #BravePass`;
+  // ---- copy per state
+  if (received) {
+    document.body.classList.add('received');
+    $('title').textContent = result === 'win' ? `Someone earned their Brave Pass at ${level}.` : `Someone got denied at ${level}.`;
+    $('sub').textContent = 'They dare you to beat it. Fifteen seconds. Most people fail.';
+    $('chTitle').textContent = 'Take the Brave Pass test.'; $('chLine').innerHTML = 'Smash the chilis on the beat, never the ice. Earn your pass, then post it with <b>#BravePass</b> and tag <b>@marrybrownmy</b>.';
+    $('play').textContent = 'Take the test'; $('play').className = 'primary'; $('play').style = '';
+  } else if (result === 'fail') {
+    $('title').textContent = 'Brave Pass denied.'; $('sub').textContent = `Cooled off at ${level}. Brave of you to share it anyway.`;
+    $('chTitle').textContent = 'Denied? Dare a friend instead.'; $('chLine').innerHTML = 'Post it with <b>#BravePass</b>, tag <b>@marrybrownmy</b>, and send the test to someone who thinks they can take it.';
+    $('cta').innerHTML = 'Try Again <span>&rarr;</span>'; $('cta').href = 'index.html';
+  }
+  $('ladder').innerHTML = RUNGS.map((r, i) => `<div class="rung ${i <= reached ? (result === 'fail' && i === reached ? 'cold' : 'lit') : ''}"><i></i>${r}</div>`).join('');
+  // ---- the result card (the shared image), drawn like the in-game card: brand red or charcoal, the stamp, the rung, the line
+  const c = $('card'), x = c.getContext('2d'); const LOGO = new Image(); LOGO.src = 'assets/brand/logo.webp';
+  function drawCard() {
+    x.fillStyle = result === 'win' ? '#ff0000' : '#2a1a1a'; x.fillRect(0, 0, 1080, 1350);
+    const g = x.createRadialGradient(540, 420, 80, 540, 420, 700); g.addColorStop(0, 'rgba(255,255,255,.18)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 1080, 1350);
+    if (LOGO.complete && LOGO.naturalWidth) { const h = 170, w = h * LOGO.naturalWidth / LOGO.naturalHeight; x.drawImage(LOGO, 540 - w / 2, 110, w, h); }
+    x.textAlign = 'center'; x.fillStyle = '#fff';
+    x.font = '700 34px Lato, system-ui, sans-serif'; x.letterSpacing = '6px'; x.fillText('ONLY THE BRAVE DARES TO TRY', 540, 360); x.letterSpacing = '0px';
+    x.save(); x.translate(540, 640); x.rotate(-0.1);
+    x.fillStyle = result === 'win' ? '#fff2df' : '#140c0c'; x.strokeStyle = '#fff'; x.lineWidth = 16; const W = result === 'win' ? 820 : 620, H = 230;
+    x.beginPath(); x.roundRect(-W / 2, -H / 2, W, H, 28); x.fill(); x.stroke();
+    x.fillStyle = result === 'win' ? '#d40000' : '#fff'; x.font = '900 150px Lato, system-ui, sans-serif'; x.fillText(result === 'win' ? 'BRAVE PASS' : 'DENIED', 0, 54); x.restore();
+    x.fillStyle = '#fff'; x.font = '900 56px Lato, system-ui, sans-serif'; x.fillText(result === 'win' ? `${level.toUpperCase()} TEMPO` : `COOLED OFF AT ${level.toUpperCase()}`, 540, 880);
+    x.font = '400 40px Lato, system-ui, sans-serif'; x.fillText(result === 'win' ? 'Most people never get past the belacan.' : "This one's for people who actually makan pedas.", 540, 950);
+    x.font = '700 44px Lato, system-ui, sans-serif'; x.fillText('#BravePass  ·  @marrybrownmy', 540, 1180);
+    x.font = '400 30px Lato, system-ui, sans-serif'; x.fillStyle = 'rgba(255,255,255,.75)'; x.fillText('Marrybrown Ayam Gepuk', 540, 1250);
+  }
+  document.fonts.ready.then(drawCard); LOGO.onload = drawCard; drawCard();
+  // ---- the networks (web intents); Instagram and TikTok have none, so the card is saved and posted as a story
+  const enc = encodeURIComponent, u = shareUrl.href;
+  const INTENT = { whatsapp: `https://wa.me/?text=${enc(shareText + ' ' + u)}`, facebook: `https://www.facebook.com/sharer/sharer.php?u=${enc(u)}&quote=${enc(shareText)}`, x: `https://twitter.com/intent/tweet?text=${enc(shareText)}&url=${enc(u)}`, telegram: `https://t.me/share/url?url=${enc(u)}&text=${enc(shareText)}` };
+  document.querySelectorAll('.net').forEach(a => { a.href = INTENT[a.dataset.net]; a.target = '_blank'; a.rel = 'noopener'; });
+  const toast = m => { $('toast').textContent = m; $('toast').classList.add('on'); setTimeout(() => $('toast').classList.remove('on'), 1800); };
+  $('copy').onclick = async () => { try { await navigator.clipboard.writeText(u); toast('Link copied'); } catch (e) { toast(u); } };
+  $('save').onclick = async () => {   // phones: the share sheet with the image (Instagram/TikTok/WhatsApp pick it up); elsewhere: download the PNG
+    const blob = await new Promise(r => c.toBlob(r, 'image/png')); const file = new File([blob], 'brave-pass.png', { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], text: shareText, url: u }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'brave-pass.png'; a.click(); toast('Saved. Post it to your story.');
+  };
+</script>
+</body>
+</html>
