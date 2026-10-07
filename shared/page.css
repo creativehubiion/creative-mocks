@@ -91,3 +91,10 @@ html.night .nav-title .brand{color:#ff9f5a}
 .nav .night-toggle svg{width:16px;height:16px}
 body.slim .hero{display:none}
 @media (max-width:700px){.nav-title .brand{display:none}.nav-title h1{font-size:14px}}
+
+/* ---------- format label next to the logo (v9) ---------- */
+.nav-left{justify-self:start;display:flex;align-items:center;gap:12px;min-width:0}
+.nav-left img{height:22px;width:auto;display:block}
+.nav-format{font-size:13px;font-weight:600;letter-spacing:-.005em;color:var(--ink-2);white-space:nowrap;padding-left:12px;border-left:1px solid var(--line);line-height:18px}
+@media (max-width:700px){.nav-format{font-size:12px;padding-left:10px}.nav-left{gap:10px}}
+@media (max-width:420px){.nav-format{display:none}}

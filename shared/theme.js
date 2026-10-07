@@ -22,6 +22,13 @@
   btn.addEventListener('click', () => { on = !on; try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {} apply(); });
   // slim header: logo left, mock name centre (brand + headline from the hero), toggle right; the hero block is hidden
   const nav = document.querySelector('.nav'), h1 = document.querySelector('.hero h1'), eb = document.querySelector('.hero .eyebrow');
+  // format label next to the logo (text before "·" in the eyebrow): Interactive CTV / Hybrid playable / Playable
+  const fmt = eb ? eb.textContent.split('·')[0].trim() : '';
+  if (nav && logo && fmt) {
+    const left = document.createElement('div'); left.className = 'nav-left';
+    logo.replaceWith(left); left.appendChild(logo);
+    const f = document.createElement('span'); f.className = 'nav-format'; f.textContent = fmt; left.appendChild(f);
+  }
   if (nav && h1) {
     const t = document.createElement('div'); t.className = 'nav-title';
     const brand = document.createElement('span'); brand.className = 'brand';
