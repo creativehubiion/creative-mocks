@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Employment Hero Blow 'Em Away</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    /* ══════════════════════════════════════════════════════════════
+       EDIT ME ▸ THEME  — GREYBOX placeholders (brand pass comes later)
+       Layout: video 37% on top · first-person game 63% below
+       (slim HUD strip on top, canvas room, end cards over the canvas).
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+      --purple: #B385FE;       /* EH lilac (app icon) */
+      --purple-deep: #2C0B3F;  /* EH aubergine (app icon mark) */
+      --ink: #14121A;
+      --paper: #FFFFFF;
+      --danger: #E5484D;
+      --ok: #2FB879;
+      --hud-bg: rgba(20, 18, 26, .72);
+      --letterbox: #000;
+      --f-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--letterbox);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      display: flex; justify-content: center; align-items: center;
+      font-family: var(--f-ui); color: var(--paper);
+      -webkit-user-select: none; user-select: none;
+    }
+
+    /* 2:3 ad frame — sizes inside are cqw (1cqw = 1% of frame width) */
+    .container {
+      aspect-ratio: 2 / 3;
+      width: min(100vw, calc(100dvh * 2 / 3));
+      max-height: 100dvh;
+      display: flex; flex-direction: column;
+      overflow: hidden; position: relative;
+      container-type: inline-size;
+    }
+
+    /* ── VIDEO (37%) ── */
+    .video-area { height: 37%; position: relative; background: var(--ink); flex-shrink: 0; overflow: hidden; }
+    /* 1280x720 encode with the source's pillarbox already cropped out (3.5 MB) */
+    .video-area video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .mute-btn {
+      position: absolute; top: 2.2cqw; right: 2.2cqw; z-index: 3;      /* same size as the other hybrids */
+      width: 7cqw; height: 7cqw; border-radius: 50%; border: none;
+      background: rgba(0, 0, 0, .5); display: flex; justify-content: center; align-items: center; cursor: pointer;
+    }
+    .mute-btn svg { width: 3.6cqw; height: 3.6cqw; fill: #fff; }
+
+    /* ── GAME (63%) ── */
+    .game-area {
+      height: 63%; position: relative; overflow: hidden;
+      background: #2b2433;
+      touch-action: none;           /* drag aims, never scrolls the page */
+      overscroll-behavior: contain;
+      cursor: crosshair;
+    }
+    #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+    /* ── UI scale (all HUD sizes come from these) ──────────────────────
+       1cqw ≈ 6.4px at 640w · spacing 0.8 / 1.2 / 1.6 · type ratio 1.25
+       (1.6 → 2 → 2.5 → 3.2) · one radius · 1px hairlines, no thick borders */
+    .container {
+      --s1: .8cqw; --s2: 1.2cqw; --s3: 1.6cqw;
+      --t1: 1.6cqw; --t2: 2cqw; --t3: 2.5cqw; --t4: 3.2cqw;
+      --r: 1.8cqw; --bar-h: 1.9cqw;
+      --glass: linear-gradient(180deg, rgba(40, 32, 58, .55), rgba(16, 12, 26, .55));
+      --hair: 1px solid rgba(255, 255, 255, .22);
+      --lift: inset 0 1px 0 rgba(255, 255, 255, .18), 0 .4cqw 1.2cqw rgba(0, 0, 0, .3);
+    }
+
+    /* Brand mark — lilac app-icon tile anchoring the HUD, top-left of the game */
+    .brand {
+      flex: none; height: 100%; aspect-ratio: 1; display: grid; place-items: center; padding: var(--s1);
+      background: linear-gradient(180deg, #C6A2FF, var(--purple));
+      border: 1px solid rgba(255, 255, 255, .45); border-radius: var(--r);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 .4cqw 1.2cqw rgba(0, 0, 0, .3);
+    }
+    .brand img { width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; display: block; }
+
+    /* HUD — thin glass plates: lifted off the photo by a hairline + soft shadow, not by weight */
+    .hud {
+      position: absolute; left: var(--s3); right: var(--s3); top: var(--s3);
+      display: flex; align-items: stretch; gap: var(--s1); height: 10cqw;    /* one row height drives every plate */
+      pointer-events: none; z-index: 2;
+      font-weight: 800; font-variant-numeric: tabular-nums;
+    }
+    .plate {
+      background: var(--glass);
+      backdrop-filter: blur(8px) saturate(1.3); -webkit-backdrop-filter: blur(8px) saturate(1.3);
+      border: var(--hair); border-radius: var(--r); box-shadow: var(--lift);
+    }
+    .meter { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: var(--s1); padding: var(--s1) var(--s2); }
+    .meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); line-height: 1; }
+    .meter label { font-size: var(--t2); letter-spacing: .2cqw; text-transform: uppercase; color: rgba(255, 255, 255, .78); }
+    .mood {
+      font-size: var(--t3); letter-spacing: .12cqw; text-transform: uppercase;
+      color: var(--m-col, #2FB879); text-shadow: 0 0 1.2cqw var(--m-glow, transparent), 0 1px 0 rgba(0, 0, 0, .5);
+    }
+    .meter.hot { animation: shake .22s linear infinite; }
+    @keyframes shake { 25% { translate: -.3cqw 0; } 75% { translate: .3cqw 0; } }
+
+    /* Pete rides the stress bar like a slider handle */
+    .track { position: relative; margin: 1.1cqw 2.2cqw 0 0; }   /* room above for the handle to clear the label */
+    .token {
+      position: absolute; top: 50%; left: var(--p, 0%); translate: -50% -50%;
+      width: 4.8cqw; height: 4.8cqw; border-radius: 50%;
+      border: 2px solid var(--t-ring, #fff);
+      box-shadow: 0 .3cqw .8cqw rgba(0, 0, 0, .5), 0 0 1.2cqw var(--b-glow, transparent);
+      background: #c98 url(assets/game/pete-token.webp) center / cover;
+      transition: left .15s linear, border-color .2s;
+    }
+
+    /* Bar: thin inset track + glossy fill with a specular line */
+    .bar {
+      position: relative; height: var(--bar-h); border-radius: var(--bar-h); overflow: hidden;
+      background: rgba(0, 0, 0, .45);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .1);
+    }
+    .bar i {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: inherit;
+      background: linear-gradient(180deg, var(--b-hi, #7BF0B4) 0%, var(--b-col, #2FB879) 60%, var(--b-lo, #17865A) 100%);
+      box-shadow: 0 0 1.2cqw var(--b-glow, transparent);
+      transition: width .15s linear;
+    }
+    .bar i::after {                                        /* specular highlight */
+      content: ''; position: absolute; left: .6cqw; right: .6cqw; top: 15%; height: 30%;
+      border-radius: 1cqw; background: rgba(255, 255, 255, .55);
+    }
+    .stats { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s2); }
+    .stat { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+    .stat b { font-size: 4.2cqw; text-shadow: 0 1px 0 rgba(0, 0, 0, .5); }
+    .stat span { font-size: 1.8cqw; letter-spacing: .2cqw; color: rgba(255, 255, 255, .78); margin-top: .3cqw; }
+    .stats i { width: 1px; align-self: stretch; background: rgba(255, 255, 255, .2); }
+    .stat.warn b { color: #FF6B6B; text-shadow: 0 0 1.2cqw rgba(255, 60, 60, .7), 0 1px 0 rgba(0, 0, 0, .5); }
+
+    /* Heat bar — bottom-left glass plate (the corner the blower doesn't cover), same scale as the top HUD */
+    .heat {
+      position: absolute; left: var(--s3); bottom: var(--s3); z-index: 2; pointer-events: none;
+      width: 42cqw; display: flex; flex-direction: column; gap: var(--s1); padding: var(--s2) var(--s2);
+      font-size: var(--t2); font-weight: 800; letter-spacing: .2cqw; line-height: 1;
+      transition: border-color .2s;
+    }
+    .heat-top { display: flex; justify-content: space-between; align-items: baseline; }
+    .heat .bar { height: 2.2cqw; }
+    .heat-top span { color: rgba(255, 255, 255, .78); }
+    .heat-top em { font-style: normal; font-size: var(--t3); color: var(--h-col, #7FD3FF); text-shadow: 0 1px 0 rgba(0, 0, 0, .5); }
+    .heat.warm { border-color: rgba(255, 170, 60, .7); }
+    .heat.hot { border-color: rgba(255, 100, 50, .95); animation: heatPulse .35s ease-in-out infinite; }
+    .heat.over { border-color: #FF3B3B; animation: shake .18s linear infinite; }
+    @keyframes heatPulse { 50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 2.4cqw rgba(255, 90, 40, .8); } }
+
+    /* Hint pill — light glossy pill */
+    .hint {
+      position: absolute; left: 50%; bottom: 14cqw; translate: -50% 0; z-index: 2;
+      background: linear-gradient(180deg, #FFFFFF, #EEEAF7); color: var(--ink);
+      font-weight: 800; font-size: var(--t3); padding: var(--s1) var(--s3); border-radius: 10cqw;
+      pointer-events: none; white-space: nowrap;
+      box-shadow: inset 0 -1px 0 rgba(110, 43, 219, .2), 0 .4cqw 1.2cqw rgba(0, 0, 0, .35);
+      animation: bob 1.2s ease-in-out infinite;
+    }
+    @keyframes bob { 50% { translate: -50% -.8cqw; } }
+
+    /* Loader — covers the game half until every game asset is in, so no greybox ever shows */
+    .loader {
+      position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4cqw;
+      background: radial-gradient(circle at 50% 42%, #3B1757 0%, #1B0A28 72%);
+      transition: opacity .45s ease;
+    }
+    .loader.done { opacity: 0; pointer-events: none; }
+    .loader .brand { height: auto; width: 22cqw; padding: 3cqw; border-radius: 4.4cqw; animation: pulse 1.4s ease-in-out infinite;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 0 6cqw rgba(179, 133, 254, .45), 0 1cqw 2.4cqw rgba(0, 0, 0, .4); }
+    .loader .bar { width: 40cqw; height: 1.2cqw; }
+    .loader .bar i { --b-hi: #E2CCFF; --b-col: #B385FE; --b-lo: #7B4FC4; transition: width .25s ease; }
+
+    /* Start card — the attract demo keeps playing behind a light dim; one clean tap unlocks sound everywhere */
+    .start {
+      position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3cqw; padding: 8cqw; text-align: center; cursor: pointer;
+      background: radial-gradient(ellipse at center, rgba(20, 12, 40, .35), rgba(20, 12, 40, .7));
+    }
+    .start h2 { font-size: 8cqw; font-weight: 900; line-height: 1.05; letter-spacing: -.15cqw; text-wrap: balance; text-shadow: 0 .4cqw 1.6cqw rgba(0, 0, 0, .6); }
+    .start p { font-size: 3.6cqw; font-weight: 700; color: rgba(255, 255, 255, .9); text-shadow: 0 .2cqw .8cqw rgba(0, 0, 0, .6); }
+    .start .btn { margin-top: 2cqw; padding: 3.6cqw 9cqw; font-size: 4.4cqw; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 50% { scale: 1.04; } }                  /* breathes in place — no translate, so it never shifts */
+
+    /* Orb banner */
+    .banner {
+      position: absolute; left: 50%; top: 16cqw; translate: -50% 0; z-index: 2; pointer-events: none;
+      padding: var(--s2) 4cqw; border-radius: 10cqw; white-space: nowrap;
+      background: linear-gradient(180deg, #CDAEFF, var(--purple)); color: var(--purple-deep);
+      font-size: 4cqw; font-weight: 900; letter-spacing: .1cqw;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 0 4cqw rgba(179, 133, 254, .9), 0 1cqw 2.4cqw rgba(0, 0, 0, .4);
+      animation: bannerIn .45s cubic-bezier(.2, 1.6, .4, 1) both;
+    }
+    @keyframes bannerIn { from { opacity: 0; scale: .4; } }
+
+    /* End cards — three groups on the UI scale: brand · result (tight) · actions (clear space above) */
+    .card {
+      position: absolute; inset: 0; z-index: 3;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;   /* brand top · result middle · actions bottom */
+      padding: 9cqw 7cqw 8cqw; text-align: center;
+      background: rgba(20, 12, 40, .86);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      animation: pop .35s cubic-bezier(.2, 1.4, .4, 1) both;
+      cursor: default;
+    }
+    @keyframes pop { from { opacity: 0; scale: .9; } }
+    .card-logo { width: 56cqw; height: auto; }                          /* brand anchors the top of the card */
+    .result { display: flex; flex-direction: column; align-items: center; gap: var(--s3); }
+    .result .bar { width: 64cqw; height: 2.4cqw; margin-bottom: var(--s2); }
+    .result .mood { font-size: 4.4cqw; }
+    .card h2, .card .big { font-size: 8cqw; font-weight: 900; line-height: 1.08; letter-spacing: -.15cqw; text-wrap: balance; font-variant-numeric: tabular-nums; }
+    .card .secs { color: var(--purple); }
+    .card p { font-size: 3.6cqw; font-weight: 600; line-height: 1.4; color: rgba(255, 255, 255, .82); max-width: 74cqw; text-wrap: balance; }
+    .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 2.4cqw; width: 100%; }
+    .btn {
+      font: inherit; font-weight: 900; font-size: 4cqw; letter-spacing: .05cqw; white-space: nowrap;
+      padding: 3.6cqw 2cqw; border-radius: 10cqw; border: none; cursor: pointer;
+    }
+    .btn { transition: translate .08s; }
+    .btn.primary {
+      background: linear-gradient(180deg, #CDAEFF 0%, var(--purple) 100%); color: var(--purple-deep);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 .5cqw 0 #7B4FC4, 0 1.2cqw 2.4cqw rgba(0, 0, 0, .4);
+    }
+    .btn.ghost {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, .06)); color: var(--paper);
+      border: 1px solid rgba(255, 255, 255, .5);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 .5cqw 0 rgba(0, 0, 0, .45);
+    }
+    .btn:active { translate: 0 .6cqw; }
+    .btn:focus-visible { outline: .6cqw solid var(--paper); outline-offset: .6cqw; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hint, .meter.hot, .heat.hot, .heat.over, .start .btn, .loader .brand { animation: none; }
+      .token { transition: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="video-area">
+      <video id="video" autoplay muted loop playsinline preload="none" poster="assets/poster.jpg"></video>
+      <button class="mute-btn" id="muteBtn" aria-label="Unmute video">
+        <svg id="muteIcon" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.630-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+        <svg id="unmuteIcon" viewBox="0 0 24 24" hidden><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.770-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      </button>
+    </div>
+
+    <div class="game-area" id="gameArea">
+      <canvas id="game"></canvas>
+
+      <div class="hud">
+        <div class="brand"><img src="assets/eh-mark.svg" alt="Employment Hero"></div>
+        <div class="meter plate" id="meter">
+          <div class="meter-top"><label>Pete's stress</label><b class="mood" id="mood">Chill</b></div>
+          <div class="track"><div class="bar"><i id="stressBar"></i></div><div class="token" id="token"></div></div>
+        </div>
+        <div class="stats plate">
+          <div class="stat" id="timeStat"><b id="timeVal">15</b><span>SEC</span></div><i></i>
+          <div class="stat"><b id="appsVal">12</b><span>APPS</span></div>
+        </div>
+      </div>
+
+      <div class="heat plate" id="heat">
+        <div class="heat-top"><span>BLOWER</span><em id="heatWord">COOL</em></div>
+        <div class="bar"><i id="heatBar"></i></div>
+      </div>
+      <div class="hint" id="hint">Hold &amp; drag to blow</div>
+
+      <div class="loader" id="loader" role="progressbar" aria-label="Loading game" aria-valuemin="0" aria-valuemax="100">
+        <div class="brand"><img src="assets/eh-mark.svg" alt="Employment Hero"></div>
+        <div class="bar"><i id="loadBar"></i></div>
+      </div>
+      <div class="start" id="startCard" hidden>
+        <h2 id="startTitle"></h2>
+        <p id="startLine"></p>
+        <button class="btn primary" id="playBtn"></button>
+      </div>
+      <div class="banner" id="banner" hidden></div>
+
+      <div class="card" id="winCard" hidden>
+        <img class="card-logo" src="assets/eh-logo-white.svg" alt="Employment Hero">
+        <div class="result">
+          <div class="big" id="winStat"></div>
+          <p id="winLine"></p>
+        </div>
+        <div class="btns">
+          <button class="btn primary" id="demoBtn1"></button>
+          <button class="btn ghost" id="againBtn1">Play again</button>
+        </div>
+      </div>
+
+      <div class="card" id="failCard" hidden>
+        <img class="card-logo" src="assets/eh-logo-white.svg" alt="Employment Hero">
+        <div class="result">
+          <b class="mood" style="--m-col:#FF6B6B;--m-glow:rgba(255,60,60,.7)">Meltdown</b>
+          <div class="bar" style="--b-hi:#FF9A9A;--b-col:#E5484D;--b-lo:#8E1B1F;--b-glow:rgba(255,60,60,.8)"><i style="width:100%"></i></div>
+          <h2 id="failTitle"></h2>
+          <p id="failLine"></p>
+        </div>
+        <div class="btns">
+          <button class="btn primary" id="againBtn2">Try again</button>
+          <button class="btn ghost" id="demoBtn2"></button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════════════════════════
+       EDIT ME ▸ COPY & TUNING
+       ══════════════════════════════════════════════════════════════ */
+    const CONFIG = {
+      videoSrc: 'assets/video.mp4?v=3',   // bump ?v when the file is replaced so cached copies refresh
+      videoVolume: 0.35,      // sound comes on with the first tap on the game, at this volume
+      ctaLabel: 'Book a demo',
+      ctaUrl: 'https://employmenthero.com/demo/',
+      hint: 'Hold & drag to blow',
+      startTitle: "Blow away Pete's apps!",
+      startLine: 'Hold & drag to aim the blower',
+      playLabel: 'Tap to play',
+      orbBanner: 'Blast the orb!',
+
+      roundSecs: 20,          // clock
+      startApps: 12,
+      maxApps: 22,            // splitting cap
+      badgeStart: [4, 34],    // initial notification badge range
+      badgeRate: [6, 11],     // badge growth per second
+      splitAt: 99,            // badge value that splits an app in two
+      splitReset: 28,
+      stressMax: 1150,        // total notifications that overwhelm Pete
+      orbAt: 0.6,             // share cleared before the Employment Hero orb appears
+
+      coneRadius: 0.15,       // blower reach around the reticle (world units, 1 = panel height)
+      blowDamage: [2.3, 1.1], // hp/sec at centre → edge of cone
+      heatRate: 0.30,         // heat per second while blowing (≈3.3 s of continuous blowing to overheat)
+      coolRate: 0.9,
+      overheatResume: 0.5,    // blower comes back once heat drops to here (≈0.55 s lockout)
+      comboWindow: 0.55,      // secs between launches to chain a combo
+      comboBonus: 0.75,       // secs added per extra app in a combo
+      lookSensitivity: 1.25,  // horizontal drag → camera pan
+      aimSensitivity: 1.1,    // vertical drag → reticle height
+      idleToAttract: 3,       // secs with no touch before the autopilot shows how
+
+      winLine: 'Hiring, HR, payroll and more. One place.',
+      failTitles: { stress: "Pete's overwhelmed.", time: 'Out of time.' },
+      failLine: 'Too many apps, not enough Pete.',
+
+      apps: [
+        ['Payroll', '#2F80ED', '$'], ['Rostering', '#F2994A', 'R'], ['Recruitment', '#EB5757', 'R'],
+        ['Compliance', '#27AE60', '✓'], ['Onboarding', '#9B51E0', 'O'], ['Timesheets', '#2D9CDB', 'T'],
+        ['Leave', '#E2B93B', 'L'], ['Expenses', '#219653', 'E'], ['Performance', '#BB6BD9', 'P'],
+        ['Benefits', '#F2789F', 'B'], ['Security', '#56606B', '🔒'], ['Job Posting', '#D9534F', 'J'],
+      ],
+    };
+
+    /* ── World ─────────────────────────────────────────────────────
+       World units: panel height = 1. The office is a 16:9 panorama
+       (WORLD_W wide); the camera pans horizontally only.            */
+    const BOT = new URLSearchParams(location.search).has('bot');
+    const HUMAN = new URLSearchParams(location.search).has('human');   // ?sim&human — slower, sloppier autopilot for tuning   // test: autopilot plays a real round
+    const WORLD_W = 16 / 9;
+    const ICON = 0.13;           // icon size (world units)
+    const DESK = { x0: 0.66, x1: 1.12, y0: 0.66 };
+    const PETE_X = 0.89;
+
+    /* ── Art (Gemini layers, processed by _work/.../_process.py). Greybox shapes draw until each loads. ── */
+    const ART = {};
+    // Everything the game half shows. The loader stays up until all of these settle (errors count, 10 s cap).
+    const PRELOAD = [['office', 'game/office.webp'], ['icons', 'game/icons.webp'], ['blower', 'game/blower.webp'],
+                     ['mark', 'eh-mark-white.svg'], ['token', 'game/pete-token.webp'], ['logo', 'eh-logo-white.svg'], ['tile', 'eh-mark.svg']];
+    let loaded = 0, ready = false;
+    const whenReady = [];
+    function settle() {
+      loaded++;
+      const pct = Math.round(loaded / PRELOAD.length * 100);
+      document.getElementById('loadBar').style.width = pct + '%';
+      document.getElementById('loader').setAttribute('aria-valuenow', pct);
+      if (loaded === PRELOAD.length) reveal();
+    }
+    function reveal() {
+      if (ready) return; ready = true;
+      setTimeout(() => {                                   // let the bar visibly reach 100%
+        const l = document.getElementById('loader'); l.classList.add('done');
+        setTimeout(() => { l.hidden = true; }, 500);
+        whenReady.forEach(f => f());
+      }, 250);
+    }
+    const SLOW = new URLSearchParams(location.search).has('slow');   // test: stagger loads to see the loader
+    PRELOAD.forEach(([k, f], i) => {
+      const im = new Image();
+      im.onload = () => { ART[k] = im; if (k === 'blower') ART.blowerHot = tint(im, '#FF5A1A'); settle(); };
+      im.onerror = settle;
+      setTimeout(() => { im.src = 'assets/' + f; }, SLOW ? (i + 1) * 500 : 0);
+    });
+    setTimeout(reveal, 10000);
+    function tint(im, col) {                       // same sprite, flooded with colour (alpha preserved)
+      const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+      x.globalCompositeOperation = 'source-atop'; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height);
+      return c;
+    }
+    // Blower sprite geometry: grip enters at the sprite's bottom-right corner, nozzle tip measured in meta.json
+    const BLOWER = { size: 900, tip: [311, 140] };
+    const ICON_CELL = 192;
+    const APP_INDEX = Object.fromEntries(CONFIG.apps.map((a, i) => [a[0], i]));
+
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('game'), ctx = canvas.getContext('2d');
+    const area = $('gameArea');
+    let gw = 0, gh = 0, dpr = 1;
+
+    function resize() {
+      const r = area.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      gw = r.width; gh = r.height;
+      canvas.width = Math.round(gw * dpr); canvas.height = Math.round(gh * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    new ResizeObserver(resize).observe(area);
+    resize();
+
+    const viewW = () => gw / gh;              // visible world width
+    const maxCam = () => Math.max(0, WORLD_W - viewW());
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const reticleX = () => S.camX + viewW() / 2 + S.aimOff;
+    // Point the reticle at world x: pan the camera first, then slide the reticle once a wall is reached
+    function aimAt(wx) {
+      const lim = viewW() / 2 - 0.1;
+      S.camX = clamp(wx - viewW() / 2, 0, maxCam());
+      S.aimOff = clamp(wx - S.camX - viewW() / 2, -lim, lim);
+    }
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    /* ── State ── */
+    const S = {
+      mode: 'attract',   // attract | play | blast | win | fail
+      camX: 0, aimOff: 0, aimY: 0.45,   // aimOff: reticle offset from view centre once the camera hits a wall
+      firing: false, heat: 0, over: false,
+      icons: [], parts: [], pops: [], smoke: [], flash: 0,
+      timeLeft: 0, elapsed: 0, cleared: 0,
+      orb: null, combo: 0, lastLaunch: -9,
+      idle: 0, autoTarget: null, shake: 0, recoil: 0, t: 0, blastT: 0,
+    };
+
+    // Spread apps around the panorama on a jittered grid so every wall has some
+    function spawnIcons(n) {
+      const cols = 6, rows = 2, cells = [];
+      for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) cells.push([c, r]);
+      cells.sort(() => Math.random() - .5);
+      const icons = [];
+      for (let i = 0; i < n; i++) {
+        const [c, r] = cells[i % cells.length];
+        const app = CONFIG.apps[i % CONFIG.apps.length];
+        icons.push(makeIcon(app,
+          0.14 + (c + rand(.15, .85)) * (WORLD_W - 0.28) / cols,
+          0.24 + (r + rand(.15, .85)) * 0.42 / rows,
+          rand(...CONFIG.badgeStart)));
+      }
+      return icons;
+    }
+    function makeIcon(app, x, y, badge) {
+      return {
+        name: app[0], color: app[1], glyph: app[2], x, y, hx: x, hy: y,
+        badge, rate: rand(...CONFIG.badgeRate), hp: 1, state: 'idle',
+        z: 1, vx: 0, vy: 0, vz: 0, rot: 0, vr: 0, wob: 0, phase: rand(0, 6.3), born: S.t,
+      };
+    }
+
+    function resetRound(mode) {
+      S.mode = mode; S.icons = spawnIcons(CONFIG.startApps); S.parts = []; S.pops = [];
+      S.timeLeft = CONFIG.roundSecs; S.elapsed = 0; S.cleared = 0; S.orb = null;
+      S.heat = 0; S.over = false; S.combo = 0; S.lastLaunch = -9; S.blastT = 0; S.flash = 0;
+      S.firing = false; ptr = null; S.autoTarget = null;    // never inherit the demo's trigger
+      if ($('banner')) $('banner').hidden = true;
+      S.camX = maxCam() * 0.45; S.aimOff = 0; S.aimY = 0.45;
+      $('winCard').hidden = true; $('failCard').hidden = true;
+    }
+
+    /* ── Input: horizontal drag pans the camera, vertical drag moves the aim ── */
+    let ptr = null;
+    area.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.card')) return;
+      if (!ready || !$('startCard').hidden) return;       // ignore taps while loading; the start card handles the first tap
+      if (S.mode === 'attract') { resetRound('play'); $('hint').hidden = true; }
+      unmuteOnce();
+      if (S.mode !== 'play') return;
+      $('hint').hidden = true;
+      ptr = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      area.setPointerCapture(e.pointerId);
+      S.firing = true; S.idle = 0;
+    });
+    area.addEventListener('pointermove', (e) => {
+      if (!ptr || e.pointerId !== ptr.id) return;
+      const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
+      ptr.x = e.clientX; ptr.y = e.clientY;
+      aimAt(reticleX() + dx / gh * CONFIG.lookSensitivity);
+      S.aimY = clamp(S.aimY + dy / gh * CONFIG.aimSensitivity, 0.2, 0.8);
+      S.idle = 0;
+    });
+    // touch only grants sound permission on release, so retry the unmute when a finger lifts
+    const release = (e) => { unmuteOnce(); if (ptr && e.pointerId === ptr.id) { ptr = null; S.firing = false; } };
+    area.addEventListener('pointerup', release);
+    area.addEventListener('pointercancel', release);
+
+    /* ── Autopilot (attract mode): look at the most urgent app and blow ── */
+    function autopilot(dt) {
+      const live = S.icons.filter(i => i.state === 'idle');
+      const targets = S.orb && S.orb.state === 'idle' ? [S.orb] : live;
+      if (!targets.length) { S.firing = false; return; }
+      // stick with a target until it's gone; next pick = nearest to the reticle, urgent ones weighted closer
+      if (!S.autoTarget || !targets.includes(S.autoTarget) || S.autoTarget.state !== 'idle') {
+        const rx0 = reticleX();
+        const cost = (t) => Math.hypot(t.x - rx0, t.y - S.aimY) - (t.badge || 0) / 400;
+        S.autoTarget = targets.reduce((a, b) => cost(b) < cost(a) ? b : a);
+      }
+      const t = S.autoTarget;
+      const cur = reticleX(), skill = HUMAN ? .3 : 1;
+      aimAt(cur + (t.x - cur) * Math.min(1, dt * 4 * skill));
+      S.aimY += (clamp(t.y, .2, .8) - S.aimY) * Math.min(1, dt * 5 * skill);
+      const rx = reticleX();
+      const onTarget = Math.hypot(t.x - rx, t.y - S.aimY) < CONFIG.coneRadius * 0.8;
+      // a person holds the trigger a moment late and doesn't release to cool down
+      S.firing = !S.over && (HUMAN ? (onTarget || S.firing) && Math.random() > .02 : onTarget);
+    }
+
+    /* ── Update ── */
+    function update(dt) {
+      S.t += dt;
+      const playing = S.mode === 'play' || S.mode === 'attract';
+
+      if (S.mode === 'play') {
+        S.idle += dt;
+        if (!ptr && S.idle > CONFIG.idleToAttract && $('startCard').hidden) $('hint').hidden = false;
+      }
+      if (S.mode === 'attract' || (BOT && S.mode === 'play')) autopilot(dt);
+
+      // Heat
+      if (playing && S.firing && !S.over) {
+        S.heat += CONFIG.heatRate * dt;
+        if (S.heat >= 1) { S.heat = 1; S.over = true; S.firing = S.mode === 'attract' ? false : S.firing; }
+      } else {
+        S.heat = Math.max(0, S.heat - CONFIG.coolRate * dt);
+      }
+      if (S.over && S.heat <= CONFIG.overheatResume) S.over = false;
+      const blowing = playing && S.firing && !S.over;
+      S.recoil += ((blowing ? 1 : 0) - S.recoil) * Math.min(1, dt * 12);
+
+      const rx = reticleX(), ry = S.aimY;
+
+      // Air particles from the nozzle
+      if (blowing) for (let k = 0; k < 3; k++) S.parts.push({
+        kind: 'air', life: .35, age: 0,
+        x: rx + rand(-.03, .03), y: ry + rand(-.03, .03), vx: rand(-.25, .25), vy: rand(-.25, .25), z: 1,
+      });
+
+      // Icons
+      let sum = 0, live = 0;
+      for (const ic of S.icons) {
+        if (ic.state === 'idle') {
+          live++;
+          if (S.mode === 'play' || S.mode === 'attract') ic.badge += ic.rate * dt * (S.mode === 'attract' ? .35 : 1);
+          sum += ic.badge;
+          // Split when the badge maxes out
+          if (ic.badge >= CONFIG.splitAt && S.mode === 'play') {
+            ic.badge = CONFIG.splitReset;
+            if (S.icons.filter(i => i.state === 'idle').length < CONFIG.maxApps) {
+              const nx = clamp(ic.x + rand(-.16, .16), .1, WORLD_W - .1), ny = clamp(ic.y + rand(-.12, .12), .22, .7);
+              const twin = makeIcon([ic.name, ic.color, ic.glyph], nx, ny, CONFIG.splitReset);
+              twin.z = .3; S.icons.push(twin);
+              S.pops.push({ text: 'SPLIT!', x: ic.x, y: ic.y - ICON * .8, age: 0, color: '#FF6B6B' });
+            }
+          }
+          // Blower
+          const d = Math.hypot(ic.x - rx, ic.y - ry);
+          ic.inCone = d < CONFIG.coneRadius;
+          if (blowing && d < CONFIG.coneRadius) {
+            const k = d / CONFIG.coneRadius;
+            ic.hp -= dt * (CONFIG.blowDamage[0] + (CONFIG.blowDamage[1] - CONFIG.blowDamage[0]) * k);
+            ic.wob = Math.min(1, ic.wob + dt * 6);
+            // nudged away from the reticle while resisting
+            const ang = Math.atan2(ic.y - ry, ic.x - rx);
+            ic.x += Math.cos(ang) * dt * .05; ic.y += Math.sin(ang) * dt * .05;
+            if (ic.hp <= 0) launch(ic, rx, ry);
+          } else {
+            ic.wob = Math.max(0, ic.wob - dt * 3);
+            ic.hp = Math.min(1, ic.hp + dt * .25);           // recovers if you let go
+            ic.x += (ic.hx - ic.x) * dt * .8; ic.y += (ic.hy - ic.y) * dt * .8;
+          }
+          if (ic.z < 1) ic.z = Math.min(1, ic.z + dt * 3);
+        } else if (ic.state === 'flying') {
+          ic.x += ic.vx * dt; ic.y += ic.vy * dt; ic.vy += .5 * dt;
+          ic.z += ic.vz * dt; ic.rot += ic.vr * dt;
+          if (ic.z <= .12) { ic.state = 'gone'; puff(ic.x, ic.y, ic.color); }
+        } else if (ic.state === 'sucked') {
+          const o = S.orb;
+          ic.x += (o.x - ic.x) * dt * 5; ic.y += (o.y - ic.y) * dt * 5;
+          ic.z = Math.max(.1, ic.z - dt * 1.2); ic.rot += dt * 9;
+          if (Math.hypot(o.x - ic.x, o.y - ic.y) < .04) { ic.state = 'gone'; S.cleared++; }
+        }
+      }
+      S.icons = S.icons.filter(i => i.state !== 'gone');
+
+      // Orb
+      const total = S.cleared + live;
+      if (!S.orb && S.mode !== 'blast' && total > 0 && S.cleared / total >= CONFIG.orbAt && (S.mode === 'play' || S.mode === 'attract')) {
+        // spawn inside the current view, clear of the HUD and away from the reticle, so it can't be missed
+        const v0 = S.camX + .14, v1 = S.camX + viewW() - .14;
+        const ox = Math.abs(rx - v0) > Math.abs(rx - v1) ? rand(v0, (v0 + rx) / 2) : rand((rx + v1) / 2, v1);
+        S.orb = { x: clamp(ox, .2, WORLD_W - .2), y: rand(.34, .5), hp: 1, state: 'idle', z: .01, born: S.t, badge: 999 };
+        S.flash = 1;
+        if (S.mode === 'play') { const b = $('banner'); b.textContent = CONFIG.orbBanner; b.hidden = false; clearTimeout(S.bannerT); S.bannerT = setTimeout(() => { b.hidden = true; }, 1600); }
+      }
+      if (S.orb && S.orb.state === 'idle') {
+        const o = S.orb; const ag = S.t - o.born; o.z = ag < .5 ? 1.35 * Math.sin(Math.min(1, ag / .5) * Math.PI / 2) ** .6 : Math.max(1, o.z - dt * 1.5);   // pop in with overshoot
+        o.y += Math.sin(S.t * 2.2) * dt * .03;
+        if (blowing && Math.hypot(o.x - rx, o.y - ry) < CONFIG.coneRadius * 1.1) {
+          o.hp -= dt * 2.6;
+          if (o.hp <= 0) startBlast();
+        }
+      }
+
+      // Blast → win
+      if (S.mode === 'blast') {
+        S.blastT += dt;
+        const cur = reticleX(); aimAt(cur + (S.orb.x - cur) * Math.min(1, dt * 4));
+        if (!S.icons.length && S.blastT > 1.1) finish('win');
+      }
+
+      // Clock + stress (real play only)
+      if (S.mode === 'play') {
+        S.elapsed += dt; S.timeLeft -= dt;
+        if (sum >= CONFIG.stressMax) finish('fail', 'stress');
+        else if (S.timeLeft <= 0) { S.timeLeft = 0; finish('fail', 'time'); }
+      }
+      // Attract loops forever: refill once the demo has cleared most of the room
+      if (S.mode === 'attract' && (live <= 3 && !S.orb)) resetRound('attract');
+
+      S.stress = clamp(sum / CONFIG.stressMax, 0, 1);
+      S.live = live;
+
+      // Particles + popups
+      for (const p of S.parts) { p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.kind === 'air') p.z -= dt * 1.6; }
+      S.parts = S.parts.filter(p => p.age < p.life);
+      for (const p of S.pops) { p.age += dt; p.y -= dt * .12; }
+      S.pops = S.pops.filter(p => p.age < 1.1);
+      S.shake = Math.max(0, S.shake - dt * 3);
+    }
+
+    function launch(ic, rx, ry) {
+      const ang = Math.atan2(ic.y - ry, ic.x - rx) || rand(-3, 3);
+      ic.state = 'flying';
+      ic.vx = Math.cos(ang) * .5 + rand(-.1, .1); ic.vy = Math.sin(ang) * .3 - .35;
+      ic.vz = -1.7; ic.vr = rand(-9, 9);
+      S.cleared++;
+      const now = S.t;
+      S.combo = now - S.lastLaunch < CONFIG.comboWindow ? S.combo + 1 : 1;
+      S.lastLaunch = now;
+      if (S.combo >= 2) {
+        if (S.mode === 'play') S.timeLeft += CONFIG.comboBonus;
+        S.pops.push({ text: `×${S.combo} COMBO  +${CONFIG.comboBonus}s`, x: ic.x, y: ic.y - ICON, age: 0, color: '#FFD84D' });
+        S.shake = .5;
+      }
+    }
+
+    function puff(x, y, color) {
+      for (let k = 0; k < 10; k++) S.parts.push({ kind: 'puff', color, life: .45, age: 0, x, y, vx: rand(-.4, .4), vy: rand(-.4, .2), z: 1 });
+    }
+
+    function startBlast() {
+      S.orb.state = 'blasting'; S.mode = S.mode === 'attract' ? 'attract-blast' : 'blast';
+      if (S.mode === 'attract-blast') { resetRound('attract'); return; }
+      S.firing = false; ptr = null;
+      S.shake = 1;
+      for (const ic of S.icons) if (ic.state === 'idle') ic.state = 'sucked';
+    }
+
+    function finish(result, why) {
+      S.mode = result; S.firing = false; ptr = null; $('hint').hidden = true;
+      if (result === 'win') {
+        const secs = S.elapsed;
+        $('winStat').innerHTML = `${S.cleared} apps → 1 place<br><span class="secs">in ${secs.toFixed(1)}s</span>`;
+        $('winLine').textContent = CONFIG.winLine;
+        $('winCard').hidden = false;
+      } else {
+        const notes = Math.round(S.icons.reduce((a, i) => a + (i.state === 'idle' ? i.badge : 0), 0));
+        $('failTitle').textContent = CONFIG.failTitles[why];
+        $('failLine').textContent = why === 'stress' ? `${notes} notifications and counting. ${CONFIG.failLine}` : CONFIG.failLine;
+        $('failCard').hidden = false;
+      }
+    }
+
+    /* ── Render (GREYBOX) ── */
+    const sx = (x) => (x - S.camX) * gh;
+    const sy = (y) => y * gh;
+
+    function drawRoom() {
+      const ox = -S.camX * gh, W = WORLD_W * gh, H = gh;
+      if (ART.office) { ctx.drawImage(ART.office, ox, 0, W, H); return; }
+      // wood-panel wall
+      ctx.fillStyle = '#B68B57'; ctx.fillRect(ox, 0, W, H);
+      ctx.strokeStyle = 'rgba(70,40,10,.25)'; ctx.lineWidth = 1;
+      for (let x = 0; x < WORLD_W; x += .055) { ctx.beginPath(); ctx.moveTo(ox + x * H, H * .12); ctx.lineTo(ox + x * H, H * .78); ctx.stroke(); }
+      // ceiling + strip lights
+      ctx.fillStyle = '#E9E3D6'; ctx.fillRect(ox, 0, W, H * .12);
+      ctx.fillStyle = '#FFFDF2';
+      for (let x = .2; x < WORLD_W; x += .45) ctx.fillRect(ox + x * H, H * .03, H * .2, H * .025);
+      // windows with teal blinds (exit for blown apps)
+      for (const wx of [.12, 1.3]) {
+        ctx.fillStyle = '#6FC7C0'; ctx.fillRect(ox + wx * H, H * .16, H * .34, H * .34);
+        ctx.strokeStyle = 'rgba(20,80,80,.35)';
+        for (let y = .17; y < .5; y += .025) { ctx.beginPath(); ctx.moveTo(ox + wx * H, H * y); ctx.lineTo(ox + (wx + .34) * H, H * y); ctx.stroke(); }
+      }
+      // cork board + clock
+      ctx.fillStyle = '#C79A5E'; ctx.fillRect(ox + .62 * H, H * .2, H * .2, H * .14);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ox + 1.08 * H, H * .22, H * .035, 0, 7); ctx.fill();
+      // filing cabinets
+      ctx.fillStyle = '#7E6CC4'; ctx.fillRect(ox + .02 * H, H * .52, H * .09, H * .26); ctx.fillRect(ox + 1.66 * H, H * .52, H * .09, H * .26);
+      // carpet
+      ctx.fillStyle = '#2F6A64'; ctx.fillRect(ox, H * .78, W, H * .22);
+      // Pete at the desk
+      const px = ox + PETE_X * H;
+      ctx.fillStyle = '#9FD3EA'; roundRect(px - H * .07, H * .5, H * .14, H * .2, H * .04); ctx.fill();
+      ctx.fillStyle = '#F1C3A3'; ctx.beginPath(); ctx.arc(px, H * .45, H * .05, 0, 7); ctx.fill();
+      ctx.fillStyle = '#C8642B'; ctx.beginPath(); ctx.arc(px, H * .42, H * .052, Math.PI, 0); ctx.fill();
+      // desk
+      ctx.fillStyle = '#8A5A2E'; ctx.fillRect(ox + DESK.x0 * H, H * DESK.y0, (DESK.x1 - DESK.x0) * H, H * .14);
+      ctx.fillStyle = '#6B4421'; ctx.fillRect(ox + DESK.x0 * H, H * (DESK.y0 + .14), (DESK.x1 - DESK.x0) * H, H * .02);
+      ctx.fillStyle = '#5B2DB8'; roundRect(px - H * .05, H * .6, H * .1, H * .07, H * .01); ctx.fill();   // tablet
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    }
+
+    function drawIcon(ic) {
+      const s = ICON * gh * ic.z;
+      const bob = ic.state === 'idle' ? Math.sin(S.t * 2 + ic.phase) * gh * .008 : 0;
+      const jit = ic.wob * gh * .008;
+      const x = sx(ic.x) + rand(-jit, jit), y = sy(ic.y) + bob + rand(-jit, jit);
+      if (x < -s || x > gw + s) return;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ic.rot + Math.sin(S.t * 1.3 + ic.phase) * .06);
+      ctx.globalAlpha = ic.state === 'flying' ? Math.min(1, ic.z * 1.4) : (S.orb && S.orb.state === 'idle' ? .55 : 1);
+      // tile
+      const ai = APP_INDEX[ic.name];
+      if (ART.icons && ai != null) {
+        ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = s * .18; ctx.shadowOffsetY = s * .08;
+        ctx.drawImage(ART.icons, (ai % 4) * ICON_CELL, Math.floor(ai / 4) * ICON_CELL, ICON_CELL, ICON_CELL, -s / 2, -s / 2, s, s);
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      } else {
+        ctx.fillStyle = ic.color; roundRect(-s / 2, -s / 2, s, s, s * .24); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.25)'; roundRect(-s / 2, -s / 2, s, s * .45, s * .24); ctx.fill();
+      }
+      // damage ring while being blown
+      if (ic.hp < 1 && ic.state === 'idle') {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = s * .07;
+        ctx.beginPath(); ctx.arc(0, 0, s * .62, -Math.PI / 2, -Math.PI / 2 + (1 - ic.hp) * Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (!ART.icons) {
+        ctx.font = `800 ${s * .42}px system-ui, sans-serif`; ctx.fillText(ic.glyph, 0, -s * .06);
+        ctx.font = `700 ${s * .14}px system-ui, sans-serif`; ctx.fillText(ic.name, 0, s * .3);
+      } else if (ic.state === 'idle') {
+        if (ic.inCone) LABELS.push([x, y, s, ic.name]);   // only the app you're aiming at; drawn above all icons
+      }
+      // badge
+      if (ic.state === 'idle') {
+        const b = Math.min(99, Math.floor(ic.badge)), hot = ic.badge > CONFIG.splitAt * .75;
+        const br = s * .19 * (hot ? 1 + Math.sin(S.t * 14) * .08 : 1), bx = s * .45, by = -s * .45;
+        ctx.shadowColor = hot ? 'rgba(255,40,40,.9)' : 'rgba(0,0,0,.5)'; ctx.shadowBlur = hot ? s * .25 : s * .1; ctx.shadowOffsetY = hot ? 0 : s * .04;
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx, by, br, 0, 7); ctx.fill();            // white ring
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        const bg = ctx.createLinearGradient(0, by - br, 0, by + br);
+        bg.addColorStop(0, '#FF7A7A'); bg.addColorStop(.55, hot ? '#FF1F1F' : '#E5262D'); bg.addColorStop(1, '#A30F14');
+        ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bx, by, br * .82, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.ellipse(bx, by - br * .38, br * .5, br * .22, 0, 0, 7); ctx.fill();   // shine
+        ctx.fillStyle = '#fff'; ctx.font = `900 ${br * .95}px system-ui, sans-serif`;
+        ctx.fillText(b, bx, by + 1);
+      }
+      ctx.restore();
+    }
+
+    // Icon name chips — second pass so neighbouring icons never cover a label
+    const LABELS = [];
+    function drawLabels() {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const [x, y, s, name] of LABELS) {
+        const fs = Math.max(10, s * .19);
+        ctx.font = `800 ${fs}px system-ui, sans-serif`;
+        const tw = ctx.measureText(name).width, cw = tw + fs * 1.1, ch = fs * 1.55, cy = y + s * .5 + fs * .35;
+        const g = ctx.createLinearGradient(0, cy, 0, cy + ch);
+        g.addColorStop(0, 'rgba(48,38,70,.95)'); g.addColorStop(1, 'rgba(18,14,28,.95)');
+        ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
+        ctx.fillStyle = g; roundRect(x - cw / 2, cy, cw, ch, ch / 2); ctx.fill();
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.fillText(name, x, cy + ch / 2 + 1);
+      }
+      LABELS.length = 0;
+    }
+
+    function drawOrb(o) {
+      // Power-up: glossy lilac sphere with the real EH mark, rings rippling out like the glowing tablet in the spot
+      const s = ICON * gh * 1.5 * o.z, x = sx(o.x), y = sy(o.y), r = s * .62;
+      const charge = 1 - o.hp;                                   // brighter as you blast it
+      // ripples
+      for (let i = 0; i < 3; i++) {
+        const k = ((S.t * .7 + i / 3) % 1), rr = r * (1.1 + k * 1.4);
+        ctx.strokeStyle = `rgba(179,133,254,${(1 - k) * .55})`; ctx.lineWidth = Math.max(1.5, r * .08 * (1 - k));
+        ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.stroke();
+      }
+      // outer glow
+      const og = ctx.createRadialGradient(x, y, r * .6, x, y, r * 1.9);
+      og.addColorStop(0, `rgba(179,133,254,${.55 + charge * .35})`); og.addColorStop(1, 'rgba(179,133,254,0)');
+      ctx.fillStyle = og; ctx.beginPath(); ctx.arc(x, y, r * 1.9, 0, 7); ctx.fill();
+      // sphere body
+      const bg = ctx.createRadialGradient(x - r * .35, y - r * .4, r * .1, x, y, r);
+      bg.addColorStop(0, '#E9DBFF'); bg.addColorStop(.45, '#B385FE'); bg.addColorStop(1, '#5A2BA8');
+      ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = r * .4; ctx.shadowOffsetY = r * .15;
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+      // the mark
+      const ms = r * 1.05 * (1 + Math.sin(S.t * 5) * .03);
+      if (ART.mark) ctx.drawImage(ART.mark, x - ms / 2, y - ms / 2, ms, ms);
+      // specular highlight
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.beginPath(); ctx.ellipse(x - r * .32, y - r * .5, r * .38, r * .18, -.5, 0, 7); ctx.fill();
+      if (o.hp < 1 && o.state === 'idle') {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = s * .06;
+        ctx.beginPath(); ctx.arc(x, y, s * .75, -Math.PI / 2, -Math.PI / 2 + (1 - o.hp) * Math.PI * 2); ctx.stroke();
+      }
+      // off-screen pointer so players know to look for it
+      if (o.state === 'idle' && (x < 0 || x > gw)) {
+        const left = x < 0, ax = left ? gw * .07 : gw * .93, a = gw * (.05 + .008 * Math.sin(S.t * 10));
+        ctx.shadowColor = '#B385FE'; ctx.shadowBlur = 16; ctx.fillStyle = '#E2CCFF'; ctx.beginPath();
+        ctx.moveTo(ax + (left ? -a : a), y); ctx.lineTo(ax, y - a); ctx.lineTo(ax, y + a); ctx.fill();
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+      }
+    }
+
+    function drawBlower() {
+      // Bunny arm + leaf blower, anchored bottom-right, aimed at the reticle
+      const rxs = gw / 2 + S.aimOff * gh, rys = sy(S.aimY);
+      const px = gw * .9, py = gh * 1.0;
+      const ang = Math.atan2(rys - py, rxs - px);
+      const kick = S.recoil * Math.sin(S.t * 60) * gh * .006;
+      if (ART.blower) {
+        const bpx = gw * 1.04, bpy = gh * 1.08;                      // sprite's bottom-right corner (arm enters here), off-screen
+        const bang = Math.atan2(rys - bpy, rxs - bpx);
+        const [tx, ty] = BLOWER.tip, a0 = Math.atan2(ty - BLOWER.size, tx - BLOWER.size);
+        const blen = gw * .62, k = blen / Math.hypot(tx - BLOWER.size, ty - BLOWER.size);   // corner → nozzle on screen
+        ctx.save(); ctx.translate(bpx - Math.cos(bang) * kick, bpy - Math.sin(bang) * kick); ctx.rotate(bang - a0);
+        ctx.drawImage(ART.blower, -BLOWER.size * k, -BLOWER.size * k, BLOWER.size * k, BLOWER.size * k);
+        // the blower itself shows heat: warms orange → red-hot, flickers when overheated
+        const glow = S.over ? .7 + .2 * Math.sin(S.t * 40) : Math.max(0, (S.heat - .3) / .7) * .65;
+        if (glow > .01 && ART.blowerHot) {
+          // only the metal tube/nozzle heats: clip to a circle around the nozzle half, away from the fur
+          ctx.save(); ctx.beginPath();
+          ctx.arc((tx - BLOWER.size) * k, (ty - BLOWER.size) * k, BLOWER.size * k * .42, 0, 7); ctx.clip();
+          ctx.globalAlpha = glow;
+          ctx.drawImage(ART.blowerHot, -BLOWER.size * k, -BLOWER.size * k, BLOWER.size * k, BLOWER.size * k);
+          ctx.restore();
+        }
+        ctx.restore();
+        return { x: bpx + Math.cos(bang) * blen, y: bpy + Math.sin(bang) * blen };
+      }
+      const len = gw * .26;
+      ctx.save(); ctx.translate(px - Math.cos(ang) * kick, py - Math.sin(ang) * kick); ctx.rotate(ang);
+      // tube
+      ctx.fillStyle = '#4B4F58'; roundRect(len * .35, -gh * .025, len * .72, gh * .05, gh * .025); ctx.fill();
+      ctx.fillStyle = '#2E3138'; roundRect(len * 1.0, -gh * .032, len * .1, gh * .064, gh * .012); ctx.fill();
+      // body
+      ctx.fillStyle = '#7A7F8A'; roundRect(len * .05, -gh * .07, len * .42, gh * .14, gh * .04); ctx.fill();
+      // furry purple arm
+      ctx.fillStyle = '#7C4BD6'; roundRect(-len * .25, gh * .02, len * .5, gh * .12, gh * .06); ctx.fill();
+      ctx.fillStyle = '#F2EEFA'; ctx.beginPath(); ctx.arc(len * .22, gh * .07, gh * .05, 0, 7); ctx.fill();   // white paw
+      ctx.restore();
+      return { x: px + Math.cos(ang) * len * 1.1, y: py + Math.sin(ang) * len * 1.1 };
+    }
+
+    function render() {
+      ctx.save();
+      if (S.shake) ctx.translate(rand(-1, 1) * S.shake * 4, rand(-1, 1) * S.shake * 4);
+      ctx.clearRect(0, 0, gw, gh);
+      drawRoom();
+
+      // icons: idle at full size behind flying ones
+      const order = [...S.icons].sort((a, b) => b.z - a.z);
+      for (const ic of order) drawIcon(ic);
+      drawLabels();
+      if (S.orb && S.orb.state !== 'gone') drawOrb(S.orb);
+
+      // particles
+      for (const p of S.parts) {
+        const a = 1 - p.age / p.life;
+        if (p.kind === 'air') {
+          ctx.strokeStyle = `rgba(255,255,255,${a * .55})`; ctx.lineWidth = gh * .006;
+          ctx.beginPath(); ctx.moveTo(sx(p.x), sy(p.y)); ctx.lineTo(sx(p.x - p.vx * .08), sy(p.y - p.vy * .08)); ctx.stroke();
+        } else {
+          ctx.fillStyle = p.color; ctx.globalAlpha = a;
+          ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), gh * .012 * a + 1, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      }
+
+      // cone + reticle
+      const rxs = gw / 2 + S.aimOff * gh, rys = sy(S.aimY), R = CONFIG.coneRadius * gh;
+      const active = (S.mode === 'play' || S.mode === 'attract') && S.firing && !S.over;
+      if (!S.over) {
+      const ring = (col, w, dash) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.beginPath(); ctx.arc(rxs, rys, R, 0, 7); ctx.stroke(); ctx.setLineDash([]); };
+      if (active) { ctx.shadowColor = 'rgba(180,140,255,.9)'; ctx.shadowBlur = 14; }
+      ring('rgba(15,10,30,.6)', 5, [10, 8]);                           // dark outline: readable on light walls
+      ring(active ? '#FFFFFF' : 'rgba(255,255,255,.9)', 2.5, [10, 8]);  // white dash: readable on dark
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+      const c = 9, gap = 3;
+      for (const [w, col] of [[5, 'rgba(15,10,30,.7)'], [2.5, '#fff']]) {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath();
+        ctx.moveTo(rxs - c, rys); ctx.lineTo(rxs - gap, rys); ctx.moveTo(rxs + gap, rys); ctx.lineTo(rxs + c, rys);
+        ctx.moveTo(rxs, rys - c); ctx.lineTo(rxs, rys - gap); ctx.moveTo(rxs, rys + gap); ctx.lineTo(rxs, rys + c); ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
+      }   // end: reticle hidden while overheated
+
+      // air streaming from nozzle to reticle
+      const tip = drawBlower();
+      // Smoke: buoyant puffs that billow (grow), curl (sine drift) and fade in/out; wisps when hot, a plume when overheated
+      const live = S.mode === 'play' || S.mode === 'attract';
+      if (live && (S.heat > .65 || S.over)) {
+        const n = S.over ? (Math.random() < .55 ? 1 : 0) : Math.random() < (S.heat - .6) * 1.2 ? 1 : 0;
+        for (let i = 0; i < n; i++) S.smoke.push({
+          x: tip.x + rand(-4, 4), y: tip.y + rand(-4, 4), vx: rand(-30, 14), vy: rand(-60, -32),
+          r0: S.over ? rand(5, 9) : rand(3, 6), grow: S.over ? rand(30, 48) : rand(16, 24),
+          peak: S.over ? rand(.09, .15) : rand(.06, .1), seed: rand(0, 6.3), age: 0, life: S.over ? rand(1.2, 2) : rand(.8, 1.3),
+        });
+        if (S.over && Math.random() < .25) S.smoke.push({ spark: true, x: tip.x, y: tip.y, vx: rand(-60, 60), vy: rand(-90, -30), age: 0, life: rand(.25, .5) });
+      }
+      if (live && (S.heat > .5 || S.over)) {                                     // ember glow at the nozzle mouth
+        const eg = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, gh * .05);
+        const ea = S.over ? .55 + .15 * Math.sin(S.t * 25) : (S.heat - .5) * .7;
+        eg.addColorStop(0, `rgba(255,170,60,${ea})`); eg.addColorStop(1, 'rgba(255,90,20,0)');
+        ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(tip.x, tip.y, gh * .05, 0, 7); ctx.fill();
+      }
+      for (const p of S.smoke) {
+        const dt = 1 / 60; p.age += dt;
+        if (p.spark) {
+          p.vy += 160 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+          ctx.fillStyle = `rgba(255,${190 + Math.random() * 50 | 0},90,${1 - p.age / p.life})`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 1.4, 0, 7); ctx.fill(); continue;
+        }
+        p.vy -= 22 * dt; p.vx += Math.sin(p.age * 3 + p.seed) * 28 * dt; p.vx *= .985;   // buoyancy + curl
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        const k = p.age / p.life, r = p.r0 + p.grow * p.age, a = Math.sin(Math.PI * Math.min(1, k)) * p.peak;
+        const g = ctx.createRadialGradient(p.x, p.y, r * .1, p.x, p.y, r);
+        g.addColorStop(0, `rgba(235,235,240,${a})`); g.addColorStop(.45, `rgba(200,200,208,${a * .5})`); g.addColorStop(1, 'rgba(180,180,190,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+      }
+      S.smoke = S.smoke.filter(p => p.age < p.life);
+      if (S.over && (S.mode === 'play' || S.mode === 'attract')) {         // label sits on the blower itself
+        const fs = Math.max(13, gh * .036), lx = tip.x + (gw - tip.x) * .35 + rand(-1.5, 1.5), ly = tip.y + (gh - tip.y) * .35 + rand(-1.5, 1.5);
+        ctx.save(); ctx.translate(lx, ly); ctx.rotate(-.12);
+        ctx.font = `900 ${fs}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(20,8,8,.85)'; ctx.strokeText('OVERHEATED', 0, 0);
+        ctx.fillStyle = Math.sin(S.t * 20) > 0 ? '#FF4A3D' : '#FFD23A'; ctx.fillText('OVERHEATED', 0, 0);
+        ctx.restore();
+      }
+      if (active) {
+        ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = gh * .03;
+        ctx.setLineDash([gh * .02, gh * .03]); ctx.lineDashOffset = -S.t * 300;
+        ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(rxs, rys); ctx.stroke(); ctx.setLineDash([]);
+      }
+
+      if (S.flash > 0) {                                      // lilac flash when the orb arrives
+        ctx.fillStyle = `rgba(179,133,254,${S.flash * .45})`; ctx.fillRect(0, 0, gw, gh);
+        S.flash = Math.max(0, S.flash - 1 / 60 * 2.2);
+      }
+      // popups
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const p of S.pops) {
+        ctx.globalAlpha = 1 - p.age / 1.1; ctx.fillStyle = p.color;
+        ctx.font = `900 ${gh * .045}px system-ui, sans-serif`;
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.55)';
+        ctx.strokeText(p.text, sx(p.x), sy(p.y)); ctx.fillText(p.text, sx(p.x), sy(p.y));
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    /* ── HUD ── */
+    // Stress states: [threshold, word, colour, gradient hi, gradient lo]
+    const MOODS = [[0, 'Chill', '#2FB879', '#7BF0B4', '#17865A'], [.35, 'Busy', '#F5C524', '#FFE98A', '#B88A00'],
+                   [.6, 'Swamped', '#F5841F', '#FFC17A', '#A84A00'], [.8, 'Meltdown', '#E5484D', '#FF9A9A', '#8E1B1F']];
+    // Heat states: [threshold, word, colour, hi, lo]
+    const HEATS = [[0, 'COOL', '#7FD3FF', '#C8EEFF', '#2C8DC4'], [.45, 'WARM', '#F5A524', '#FFE08A', '#B86B00'],
+                   [.7, 'HOT!', '#FF6A2A', '#FFB08A', '#A83200'], [1.01, 'OVERHEAT', '#E5484D', '#FF9A9A', '#8E1B1F']];
+    const pick = (list, v) => [...list].reverse().find(([t]) => v >= t);
+    function paint(el, m, glow) {
+      el.setProperty('--b-col', m[2]); el.setProperty('--b-hi', m[3]); el.setProperty('--b-lo', m[4]);
+      el.setProperty('--b-glow', glow);
+    }
+    function hud() {
+      const st = S.stress || 0, m = pick(MOODS, st);
+      $('stressBar').style.width = (st * 100).toFixed(1) + '%';
+      const tk = $('token').style;
+      tk.setProperty('--p', (st * 100).toFixed(1) + '%');
+      tk.setProperty('--t-ring', st > .6 ? m[2] : '#fff');
+      tk.setProperty('--b-glow', st > .8 ? 'rgba(255,60,60,.9)' : 'transparent');
+      paint($('stressBar').style, m, st > .8 ? 'rgba(255,60,60,.8)' : 'transparent');
+      $('meter').style.setProperty('--m-col', m[2]);
+      $('meter').style.setProperty('--m-glow', st > .6 ? m[2] : 'transparent');
+      $('mood').textContent = m[1];
+      const h = S.over ? HEATS[3] : pick(HEATS, S.heat);
+      $('heatBar').style.width = (S.heat * 100).toFixed(1) + '%';
+      paint($('heatBar').style, h, S.heat > .45 || S.over ? h[2] : 'transparent');
+      $('heatWord').textContent = h[1];
+      $('heat').style.setProperty('--h-col', h[2]);
+      $('heat').classList.toggle('warm', !S.over && S.heat > .45 && S.heat <= .7);
+      $('heat').classList.toggle('hot', !S.over && S.heat > .7);
+      $('heat').classList.toggle('over', S.over);
+      $('meter').classList.toggle('hot', st > .8 && S.mode === 'play');
+      const t = S.mode === 'attract' ? CONFIG.roundSecs : Math.ceil(S.timeLeft);
+      $('timeVal').textContent = t;
+      $('timeStat').classList.toggle('warn', S.mode === 'play' && S.timeLeft < 5);
+      $('appsVal').textContent = S.live ?? 0;
+
+    }
+
+    /* ── Loop ── */
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(.05, (now - last) / 1000); last = now;
+      if (gw && gh) { update(dt); render(); hud(); }
+      requestAnimationFrame(frame);
+    }
+
+    /* ── Wiring ── */
+    const video = $('video');
+    // Game assets get the bandwidth first; the video (the heavy file) starts once they're in.
+    // The poster frame fills the slot meanwhile, so it's never black.
+    whenReady.push(() => {
+      video.preload = 'auto'; video.src = CONFIG.videoSrc;
+      video.load(); video.play().catch(() => {});
+    });
+    video.addEventListener('canplay', () => { if (video.paused) video.play().catch(() => {}); }, { once: true });
+    let soundTouched = false;              // the viewer used the mute button: never override their choice
+    function setMuted(m) {
+      video.muted = m; if (!m) { video.volume = CONFIG.videoVolume; video.play().catch(() => {}); }
+      // SVG elements have no .hidden property, so toggle the attribute itself
+      $('muteIcon').toggleAttribute('hidden', !video.muted); $('unmuteIcon').toggleAttribute('hidden', video.muted);
+      $('muteBtn').setAttribute('aria-label', video.muted ? 'Unmute video' : 'Mute video');
+    }
+    function unmuteOnce() { if (!soundTouched && video.muted) { soundTouched = true; setMuted(false); } }
+    $('muteBtn').addEventListener('click', () => {
+      soundTouched = true; setMuted(!video.muted);
+    });
+    $('hint').textContent = CONFIG.hint;
+    $('demoBtn1').textContent = $('demoBtn2').textContent = CONFIG.ctaLabel;
+    const exit = () => window.open(window.clickTag || CONFIG.ctaUrl, '_blank');
+    $('demoBtn1').addEventListener('click', exit);
+    $('demoBtn2').addEventListener('click', exit);
+    const again = () => { resetRound('play'); $('hint').hidden = true; };
+    $('againBtn1').addEventListener('click', again);
+    $('againBtn2').addEventListener('click', again);
+
+    // Debug hooks for testing
+    window.GAME = { S, resetRound, finish, startBlast };
+
+    // ?sim — run 20 bot rounds in fixed steps and print outcomes (tuning aid)
+    if (new URLSearchParams(location.search).has('sim')) {
+      gw = 640; gh = 605;
+      const out = [];
+      for (let r = 0; r < 20; r++) {
+        resetRound('play');
+        let n = 0, fire = 0, over = 0, splits = 0, n0 = S.icons.length;
+        while (S.mode === 'play' || S.mode === 'blast') {
+          const before = S.icons.length;
+          autopilot(1 / 60); update(1 / 60);
+          if (S.firing && !S.over) fire++; if (S.over) over++;
+          if (++n > 60 * 40) break;
+        }
+        splits = S.cleared + S.icons.length - n0;
+        out.push(`${S.mode} t=${S.elapsed.toFixed(1)} cleared=${S.cleared} splits=${splits} blowing=${(fire / n * 100).toFixed(0)}% overheated=${(over / n * 100).toFixed(0)}% stress=${(S.stress * 100).toFixed(0)}%`);
+      }
+      document.title = 'SIM'; document.body.innerHTML = '<pre id=sim>' + out.join(String.fromCharCode(10)) + '</pre>';
+      throw new Error('sim done');
+    }
+    resetRound(BOT ? 'play' : 'attract');
+    $('startTitle').textContent = CONFIG.startTitle; $('startLine').textContent = CONFIG.startLine;
+    $('playBtn').textContent = CONFIG.playLabel;
+    $('hint').hidden = true;
+    if (!BOT) whenReady.push(() => { $('startCard').hidden = false; });
+    $('startCard').addEventListener('click', () => {
+      $('startCard').hidden = true; unmuteOnce(); resetRound('play'); S.idle = 0;
+      $('hint').hidden = false;                           // show how to play right away; first touch hides it
+    });
+    if (BOT) $('hint').hidden = true;
+    requestAnimationFrame(frame);
+  </script>
+</body>
+
+</html>

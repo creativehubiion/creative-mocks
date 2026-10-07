@@ -1,0 +1,28 @@
+{
+ "blower": {
+  "w": 900,
+  "h": 900,
+  "tip": [
+   311,
+   140
+  ]
+ },
+ "icons": {
+  "cell": 192,
+  "cols": 4,
+  "names": [
+   "payroll",
+   "rostering",
+   "recruitment",
+   "compliance",
+   "onboarding",
+   "timesheets",
+   "leave",
+   "expenses",
+   "performance",
+   "benefits",
+   "security",
+   "jobposting"
+  ]
+ }
+}
