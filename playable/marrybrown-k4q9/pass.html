@@ -18,34 +18,34 @@
 <style>
   :root{--b1:#FF0000;--b2:#FFBC7D;--cream:#FFF2DF;--ink:#1a1010;--cold:#2a6fb0}
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:#d40000;color:#fff;font-family:Lato,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  html,body{background:#f3efe9;color:var(--ink);font-family:Lato,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   body{min-height:100vh;display:flex;justify-content:center}
-  .page{width:100%;max-width:480px;background:var(--b1);position:relative;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.35)}
+  .page{width:100%;max-width:480px;background:#fff;position:relative;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.12)}
   .band{position:relative;background:linear-gradient(180deg,#ff0000,#f00000);text-align:center}
   .band.top{padding:26px 24px 40px;border-radius:0 0 50% 50% / 0 0 22% 22%;box-shadow:0 6px 18px rgba(0,0,0,.22);z-index:2}
   .band.top img{height:64px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.35))}
   .band.top .eyebrow{margin-top:8px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
-  h1{font-size:24px;font-weight:900;line-height:1.1;text-align:center;text-shadow:0 2px 0 rgba(0,0,0,.2);padding:22px 24px 0}
-  .sub{text-align:center;font-size:15px;line-height:1.45;opacity:.95;padding:8px 28px 0}
+  h1{font-size:24px;font-weight:900;line-height:1.1;text-align:center;color:#d40000;padding:26px 24px 0}
+  .sub{text-align:center;font-size:15px;line-height:1.45;color:#5a4a4a;padding:8px 28px 0}
   /* the result card: the image that gets shared, drawn on the page (same design as the in-game card) */
   .cardwrap{padding:18px 28px 0;text-align:center}
-  .cardwrap canvas{width:100%;max-width:300px;aspect-ratio:4/5;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.4);transform:rotate(-1.5deg)}
-  .cardwrap .hint{font-size:12px;opacity:.8;margin-top:12px}
+  .cardwrap canvas{width:100%;max-width:300px;aspect-ratio:4/5;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.28);transform:rotate(-1.5deg)}
+  .cardwrap .hint{font-size:12px;color:#7a6a6a;margin-top:14px}
   /* share row: the networks Malaysians share on; Instagram/TikTok have no web intent, so "Save image" + story instructions */
   .share{padding:20px 24px 4px}
-  .share h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-align:center;opacity:.9;margin-bottom:12px}
+  .share h2{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-align:center;color:#d40000;margin-bottom:12px}
   .nets{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-  .net{display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:#fff;font-size:11px;font-weight:700}
-  .net i{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:#fff;box-shadow:0 8px 18px rgba(0,0,0,.3),inset 0 -3px 0 rgba(0,0,0,.08);transition:transform .15s}
+  .net{display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:var(--ink);font-size:11px;font-weight:700}
+  .net i{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid rgba(26,16,16,.12);box-shadow:0 8px 18px rgba(0,0,0,.12);transition:transform .15s}
   .net:active i{transform:scale(.94)}
   .net svg{width:28px;height:28px}
   .primary{display:flex;align-items:center;justify-content:center;gap:8px;margin:16px auto 0;width:100%;max-width:360px;height:54px;border-radius:999px;border:0;background:linear-gradient(180deg,#2a2a2a,#0a0a0a);color:#fff;font:700 17px/1 Lato,system-ui,sans-serif;text-decoration:none;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.18);animation:breathe 2.4s ease-in-out 1.4s infinite}
   @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
-  .ghost{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px auto 0;width:100%;max-width:360px;height:48px;border-radius:999px;border:2px solid rgba(255,255,255,.75);background:transparent;color:#fff;font:700 15px/1 Lato,system-ui,sans-serif;text-decoration:none;cursor:pointer}
+  .ghost{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px auto 0;width:100%;max-width:360px;height:48px;border-radius:999px;border:2px solid #d40000;background:transparent;color:#d40000;font:700 15px/1 Lato,system-ui,sans-serif;text-decoration:none;cursor:pointer}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#1a1010;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;transition:.25s;pointer-events:none;z-index:9}
   .toast.on{opacity:1;transform:translateX(-50%)}
   /* the KOL/KOC challenge hook: the campaign's wider conversation */
-  .challenge{margin:24px 20px 0;background:linear-gradient(180deg,#fff,var(--cream));color:var(--ink);border-radius:18px;padding:20px 20px 18px;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.3)}
+  .challenge{margin:26px 20px 0;background:linear-gradient(180deg,#fff,var(--cream));color:var(--ink);border:1px solid rgba(26,16,16,.1);border-radius:18px;padding:20px 20px 18px;text-align:center;box-shadow:0 14px 30px rgba(0,0,0,.1)}
   .challenge .tag{display:inline-block;background:var(--b1);color:#fff;font-weight:900;font-size:18px;padding:6px 16px;border-radius:999px;letter-spacing:.02em}
   .challenge h3{font-size:19px;font-weight:900;margin-top:12px;line-height:1.15}
   .challenge p{font-size:14px;line-height:1.45;color:#4a3a3a;margin-top:8px}
@@ -58,13 +58,13 @@
   .rung.lit{color:#d40000}.rung.lit i{background:linear-gradient(90deg,#ffb03a,#ff2a2a);box-shadow:0 0 8px rgba(255,90,31,.6)}
   .rung.cold{color:var(--cold)}.rung.cold i{background:linear-gradient(90deg,#7fd4ff,var(--cold))}
   /* the product: the brief's hero, straight from above */
-  .dish{position:relative;margin-top:26px;background:#fff;border-radius:50% 50% 0 0 / 14% 14% 0 0;padding:34px 24px 24px;color:var(--ink);text-align:center;box-shadow:0 -8px 24px rgba(0,0,0,.2)}
+  .dish{position:relative;margin-top:30px;background:linear-gradient(180deg,#ff0000,#d40000);border-radius:50% 50% 0 0 / 14% 14% 0 0;padding:34px 24px 24px;color:#fff;text-align:center;box-shadow:0 -8px 24px rgba(0,0,0,.12)}
   .dish img{width:min(56vw,230px);aspect-ratio:1;object-fit:contain;filter:drop-shadow(0 14px 22px rgba(0,0,0,.35))}
   .dish h3{font-size:20px;font-weight:900;margin-top:6px}
-  .dish p{font-size:14px;color:#5a4a4a;margin-top:6px;line-height:1.45}
-  .dish .cta{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px auto 0;width:100%;max-width:360px;height:54px;border-radius:999px;background:var(--b1);color:#fff;font:700 17px/1 Lato,system-ui,sans-serif;text-decoration:none;box-shadow:0 10px 24px rgba(255,0,0,.35)}
-  .dish .note{font-size:11px;color:#9a8a8a;margin-top:12px;letter-spacing:.03em}
-  .foot{padding:16px 24px 26px;text-align:center;font-size:12px;background:#fff;color:#7a6a6a}
+  .dish p{font-size:14px;color:rgba(255,255,255,.92);margin-top:6px;line-height:1.45}
+  .dish .cta{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px auto 0;width:100%;max-width:360px;height:54px;border-radius:999px;background:#fff;color:#d40000;font:700 17px/1 Lato,system-ui,sans-serif;text-decoration:none;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+  .dish .note{font-size:11px;color:rgba(255,255,255,.75);margin-top:12px;letter-spacing:.03em}
+  .foot{padding:16px 24px 26px;text-align:center;font-size:12px;background:#d40000;color:rgba(255,255,255,.8)}
   .received .share, .received .cardwrap .hint{display:none}
 </style>
 </head>
@@ -99,7 +99,7 @@
       <a href="https://www.facebook.com/MarrybrownMalaysia" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="#1a1010"><path d="M14 8h3V4h-3c-2.2 0-4 1.8-4 4v2H7v4h3v6h4v-6h3l1-4h-4V8z"/></svg>Facebook</a>
     </div>
     <div class="ladder" id="ladder"></div>
-    <a class="ghost" id="play" href="index.html" style="color:#1a1010;border-color:rgba(26,16,16,.35);margin-top:14px">Dare a friend: send them the test</a>
+    <a class="ghost" id="play" href="index.html" style="margin-top:14px">Dare a friend: send them the test</a>
   </section>
 
   <section class="dish">
