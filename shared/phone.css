@@ -1,0 +1,50 @@
+/* iion mobile playable preview — phone device (loads after page.css). Drawn in CSS: no frame asset.
+   Geometry: the screen is 393×852 (iPhone-class, 0.4613); a 2.4%-of-width bezel → frame 0.4735.
+   The screen is inset with left/right % (of frame width) and top/bottom % (of frame height = 2.4% × 0.4735). */
+
+.phone{position:relative;flex:none;width:min(100cqw,100cqh * 0.4735);aspect-ratio:0.4735;padding:0;
+  border-radius:15% / 7.1%;
+  background:linear-gradient(140deg,#4a4a4f 0%,#2a2a2d 22%,#141416 60%,#2c2c30 100%);
+  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.18),inset 0 0 0 5px #0c0c0d,0 2px 3px rgba(0,0,0,.25),0 28px 60px -12px rgba(0,0,0,.38)}
+.phone .screen{position:absolute;left:2.4%;right:2.4%;top:1.136%;bottom:1.136%;overflow:hidden;background:#000;border-radius:13.2% / 6.1%;container-type:size;transform:translateZ(0)}
+.phone .screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+/* full-screen in-app interstitial: the 320x480 (2:3) creative scaled to the screen width, black letterbox bars
+   above and below (the interstitial's own background; the app is covered), SDK close button in the top corner */
+.phone .screen.interstitial{background:#000}
+.phone .ad-slot{position:absolute;left:0;right:0;top:50%;aspect-ratio:2/3;transform:translateY(-50%);background:#000;z-index:2}
+.phone .ad-slot iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.phone .ad-close{position:absolute;right:4.5cqw;top:7.4cqh;width:8cqw;height:8cqw;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;font:400 5.4cqw/1 "Inter",sans-serif;z-index:3;pointer-events:none}
+
+/* camera island + status bar sit over the ad, as on a real phone */
+.phone .island{position:absolute;top:1.25%;left:50%;width:31%;height:3.75%;transform:translateX(-50%);background:#000;border-radius:999px;z-index:6;pointer-events:none}
+.phone .statusbar{position:absolute;top:0;left:0;right:0;height:6.2%;display:flex;align-items:center;justify-content:space-between;padding:0 7.5% 0 9%;z-index:5;pointer-events:none;
+  color:#fff;font:600 4.1cqw/1 "Inter",-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.01em;text-shadow:0 0 .6cqw rgba(0,0,0,.35)}
+.phone .statusbar .icons{display:flex;align-items:center;gap:1.4cqw}
+.phone .statusbar svg{height:3.1cqw;width:auto;display:block}
+.phone .homebar{position:absolute;bottom:.9%;left:50%;width:35%;height:.6%;transform:translateX(-50%);background:rgba(255,255,255,.85);border-radius:999px;z-index:5;pointer-events:none;mix-blend-mode:difference}
+
+/* side buttons */
+.phone .hw{position:absolute;width:1.1%;background:linear-gradient(90deg,#1b1b1d,#3b3b3f);border-radius:2px}
+.phone .hw-action{left:-.9%;top:15%;height:3.2%}
+.phone .hw-vol1{left:-.9%;top:21%;height:6.2%}
+.phone .hw-vol2{left:-.9%;top:28.5%;height:6.2%}
+.phone .hw-power{right:-.9%;top:24%;height:9.5%}
+.phone .floor{position:absolute;left:8%;right:8%;bottom:-2.2%;height:2.4%;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.25),rgba(0,0,0,0));filter:blur(3px);z-index:-1}
+html.night .phone{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.26),inset 0 0 0 5px #0c0c0d,0 0 0 1px rgba(255,255,255,.06),0 28px 60px -12px rgba(0,0,0,.7)}
+html.night .phone .floor{background:radial-gradient(closest-side,rgba(0,0,0,.6),rgba(0,0,0,0))}
+
+/* sound button under the phone, if a page has one (theme.js moves .controls into .phone); playables unlock sound on the first tap instead */
+.phone .controls{position:absolute;left:50%;top:100%;bottom:auto;margin-top:clamp(12px,1.8vh,20px);transform:translateX(-50%);padding:0;z-index:4}
+
+/* touch ripple — the phone's version of the CTV remote (shared/touch.js) */
+.phone .touch-layer{position:absolute;inset:0;pointer-events:none;z-index:7}
+.phone .ad-slot .touch-layer{z-index:3}
+.phone .tap{position:absolute;width:15%;aspect-ratio:1;margin:-7.5% 0 0 -7.5%;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.75) 0 38%,rgba(255,255,255,.28) 40% 100%);
+  box-shadow:0 0 0 .3cqw rgba(255,255,255,.85),0 .6cqw 2cqw rgba(0,0,0,.35);animation:iionTap .7s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes iionTap{0%{transform:scale(.55);opacity:1}35%{transform:scale(1);opacity:1}100%{transform:scale(1.55);opacity:0}}
+
+@media (max-width:700px){
+  .stage.phone-stage{padding:16px 16px 28px}
+  .phone{width:min(100%,(100svh - 160px) * 0.4735);margin:0 auto}
+}

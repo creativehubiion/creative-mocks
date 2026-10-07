@@ -30,8 +30,8 @@
     document.body.classList.add('slim');
   }
   (nav || document.body).appendChild(btn);
-  // keep the sound button inside the TV so it always sits in the stand, at any window size
-  const tv = document.querySelector('.tv'), ctl = document.querySelector('.controls');
+  // keep the sound button attached to the device (TV: in the stand; phone: under it), at any window size
+  const tv = document.querySelector('.tv, .phone'), ctl = document.querySelector('.controls');
   if (tv && ctl && ctl.parentNode !== tv) tv.appendChild(ctl);
   apply();
 })();
