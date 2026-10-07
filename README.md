@@ -1,26 +1,31 @@
-# iion interactive CTV mocks
+# iion creative mocks
 
-One folder per brand, each a self-contained page served by GitHub Pages:
+Brand-facing preview pages for iion's ad formats, one folder per format and one per brand,
+served by GitHub Pages:
 
-    https://creativehubiion.github.io/interactive-ctv-mocks/<brand>/
+    https://creativehubiion.github.io/creative-mocks/<format>/<brand>/
 
-The site root shows only the iion logo; brand pages are not linked from anywhere,
-and every page carries `noindex`. Share each brand only its own URL.
+| Format | Folder | Device |
+|---|---|---|
+| Interactive CTV (L-band playables in a 30 s TV break) | `ctv/` | TV + animated remote |
+| Hybrid playable (video on top + game below, 320×480) | `hybrid/` | phone, in-app interstitial |
+| Playable (game only, 320×480) | `playable/` | phone, in-app interstitial |
+
+The site root shows only the iion logo; brand pages are not linked from anywhere, and every page
+carries `noindex`. Share each brand only its own URL. Links from the old `interactive-ctv-mocks`
+site redirect here.
 
 ## Folder layout
 
-    shared/iion-logo.png        white-label logo used by every page
-    <brand>/index.html          the page you send: iion header, TV device frame, sound toggle
-    <brand>/mock.html           the playable itself; ?embed=1 renders just the screen
-    <brand>/assets/...          spot video, logos, sprites used by mock.html
+    shared/                     one review shell for every page: header + format label, night mode,
+                                TV frame + remote, CSS phone + tap ripples, scan-to-play QR
+    <format>/_template/         start a new brand from here (hybrid, playable)
+    <format>/<brand>/index.html the page you send
+    <format>/<brand>/mock.html  the ad unit itself
+    <format>/<brand>/assets/    video, logos, sprites used by mock.html
 
 ## Adding a new brand
 
-1. Build the playable as a standalone page (same pattern as `burger-king/mock.html`:
-   a `.tv > .screen` structure, the embed-mode snippet in `<head>`, and
-   `window.DEMO = { setSound(on) }`).
-2. Copy an existing brand folder, replace `mock.html` and `assets/`, and edit the
-   title and one-line description in `index.html`.
+1. Copy the format's `_template/` (or an existing brand) to `<format>/<brand>/`.
+2. Replace `mock.html` / `assets/`, and set the page's eyebrow (`<Format> · <Brand>`) and H1.
 3. Commit and push; Pages updates in a minute or two.
-
-Source of the mocks and their build history: `creativehubiion/Interactive-CTV` → `showcase/`.
