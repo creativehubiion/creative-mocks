@@ -10,14 +10,14 @@
   const has = k => Q.has(k);
   const CONFIG = {
     ctaUrl: 'https://tusami.bitel.com.pe/',   // placeholder until the client's landing page; window.clickTag overrides
-    roundSecs: 15, slots: 6, numberMax: 46,   // TuSami Semanal: 6 numbers from 1–46 (to confirm with the client)
+    roundSecs: 20, slots: 6, numberMax: 46,   // TuSami Semanal: 6 numbers from 1–46 (to confirm with the client)
     ballNumbers: [7, 18, 26, 33, 41, 15, 28, 4, 79],   // the designer's nine individual balls (atlas order, 3x3); the build draws only these
     leadIn: 0.7,                              // the drum spins up before the first ball: nothing falls, nothing counts
     interval: [1.9, 1.7, 1.55, 1.4, 1.3, 1.2],   // seconds between drops, by numbers already caught (the pressure: the drum speeds up)
     fall:     [1.4, 1.25, 1.1, 1.0, 0.9, 0.82],   // the drop stays quick (the tension is in the fall); the 15 s round stretches only the gaps between balls    // seconds a ball is in the air, by numbers caught
     spread:   [0.08, 0.12, 0.15, 0.18, 0.20, 0.20], // how far from the ticket's resting line the landing point can be (frame widths)
     pairFrom: 1, pairChance: 0.7, pairGap: 0.36,   // from the fourth ball two can come close together, on opposite sides
-    repeatChance: [0, 0.42, 0.48, 0.52, 0.56, 0.6],  // share of drops that carry a number already on the ticket (the one decision): the difficulty lives here, never in frustration; never three in a row
+    repeatChance: [0, 0.32, 0.38, 0.42, 0.46, 0.5],  // share of drops that carry a number already on the ticket (the one decision): the difficulty lives here, never in frustration; never three in a row
     catchHalf: 0.05,                                // half-width of the catch zone around the next slot (frame widths); generous first
     ticketW: 0.738, ticketXMin: 0.18, ticketXMax: 0.82,   // the ticket's width and its centre's travel: it may run a third of its width past either edge
     follow: 9, dragGain: 1.35, greyAt: 0.5,     // a repeat ball looks like any other until half its fall, then turns grey: the decision happens with half a second left                     // how snappily the ticket follows the finger; a thumb's inch moves the ticket a little more than an inch
@@ -50,7 +50,7 @@
     do { n = pool ? pool[Math.floor(Math.random() * pool.length)] : 1 + Math.floor(Math.random() * CONFIG.numberMax); } while ((S.filled.includes(n) || inFlight().some(b => b.num === n)) && ++guard < 200); return n; }
   function spawn(delay, side) {
     const st = stageOf(), i = S.filled.length;
-    const forceBright = S.repeatRun >= 2, repeat = S.filled.length >= 1 && !forceBright && (side ? (S.lastRepeat ? Math.random() < 0.25 : Math.random() < 0.6) : Math.random() < CONFIG.repeatChance[st]);   // in a pair the second ball usually takes the other colour: one bright, one grey, choose
+    const forceBright = S.repeatRun >= 2, repeat = S.filled.length >= 1 && !forceBright && (side ? (S.lastRepeat ? Math.random() < 0.2 : Math.random() < 0.5) : Math.random() < CONFIG.repeatChance[st]);   // in a pair the second ball usually takes the other colour: one bright, one grey, choose
     const num = repeat ? S.filled[Math.floor(Math.random() * S.filled.length)] : newNumber();
     const sp = CONFIG.spread[st], off = slotOffset(i);
     let x1 = 0.5 + off + (side ? side * rand(sp * .5, sp) : rand(-sp, sp));
@@ -224,7 +224,7 @@
       ${VIEW.build ? `<div class="loader" id="loader" role="progressbar" aria-label="Cargando"><img src="${U.badge}" alt=""><div class="bar"><i id="loadBar"></i></div></div>` : ''}
       <canvas id="game"></canvas>
       <div class="hud">
-        <div class="top"><span class="pill" id="count">0 de 6</span><span class="pill" id="timer">15.0</span></div>
+        <div class="top"><span class="pill" id="count">0 de 6</span><span class="pill" id="timer">20.0</span></div>
         <div class="hint" id="hint">${CONFIG.copy.hint}</div>
         <div class="legal">${CONFIG.copy.legal}</div>
         ${CONFIG.brand && CONFIG.brand.logo ? `<div class="brandmark"><img src="${CONFIG.brand.logoOnArt || CONFIG.brand.logo}" alt=""></div>` : `<div class="brandmark ph">TUSAMI</div>`}
