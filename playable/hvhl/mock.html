@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>HVHL | Bouw jouw toekomst</title>
+  <meta name="description" content="Vijf keuzes. Eén karakter. Ontdek welke studierichting bij jou past." />
+  <meta name="theme-color" content="#F4F7F7" />
+  <meta property="og:title" content="Hogeschool Van Hall Larenstein | Bouw jouw toekomst" />
+  <meta property="og:description" content="Vijf keuzes. Eén karakter. Ontdek welke studierichting bij jou past." />
+  <style>
+    /* Montserrat (OFL), the HVHL brand face; one variable file, weights 400-900. */
+    @font-face {
+      font-family: "Montserrat";
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: block;
+      src: url("assets/fonts/montserrat-latin-var.woff2") format("woff2");
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      /* HVHL mist, the playable's own background; letterbox bars blend in. */
+      background: #F4F7F7;
+      color: #040404;
+      font-family: "Montserrat", Arial, sans-serif;
+    }
+
+    /* Starts the font download before the game asks for it. */
+    body::before {
+      content: "";
+      font: 900 1px "Montserrat";
+      position: absolute;
+      opacity: 0;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #game-container {
+      position: relative;
+    }
+
+    #ctabtn {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      border: 0;
+      background: transparent;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+      background: transparent;
+      touch-action: none;
+    }
+
+    #app #game-container {
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 2 / 3;
+      margin: 0 auto !important;
+    }
+
+    /* Wider than 2:3 (640x960): fit to height instead. */
+    @media (min-aspect-ratio: 2/3) {
+      #app #game-container {
+        width: auto !important;
+        height: 100% !important;
+        aspect-ratio: 2 / 3;
+        margin: 0 auto !important;
+      }
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index.js"></script>
+</head>
+
+<body>
+  <button id="ctabtn"></button>
+
+  <div id="app">
+    <div id="game-container"></div>
+  </div>
+
+
+  <script>
+    // ============================================================
+    // HVHL "Bouw jouw toekomst" playable: campaign hookup
+    // Network and trackers are not known yet. Until they are:
+    //   - DMP_BASE is empty, so events only log (src/utils/track.js);
+    //   - the CTAs open their URLs directly (no click tracker in front).
+    // The DV360 plumbing below (macros read from the tag's query string,
+    // click tracker chaining, MRAID bridge, window.openLanding) is kept from
+    // the template; fill in the values when the campaign is set up.
+    // Query params the tag can pass: clk (${CLICK_URL_ENC}), gdpr,
+    // gdpr_consent, line_item, insertion_order, creative_id, publisher_id,
+    // app_id_bundle_id, page_url. A param still holding a literal ${...}
+    // counts as empty.
+    // ============================================================
+    window.trackingPath = "assets/";
+    // "Ontdek de open dag" (main CTA). From the asset package's manifest (links.openDay).
+    window.ctaUrl = "https://www.hvhl.nl/studiekeuze/open-dagen/";
+    // "Bekijk opleidingen" (second CTA). Empty: the button only logs. Confirm with the client.
+    window.ctaUrlCourses = "";
+    // English version (?language=en): its own URLs, if HVHL has English pages.
+    // Empty: the English buttons use the Dutch URLs above.
+    window.ctaUrlEn = "";
+    window.ctaUrlCoursesEn = "";
+
+    // ---- Campaign values (edit these) ---------------------------------
+    // DMP tracker without event_name, e.g.
+    // "https://staging-dmp-producer.iion.io/tracker/impressions?platform=DV360&campaign_id=<id>"
+    var DMP_BASE = "";
+    // Agency click tracker (e.g. CM360 trackclk with ${GDPR} macros), if any.
+    var brandClickTracker = "";
+    // --------------------------------------------------------------------
+
+    var tagQuery = null;
+    try { tagQuery = new URLSearchParams(window.location.search); } catch (e) { }
+    function tagParam(name) {
+      var v = "";
+      try { v = (tagQuery && tagQuery.get(name)) || ""; } catch (e) { }
+      return /\$\{[^}]*\}/.test(v) ? "" : v;
+    }
+
+    // DMP tracker: base + whichever optional macros the tag passed.
+    var dmpUrl = DMP_BASE;
+    ["line_item", "insertion_order", "creative_id", "publisher_id",
+      "app_id_bundle_id", "page_url", "gdpr", "gdpr_consent"].forEach(function (k) {
+        var v = tagParam(k);
+        if (v) dmpUrl += "&" + k + "=" + encodeURIComponent(v);
+      });
+    window.trackingType = DMP_BASE ? dmpUrl + "&event_name=" : "";
+
+    // DV360 click tracker from the tag (URLSearchParams decodes it once).
+    // Only a real http(s) URL is used; anything else falls back to CM360.
+    var clk = tagParam("clk");
+    if (!/^https?:\/\//i.test(clk)) clk = "";
+    window.setTracker = clk;
+
+    // CM360 tracker with its GDPR macros filled from the tag (empty if absent).
+    var cm360Tracker = brandClickTracker
+      .replace(/\$\{GDPR\}/g, encodeURIComponent(tagParam("gdpr")))
+      .replace(/\$\{GDPR_CONSENT_\d+\}/g, encodeURIComponent(tagParam("gdpr_consent")));
+
+    // Wraps a destination in the DV360 click tracker, when the tag passed one.
+    window.landingFor = function (destination) {
+      if (!destination) return "";
+      return clk ? clk + encodeURIComponent(destination) : destination;
+    };
+    // Main CTA: the agency tracker (if any) or the Open Day URL.
+    window.landingPageUrl = window.landingFor(cm360Tracker || window.ctaUrl);
+
+    // Open the landing page from a CTA tap (called by the game).
+    // MRAID bridge: the MRAID tag variant answers "iion:hello" with
+    // "iion:mraid-ready"; from then on clicks go to it as "iion:open".
+    window.__mraidBridge = false;
+    window.addEventListener("message", function (e) {
+      if (e.source === window.parent && e.source !== window && e.data && e.data.type === "iion:mraid-ready") {
+        window.__mraidBridge = true;
+      }
+    });
+    try { if (window.parent !== window) window.parent.postMessage({ type: "iion:hello" }, "*"); } catch (e) { }
+    window.openLanding = function (url) {
+      if (!url) return;
+      if (window.__mraidBridge) {
+        window.parent.postMessage({ type: "iion:open", url: url }, "*");
+        return;
+      }
+      var w = null;
+      try { w = window.open(url, "_blank"); } catch (e) { }
+      if (!w) {
+        // Popup blocked: navigate instead, so the click is never lost.
+        try { window.top.location.href = url; } catch (e) { window.location.href = url; }
+      }
+    };
+  </script>
+</body>
+
+</html>
