@@ -1,0 +1,78 @@
+{
+ "plaza": {
+  "w": 850,
+  "h": 1266,
+  "source": "00-intake/designer/assets/background/Sunlit Palace Plaza and Fountain 2.png",
+  "notes": [
+   "fit 850x1266"
+  ]
+ },
+ "bombo": {
+  "w": 846,
+  "h": 256,
+  "source": "00-intake/designer/assets/no. container/Group 5.png",
+  "notes": [
+   "fit 846x256"
+  ]
+ },
+ "bolillas": {
+  "w": 720,
+  "h": 720,
+  "source": [
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 2.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 4.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 5.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 6.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 7.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 8.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 9.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 10.png",
+   "00-intake/designer/assets/balls/Glossy Lottery Ball Grid 11.png"
+  ],
+  "notes": [
+   "9 individual cut-outs into 3x3 cells of 240px"
+  ],
+  "cells": {
+   "cols": 3,
+   "rows": 3,
+   "names": [
+    "07",
+    "18",
+    "26",
+    "33",
+    "41",
+    "15",
+    "28",
+    "04",
+    "79"
+   ],
+   "numbers": [
+    7,
+    18,
+    26,
+    33,
+    41,
+    15,
+    28,
+    4,
+    79
+   ]
+  }
+ },
+ "boleto": {
+  "w": 1100,
+  "h": 352,
+  "source": "00-intake/designer/assets/ticket/Glossy TuSami Lottery Ticket Banner 1.png",
+  "notes": [
+   "fit 1100x352"
+  ]
+ },
+ "la-poderosa": {
+  "w": 516,
+  "h": 326,
+  "source": "00-intake/designer/assets/mascot/Superhero Queen Emoji in Flight 1.png",
+  "notes": [
+   "fit 516x326"
+  ]
+ }
+}

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="google" content="notranslate"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Atrapa los números · build · TuSami</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet">
+<script src="_core/draw.js?v=1791471080"></script><script src="_core/layers.js?v=1791471080"></script><script src="_core/atrapa-core.js?v=1791471080"></script></head>
+<body><script>
+/* VIEW: plaza, fixed stage straight on: the client's own picture. The bombo top-centre under the lockup, light beams fanning
+   down over the plaza, the ticket in the bottom third sliding under the balls. Depth is draw order: plaza → beams (code) →
+   drum → balls → ticket → pops → La Poderosa (reveal). Every picture is a fixed object; everything that moves is code. */
+const CAMERA = 'fixed stage, straight on, eye level with the drum, lens ~35 mm, the plaza receding behind';
+const G = {
+  canvas: [640, 960], hudTop: 0.11, camera: CAMERA,
+  boxes: {
+    background: { x: -0.15, y: -0.15, w: 1.3, h: 1.3, anchor: 'top-left' },   // the plate overshoots the frame by 15% all round: the scene can lift under an overlay without showing the frame's back
+    drum:       { x: 0.501, y: 0.003, w: 0.992, h: 0.199, anchor: 'top' },
+    ball:       { w: 0.115, h: 0.115 * 640 / 960, anchor: 'centre' },                     // one shell; the number is code
+    ticket:     { x: 0.5, y: 0.760, w: 0.828, h: 0.176, anchor: 'centre' },   // TRACED: screen 2 (play), box x75 y645 530x169 (score .97, mae 24); the start screen shows it at y .67 (the start overlay lifts the scene 9%)   // the client's ticket (1514x484) at 0.72-0.83 of the frame, as in their play screen; numbers are code
+    poderosa:   { x: 0.5, y: 0.440, w: 0.558, h: 0.235, anchor: 'centre' },   // TRACED: screen 3, box x109 y309 357x226 (score .97, mae 26); x centred (owner): her cape trails left in the asset, so the traced box centre sits at .449 while her body reads centred   // the client's end layout: she flies at 0.33-0.55 between the headline sticker and the line (asset 397x251)
+    confetti:   { w: 0.03, h: 0.03 * 640 / 960, anchor: 'centre' },
+  },
+  chute: [0.5, 0.185],     // the drum's mouth (frame fractions)
+  catchY: 0.745,           // the ticket's slot line (the SVG puts the slot centres at .686 of the ticket's height): a ball lands just above it
+};
+const SQ = 1536;
+const VIEW = {
+  id: 'plaza', title: 'Plaza · fixed stage', build: true, canvas: G.canvas, camera: CAMERA, geometry: () => G,
+  layers: [
+    { id: 'L1', name: 'plaza', type: 'plate', canvas: [1280, 1920], key: null, camera: CAMERA, box: G.boxes.background,
+      notes: "picture · the client's world: a sunny Peruvian plaza (palms, colonial facades, a fountain) out of focus, bright sky with sun rays, confetti in the air; plain sky band at the top for the HUD and the drum; nothing in the bottom third but ground",
+      shape(ctx, x, y, w, h, S, cell, o) { ctx.fillStyle = '#7f8e9c'; ctx.fillRect(x, y, w, h * .62); ctx.fillStyle = '#9a9aa2'; ctx.fillRect(x, y + h * .62, w, h * .38);
+        ctx.fillStyle = '#6b7580'; for (let i = 0; i < 5; i++) { const bx = x + w * (0.05 + i * 0.19), bh = h * (0.14 + (i % 2) * 0.05); ctx.fillRect(bx, y + h * .62 - bh, w * .16, bh); }
+        ctx.strokeStyle = '#5c6670'; ctx.lineWidth = 3; for (let i = 0; i < 6; i++) { const px = x + w * (0.08 + i * 0.17); ctx.beginPath(); ctx.moveTo(px, y + h * .62); ctx.lineTo(px, y + h * .40); ctx.stroke(); }
+        if (o && o.explain) { GB.bpZone(ctx, 0, 0, w, h * G.hudTop, '#ffa500', 'HUD STRIP 0-11%: plain sky, the lockup sits here', true); const d = LAYERS.boxPx({ box: G.boxes.drum }, w, h); GB.bpZone(ctx, d.x, d.y, d.w, d.h, '#00e5ff', 'KEEP CLEAR: the bombo', true); const t = LAYERS.boxPx({ box: G.boxes.ticket }, w, h); GB.bpZone(ctx, t.x - w * .17, t.y - h * .02, t.w + w * .34, t.h + h * .04, '#00e5ff', 'KEEP CLEAR: the ticket slides here', true); GB.bpLabel(ctx, 30, h * .62 - 50, 'GROUND LINE at 62%: plaza floor below, facades and sky above', '#ffd23a', true); } } },
+    { id: 'L2', name: 'bombo', type: 'sprite', canvas: [651 * 2, 197 * 2], key: '#4A5A7A', camera: CAMERA, box: G.boxes.drum,
+      notes: "SUPPLIED - the designer's drum close-up (651x197, 1x; 2x asked): the lower half of the glass drum with the TuSami badge, green arms to both edges, the mouth at the bottom centre; spin, the mouth light and the burst are code",
+      shape(ctx, x, y, w, h, S, cell, o) { ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); const cx = x + w / 2, r = w * .3, cy = y - r * .35;
+        GB.rr(ctx, x, y + h * .15, w * .22, h * .3, h * .1, '#4a7a3a', '#2a2a30'); GB.rr(ctx, x + w * .78, y + h * .15, w * .22, h * .3, h * .1, '#4a7a3a', '#2a2a30');   // the arms
+        GB.ell(ctx, cx, cy, r, r, '#c7d3dc', '#2a2a30'); for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28 + (S ? S.elapsed * (1 + 4 * (S.drum || 0)) : 0), rr = r * (0.3 + (i % 3) * 0.17); GB.ell(ctx, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, r * .12, r * .12, '#fff', '#555'); }
+        GB.rr(ctx, cx - w * .17, y + h * .62, w * .34, h * .22, h * .1, '#4a7a3a', '#2a2a30'); GB.ell(ctx, cx, y + h * .84, w * .11, h * .09, '#2a2a30'); ctx.restore();   // the collar and the mouth
+        if (o && o.explain) GB.bpLabel(ctx, 30, 60, 'The lower half of the drum, cut by the top edge; arms to both edges; mouth at the bottom centre', '#ffd23a', true); } },
+    { id: 'L3', name: 'bolillas', type: 'sheet', canvas: [960, 960], key: '#4A5A7A', camera: CAMERA, box: G.boxes.ball,
+      cells: { cols: 3, rows: 3, names: ['07', '18', '26', '33', '41', '15', '28', '04', '79'] },
+      notes: "SUPPLIED · the designer's nine individual balls, one per cell (3×3); the game draws from these numbers; a grey (repeat) copy is derived once in code",
+      shape(ctx, x, y, w, h, S, cell) { GB.ell(ctx, x + w / 2, y + h / 2, w * .44, h * .44, '#fff', '#2a2a30'); GB.ell(ctx, x + w * .4, y + h * .38, w * .12, h * .1, '#eef4f8'); } },
+    { id: 'L4', name: 'boleto', type: 'sprite', canvas: [SQ, SQ / 2], key: '#4A5A7A', camera: CAMERA, box: G.boxes.ticket,
+      notes: 'picture · the TuSami ticket: a landscape card with the lockup top-left, a barcode top-right, six EMPTY dashed slots in a row (numbers are code); slight 3D edge; no hand',
+      shape(ctx, x, y, w, h, S, cell, o) { GB.rr(ctx, x + w * .02, y + h * .06, w * .96, h * .88, w * .02, '#ecece9', '#2a2a30'); ctx.fillStyle = '#9a9aa2'; ctx.fillRect(x + w * .06, y + h * .14, w * .26, h * .14); ctx.fillRect(x + w * .74, y + h * .14, w * .2, h * .14);
+        const n = 6, pitch = w / n; for (let i = 0; i < n; i++) { const sx = x + i * pitch + pitch * .5; ctx.setLineDash([6, 5]); GB.rr(ctx, sx - pitch * .36, y + h * .42, pitch * .72, h * .42, w * .012, '#f7f7f5', '#6a6a72'); ctx.setLineDash([]); }
+        if (o && o.explain) GB.bpLabel(ctx, 30, 50, 'Six EMPTY slots, evenly spaced across the full width: the game writes numbers into them', '#ffd23a', true); } },
+    { id: 'L5', name: 'la-poderosa', type: 'sprite', canvas: [SQ, SQ], key: '#4A5A7A', camera: 'front, slightly below, lens ~50 mm', box: G.boxes.poderosa,
+      notes: "picture · the client's character: a golden lottery ball with wings, a crown and a smiling face, red cape, arms wide; centred, margin all round; the glow and rays are code",
+      shape(ctx, x, y, w, h, S, cell, o) { const cx = x + w / 2, cy = y + h / 2, r = w * .26; for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + d * r * .8, cy); ctx.quadraticCurveTo(cx + d * r * 2.1, cy - r * 1.2, cx + d * r * 1.1, cy - r * .2); ctx.fillStyle = '#d9d9df'; ctx.fill(); ctx.strokeStyle = '#2a2a30'; ctx.stroke(); }
+        GB.ell(ctx, cx, cy, r, r, '#e3c84a', '#2a2a30'); GB.ell(ctx, cx - r * .3, cy - r * .15, r * .1, r * .14, '#1a1a1e'); GB.ell(ctx, cx + r * .3, cy - r * .15, r * .1, r * .14, '#1a1a1e'); ctx.beginPath(); ctx.arc(cx, cy + r * .15, r * .4, 0.2, Math.PI - 0.2); ctx.strokeStyle = '#1a1a1e'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - r * .5, cy - r * .85); ctx.lineTo(cx - r * .3, cy - r * 1.3); ctx.lineTo(cx, cy - r * .95); ctx.lineTo(cx + r * .3, cy - r * 1.3); ctx.lineTo(cx + r * .5, cy - r * .85); ctx.closePath(); ctx.fillStyle = '#c9a400'; ctx.fill(); ctx.stroke();
+        if (o && o.explain) GB.bpLabel(ctx, 30, 60, 'La Poderosa: golden ball, wings, crown, smile, red cape; centred with margin; glow is code', '#ffd23a', true); } },
+    { id: 'L6', name: 'confetti', type: 'hud-in-code', canvas: null, key: null, notes: 'code · green and yellow confetti slips as in the reference screens, tumbling; drawn in code, no picture' },
+    { id: 'FX', name: 'code-effects', type: 'hud-in-code', canvas: null, key: null, notes: 'code · the light beams from the drum, the landing shadow, the lit next slot, the catch flash, the burst, the drum spin, pops, confetti, La Poderosa rays and rise' },
+  ],
+  drawFrame(ctx, S, W, H, C) {
+    const L = id => VIEW.layers.find(l => l.id === id), off = Atrapa.slotOffset, pad2 = Atrapa.pad2;
+    const greyAtlas = art => { if (!VIEW.__grey) { const c = document.createElement('canvas'); c.width = art.width; c.height = art.height; const x = c.getContext('2d'); x.filter = 'grayscale(1) brightness(.78) contrast(.85)'; x.drawImage(art, 0, 0); x.filter = 'none'; VIEW.__grey = c; } return VIEW.__grey; };   // the repeat ball: the same picture, dimmed and grey, made once
+    const play = S.mode === 'play' || S.mode === 'attract';
+    const tnow = performance.now(), dt = Math.min(0.05, (tnow - (VIEW.__t || tnow)) / 1000); VIEW.__t = tnow;
+    const CF = VIEW.__conf = VIEW.__conf || []; const spawnConf = (n, burst) => { for (let i = 0; i < n; i++) CF.push(burst ? { x: 0.5 + (Math.random() - .5) * .06, y: G.chute[1], vx: (Math.random() - .5) * .9, vy: -(.5 + Math.random() * .7), r: Math.random() * 6.28, vr: (Math.random() - .5) * 8, c: i % 3 ? '#2fb75a' : '#ffd23a', s: .8 + Math.random() * .6, life: 0 } : { x: Math.random(), y: -.05 - Math.random() * .3, vx: 0, vy: .04 + Math.random() * .04, r: Math.random() * 6.28, vr: (Math.random() - .5) * 1.2, c: i % 3 ? '#2fb75a' : '#ffd23a', s: .6 + Math.random() * .5, life: 0, drift: Math.random() * 6.28 }); };
+    const ambient = S.mode === 'attract' ? 22 : 9; if (CF.length < ambient) spawnConf(ambient - CF.length, false);   // the ambient slips: thick on the splash as the reference, lighter in play so they never read as balls
+    if (S.mode === 'reveal' && !VIEW.__burstAt) { VIEW.__burstAt = true; spawnConf(42, true); } if (S.mode !== 'reveal' && S.mode !== 'win') VIEW.__burstAt = false;
+    CF.forEach(p => { p.life += dt; if (p.drift != null) { p.drift += dt * 1.6; p.x += Math.sin(p.drift) * .0007; p.y += p.vy * dt; } else { p.vy += 1.1 * dt; p.vx *= (1 - 1.8 * dt); p.x += p.vx * dt; p.y += p.vy * dt; } p.r += p.vr * dt; });
+    for (let i = CF.length - 1; i >= 0; i--) if (CF[i].y > 1.08) CF.splice(i, 1);
+    const drawConf = () => CF.forEach(p => { ctx.save(); ctx.translate(W * p.x, H * p.y); ctx.rotate(p.r); ctx.globalAlpha = .95; ctx.fillStyle = p.c; const sw = W * .022 * p.s, sh = W * .012 * p.s; ctx.fillRect(-sw / 2, -sh / 2, sw, sh * (0.35 + 0.65 * Math.abs(Math.cos(p.r * 1.3)))); ctx.restore(); });   // the slip tumbles: its height squashes as it turns
+    LAYERS.draw(ctx, L('L1'), S, W, H);
+    drawConf();
+    const tyWant = S.mode === 'attract' ? 0.67 : 0.76; VIEW.__ty = VIEW.__ty == null ? tyWant : VIEW.__ty + (tyWant - VIEW.__ty) * Math.min(1, dt * 6);   // TRACED: the ticket at .67 on the start screen, .76 in play; it glides down as the round starts
+    const twWant = (S.mode === 'reveal' || S.mode === 'win') ? 0.65 : 0.828; VIEW.__tw = VIEW.__tw == null ? twWant : VIEW.__tw + (twWant - VIEW.__tw) * Math.min(1, dt * 5);
+    const ticketBox = { ...G.boxes.ticket, y: VIEW.__ty, w: VIEW.__tw, h: G.boxes.ticket.h * VIEW.__tw / G.boxes.ticket.w }; const chute = [W * G.chute[0], H * G.chute[1]], landY = H * (G.catchY - (0.76 - VIEW.__ty));
+    // the beams: one per ball in the air, from the chute to its landing point, brightest as it nears
+    if (play) S.balls.forEach(b => { if (b.done || b.t < 0) return; const lx = W * b.x1, k = .35 + .65 * Math.min(1, b.t * 1.4);   // a golden beam like the reference: a soft fan with a brighter core, fading toward the landing point
+      ctx.save(); const g = ctx.createLinearGradient(chute[0], chute[1], lx, landY); const gr = b.repeat && b.t >= C.greyAt; g.addColorStop(0, gr ? 'rgba(200,200,205,.55)' : 'rgba(255,236,120,.75)'); g.addColorStop(1, gr ? 'rgba(200,200,205,0)' : 'rgba(255,220,80,0)'); ctx.globalAlpha = k;
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(chute[0] - 10, chute[1]); ctx.lineTo(lx - W * .055, landY); ctx.lineTo(lx + W * .055, landY); ctx.lineTo(chute[0] + 10, chute[1]); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = k * .9; ctx.beginPath(); ctx.moveTo(chute[0] - 3, chute[1]); ctx.lineTo(lx - W * .018, landY); ctx.lineTo(lx + W * .018, landY); ctx.lineTo(chute[0] + 3, chute[1]); ctx.closePath(); ctx.fill(); ctx.restore(); });
+    const wob = play ? Math.sin(S.elapsed * (6 + 18 * S.drum)) * 0.006 * S.drum : 0;
+    LAYERS.draw(ctx, L('L2'), S, W, H, { rot: wob, pivot: [chute[0], 0] });
+    if (play && S.drum > 0) { ctx.save(); ctx.globalAlpha = .25 + .35 * S.drum; ctx.fillStyle = '#ffe36a'; ctx.beginPath(); ctx.ellipse(chute[0], chute[1], W * .09, H * .012, 0, 0, 7); ctx.fill(); ctx.restore(); }   // the mouth glows as the drum spins faster (code)
+    // landing shadows on the ticket line, growing as each ball comes down
+    if (play) S.balls.forEach(b => { if (b.done || b.t < 0) return; const p = Math.max(0, b.t); ctx.save(); ctx.globalAlpha = .18 + .3 * p; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(W * b.x1, landY + H * .012, W * .05 * (.4 + .6 * p), W * .018 * (.4 + .6 * p), 0, 0, 7); ctx.fill(); ctx.restore(); });
+    // the ticket, with the lit next slot and the numbers written in
+    const tb = LAYERS.draw(ctx, L('L4'), S, W, H, { box: { ...ticketBox, x: S.ticketX } });
+    const SL = [.129, .274, .424, .575, .725, .871], pitch = tb.w * .1485;   // the designer's slot centres (from their SVG), .686 of the ticket's height
+    for (let i = 0; i < C.slots; i++) { const sx = tb.x + tb.w * SL[i], sy = tb.y + tb.h * .686;
+      if (S.filled[i] != null) { ctx.fillStyle = '#1a1a1e'; ctx.font = `800 ${Math.round(pitch * .5)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(pad2(S.filled[i]), sx, sy); }
+      else if (play && i === S.filled.length) { const g = S.balls.some(b => !b.done && b.t >= C.greyAt && b.repeat && Math.abs(b.x1 - (S.ticketX + off(i))) < C.catchHalf * 1.6) ? '#b8b8c0' : '#ffe36a'; GB.glowRing(ctx, sx, sy, pitch * .36 + Math.sin(S.elapsed * 8) * 2, g, g, 4, 14, .9); }
+    }
+    if (S.burst > 0) { ctx.save(); ctx.globalAlpha = S.burst * .55; ctx.fillStyle = '#ff4a2a'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h); ctx.restore(); }
+    if (S.flash > 0) { ctx.save(); ctx.globalAlpha = S.flash * .5; ctx.fillStyle = '#ffe36a'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h); ctx.restore(); }
+    // the balls: from the chute down the beam to the landing point; a caught one snaps into the slot, a missed one falls past, a burst one shatters
+    if (play) S.balls.forEach(b => { if (b.t < 0) return; const p = Math.min(1, b.t); const x = chute[0] + (W * b.x1 - chute[0]) * p, y = chute[1] + (landY - chute[1]) * (p * p * .6 + p * .4), r = G.boxes.ball.w * (0.55 + 0.45 * p);
+      if (b.done && b.caught) return; if (b.done && b.burst) { const q = (b.t - 1) / .45; ctx.save(); ctx.globalAlpha = 1 - q; for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; GB.ell(ctx, W * b.x1 + Math.cos(a) * W * .06 * q, landY + Math.sin(a) * W * .04 * q, W * .012, W * .012, '#8a8a92'); } ctx.restore(); return; }
+      const yy = b.done ? landY + (b.t - 1) * H * .5 : y, idx = Atrapa.CONFIG.ballNumbers.indexOf(b.num), art = LAYERS.ART.L3, grey = b.repeat && b.t >= C.greyAt;   // a repeat shows grey only from half its fall
+      if (art && idx >= 0) { const cl = L('L3').cells, im = grey ? greyAtlas(art) : art, cw = im.width / cl.cols, ch = im.height / cl.rows, bw = W * r * 1.16, bh = bw * (ch / cw); ctx.drawImage(im, (idx % cl.cols) * cw, Math.floor(idx / cl.cols) * ch, cw, ch, x - bw / 2, yy - bh / 2, bw, bh); }   // the designer's numbered ball; grey = the derived copy
+      else { LAYERS.draw(ctx, L('L3'), S, W, H, { cell: 0, box: { ...G.boxes.ball, w: r, h: r * 640 / 960, x: x / W, y: yy / H } }); if (grey) { ctx.save(); ctx.globalAlpha = .55; ctx.fillStyle = '#6a6a72'; ctx.beginPath(); ctx.arc(x, yy, W * r * .44, 0, 7); ctx.fill(); ctx.restore(); }
+        ctx.fillStyle = grey ? '#55555c' : '#1a1a1e'; ctx.font = `800 ${Math.round(W * r * .42)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(pad2(b.num), x, yy); } });
+    if (S.mode !== 'attract') GB.pops(ctx, S, W * .5, H * .56);   // no word pops behind the start screen (the reference's splash is clean)
+    if (S.mode === 'reveal' || S.mode === 'win') {   // La Poderosa bursts out of the drum, rays and confetti in code, then holds over the full ticket
+      const k = Math.min(1, S.reveal / 1.0), e = 1 - Math.pow(1 - k, 3); ctx.save(); ctx.globalAlpha = e * .18; ctx.fillStyle = '#0b3d4a'; ctx.fillRect(0, 0, W, H); ctx.restore();   // the reference stays bright: a whisper of teal, no blackout
+      ctx.save(); ctx.translate(W / 2, H * (G.chute[1] + (G.boxes.poderosa.y - G.chute[1]) * e)); const gl = ctx.createRadialGradient(0, 0, W * .05, 0, 0, W * .42); gl.addColorStop(0, 'rgba(255,236,120,.55)'); gl.addColorStop(1, 'rgba(255,236,120,0)'); ctx.globalAlpha = e; ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, W * .42, 0, 7); ctx.fill(); ctx.restore();   // a soft glow behind her; the golden swirl is in the designer's picture, no code rays (reference)
+      const pb = G.boxes.poderosa, sc = .3 + .7 * e; LAYERS.draw(ctx, L('L5'), S, W, H, { box: { ...pb, w: pb.w * sc, h: pb.h * sc, y: G.chute[1] + (pb.y - G.chute[1]) * e } });
+      drawConf();   // the burst from the drum settles over the plaza and keeps drifting on the end screen
+      LAYERS.draw(ctx, L('L4'), S, W, H, { box: { ...ticketBox, x: S.ticketX } });
+      for (let i = 0; i < C.slots; i++) { const sx = tb.x + tb.w * SL[i], sy = tb.y + tb.h * .686; if (S.filled[i] != null) { ctx.fillStyle = '#1a1a1e'; ctx.font = `800 ${Math.round(pitch * .5)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(pad2(S.filled[i]), sx, sy); } }
+    }
+  },
+};
+Atrapa.CONFIG.ui.base = 'assets/ui/'; Object.keys(Atrapa.CONFIG.ui).forEach(k => { if (k !== 'base') Atrapa.CONFIG.ui[k] = Atrapa.CONFIG.ui[k].replace(/\.png$/, '.webp'); });
+Atrapa.CONFIG.useBallNumbers = true;
+Atrapa.run(VIEW);
+</script></body></html>
