@@ -10,12 +10,22 @@
     /iPhone|iPod|Android.+Mobile|Windows Phone|Mobile Safari/i.test(ua) && !/iPad|Tablet/i.test(ua);
 
   if (isPhone && !q.has('desktop')) {
-    document.documentElement.style.background = '#000';
-    document.addEventListener('DOMContentLoaded', () => {
+    // never paint the mock page on a phone: black screen until we jump to the full-screen unit
+    const hide = document.createElement('style');
+    hide.textContent = 'html{background:#000!important}body{visibility:hidden!important}';
+    document.head.appendChild(hide);
+    let done = false;
+    const go = () => {
+      if (done) return false;
       const slot = document.querySelector('.ad-slot'), frame = slot && slot.querySelector('iframe');
       const target = (slot && slot.dataset.full) || (frame && frame.getAttribute('src'));
-      if (target) location.replace(new URL(target, location.href).href);
-    });
+      if (!target) return false;
+      done = true; location.replace(new URL(target, location.href).href); return true;
+    };
+    // jump as soon as the ad slot is parsed (well before DOMContentLoaded / images / fonts)
+    const mo = new MutationObserver(() => { if (go()) mo.disconnect(); });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', () => { mo.disconnect(); if (!go()) hide.remove(); });
     return;
   }
 
