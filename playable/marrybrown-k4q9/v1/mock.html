@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Gepuk It · build · first-person pestle</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="_core/draw.js?v=1791558033"></script><script src="_core/layers.js?v=1791558033"></script><script src="_core/gepuk-core.js?v=1791558033"></script></head>
+<body><script>
+/* VIEW: first-person. ONE CAMERA for every layer: standing at the counter looking down at ~35°, the mortar in
+   front; our own hands enter from the bottom-right. The viewmodel box hangs from an off-screen pivot. */
+const CAMERA = 'first-person, standing at the counter, looking down at ~35°, lens ~35 mm, counter back edge at 42% of the frame';
+const G = {
+  canvas: [640, 960], hudTop: 0.12, horizonY: 0.42, camera: CAMERA,
+  boxes: {
+    background: { x: 0, y: 0, w: 1, h: 1, anchor: 'top-left' },
+    mortar:     { x: 0.5, y: 0.78, w: 0.62, h: 0.62 * 640 / 960, anchor: 'bottom' },
+    viewmodel:  { x: 1.0, y: 0.56, w: 0.78, h: 0.78 * 640 / 960, anchor: 'right' },   // square canvas; the forearm leaves through the right edge (the right hand comes from the right)
+    water:      { x: 0.0, y: 0.62, w: 0.20, h: 0.20 * 2 * 640 / 960, anchor: 'left' },   // portrait canvas (1024×2048): a tall glass
+    dish:       { x: 0.5, y: 0.46, w: 0.80, h: 0.80 * 640 / 960, anchor: 'centre' },
+    chili:      { w: 0.07, h: 0.07 * 640 / 960, anchor: 'centre' },
+    drop:       { w: 0.02, h: 0.02 * 640 / 960, anchor: 'centre' },
+  },
+  viewmodel: { restRot: 0.0, strikeRot: 0.0, strikeDrop: 0.07, tipInCanvas: [0.36, 0.64], fistInCanvas: [0.40, 0.40] },   // pestle VERTICAL: fist on top, striking end below it over the bowl; the strike drops the whole viewmodel into the bowl
+  hand: { x0: -0.22, x1: 0.16 },   // the water glass slides from off-left to the mortar's edge
+  beat: { x: 0.5, y: 0.62, r: 0.24 },
+};
+const SQ = 2048;
+const VIEW = {
+  id: 'first-person', build: true, title: 'First-person pestle', canvas: G.canvas, meterSide: 'left', camera: CAMERA, geometry: () => G,
+  layers: [
+    { id: 'L1', name: 'counter-perspective', type: 'plate', canvas: [1280, 1920], key: null, camera: CAMERA, box: G.boxes.background,
+      notes: 'picture · kitchen wall at the top, the counter surface in perspective below it; nothing on the counter',
+      shape(ctx, x, y, w, h, S, cell, o) { ctx.fillStyle = '#6b6b74'; ctx.fillRect(x, y, w, h * G.horizonY); ctx.fillStyle = '#50505a'; ctx.fillRect(x, y + h * G.horizonY, w, h * (1 - G.horizonY)); ctx.strokeStyle = '#3c3c44'; ctx.lineWidth = 2; for (let i = 0; i <= 6; i++) { const t = i / 6; ctx.beginPath(); ctx.moveTo(x + w * (.15 + .7 * t), y + h * G.horizonY); ctx.lineTo(x + w * (-.2 + 1.4 * t), y + h); ctx.stroke(); } ctx.fillStyle = '#9a9aa2'; ctx.fillRect(x, y + h * G.horizonY - 4, w, 4);
+        if (o && o.explain) { GB.bpZone(ctx, 0, 0, w, h * G.hudTop, '#ffa500', 'HUD STRIP 0-12%: keep the wall plain here', true); GB.bpLabel(ctx, 30, h * G.horizonY - 110, 'COUNTER BACK EDGE at 42% (the grey line): wall above, counter below', '#ffd23a', true); GB.bpLabel(ctx, 30, h * G.horizonY - 60, 'counter surface in perspective, EMPTY', '#ffd23a', true); const b = LAYERS.boxPx({ box: G.boxes.mortar }, w, h); GB.bpZone(ctx, b.x, b.y + 60, b.w, b.h - 60, '#00e5ff', 'KEEP CLEAR: the mortar sits here', true); GB.bpZone(ctx, w * .5, h * .62, w * .5, h * .38, '#ff3b3b', 'our hands cover this corner', true); } } },
+    { id: 'L2', name: 'mortar-chicken', type: 'sheet', states: true, canvas: [SQ, SQ], key: '#4A5A7A', camera: CAMERA, box: G.boxes.mortar, cells: { cols: 2, rows: 2, names: ['dry fried chicken in the mortar', 'light sambal on top', 'heavy sambal, pooling', 'smashed flat, sambal through it'] },
+      notes: 'picture ×4 as ONE object · the stone mortar WITH the chicken inside it (container + contents are one picture, rule 13); state 1 is the base image, states 2-4 are edits of it in the same chat; the flowing sambal is still code',
+      shape(ctx, x, y, w, h, S, cell, o) { const mx = x + w / 2, rimY = y + h * .42, rw = w * .9, ry = rw * .3, depth = h * .36;
+        ctx.beginPath(); ctx.moveTo(mx - rw / 2, rimY); ctx.lineTo(mx + rw / 2, rimY); ctx.lineTo(mx + rw * .38, rimY + depth); ctx.lineTo(mx - rw * .38, rimY + depth); ctx.closePath(); ctx.fillStyle = '#86868e'; ctx.fill(); ctx.strokeStyle = '#2a2a30'; ctx.lineWidth = Math.max(2, w * .006); ctx.stroke();
+        GB.ell(ctx, mx, rimY, rw / 2, ry, '#3a3a40', '#2a2a30');
+        GB.chicken(ctx, mx, rimY + ry * .15, rw * .5, cell || 0, S ? S.heat : .8);   // inside the bowl, behind the front rim
+        ctx.beginPath(); ctx.ellipse(mx, rimY, rw / 2, ry, 0, 0, Math.PI); ctx.lineWidth = Math.max(3, w * .03); ctx.strokeStyle = '#9a9aa2'; ctx.stroke();
+        if (o && o.explain) { GB.bpLabel(ctx, 40, 60, 'ONE picture: the mortar WITH the chicken inside (rim at 42%, 35° from above-front)', '#ffd23a', true); GB.bpLabel(ctx, 40, 110, 'This is STATE 1 (dry). States 2-4 are edits of this same image', '#00e5ff', true); GB.bpLabel(ctx, 40, h - 140, 'Chicken sits DOWN in the bowl, behind the front rim', '#00e5ff', true); } } },
+    { id: 'L4', name: 'hand-and-pestle', type: 'viewmodel', canvas: [SQ, SQ], key: '#4A5A7A', camera: CAMERA, box: G.boxes.viewmodel,
+      notes: 'picture · FIRST-PERSON: our own RIGHT hand, a closed overhand fist on TOP of a short stone pestle held VERTICALLY, striking end straight below the fist over the bowl; the forearm comes in from the RIGHT edge; flat slate everywhere else (rule 14: pounding = vertical pestle, fist on top)',
+      shape(ctx, x, y, w, h, S, cell, o) { const tip = [x + w * G.viewmodel.tipInCanvas[0], y + h * G.viewmodel.tipInCanvas[1]], fist = [x + w * G.viewmodel.fistInCanvas[0], y + h * G.viewmodel.fistInCanvas[1]], edge = [x + w * 1.04, y + h * 0.52];
+        const aa = Math.atan2(fist[1] - edge[1], fist[0] - edge[0]), al = Math.hypot(fist[0] - edge[0], fist[1] - edge[1]);
+        ctx.save(); ctx.translate(edge[0], edge[1]); ctx.rotate(aa); GB.rr(ctx, 0, -w * .09, al, w * .18, w * .06, '#ecece9', '#222'); ctx.restore();   // forearm from the right edge to the fist
+        const pa = Math.atan2(tip[1] - fist[1], tip[0] - fist[0]), pl = Math.hypot(tip[0] - fist[0], tip[1] - fist[1]);
+        ctx.save(); ctx.translate(fist[0], fist[1]); ctx.rotate(pa); GB.rr(ctx, -w * .03, -w * .06, pl + w * .03, w * .12, w * .05, '#9a9aa2', '#222'); GB.ell(ctx, pl, 0, w * .07, w * .055, '#6a6a72', '#222'); ctx.restore();   // pestle straight DOWN from the fist
+        GB.ell(ctx, fist[0], fist[1], w * .135, w * .115, '#ecece9', '#222'); for (let i = 0; i < 4; i++) GB.ell(ctx, fist[0] - w * .095 + i * w * .06, fist[1] + w * .03, w * .03, w * .035, '#e0e0dc', '#222');   // the fist, knuckles toward the camera
+        if (o && o.explain) { GB.bpLabel(ctx, 40, 60, 'FIRST-PERSON: our own RIGHT hand, ONE hand, from the RIGHT edge', '#ff3b3b', true); GB.bpLabel(ctx, 40, 110, 'Closed FIST on TOP of a SHORT stone pestle held VERTICALLY', '#ffd23a', true); GB.bpLabel(ctx, 40, 160, 'Striking end straight BELOW the fist, over the bowl (it drops in on every tap)', '#ffd23a', true); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(tip[0], tip[1], 40, 0, 7); ctx.stroke(); GB.bpLabel(ctx, tip[0] + 50, tip[1], 'STRIKING END (hits here)', '#00e5ff', true); } } },
+    { id: 'L5', name: 'chilis', type: 'sheet', canvas: [SQ, SQ], key: '#4A5A7A', camera: CAMERA, box: G.boxes.chili, cells: { cols: 2, rows: 2, names: ['cili padi', 'green chili', 'cili api', 'mala peppercorn'] },
+      notes: 'picture ×4 · seen from above, whole, centred, margin all round',
+      shape(ctx, x, y, w, h, S, cell) { GB.chili(ctx, x + w / 2, y + h / 2, w * .32, cell, -0.4); } },
+    { id: 'L6', name: 'iced-water', type: 'sprite', canvas: [1024, 2048], key: '#4A5A7A', camera: CAMERA, box: G.boxes.water,
+      notes: "picture · the coward's item from the brief: a tall glass of iced water with condensation, seen from above-front (35°); it slides in from the LEFT toward the mortar; reach it and the sambal is doused (rule 1c: reads 'give up' in one frame)",
+      shape(ctx, x, y, w, h, S, cell, o) { const gx = x + w * .5, top = y + h * .18, bot = y + h * .92, gw = w * .62; ctx.beginPath(); ctx.moveTo(gx - gw / 2, top); ctx.lineTo(gx + gw / 2, top); ctx.lineTo(gx + gw * .42, bot); ctx.lineTo(gx - gw * .42, bot); ctx.closePath(); ctx.fillStyle = '#d8e4ee'; ctx.fill(); ctx.strokeStyle = '#222'; ctx.lineWidth = 3; ctx.stroke(); GB.ell(ctx, gx, top, gw / 2, gw * .18, '#eef6fb', '#222'); for (let i = 0; i < 3; i++) GB.rr(ctx, gx - gw * .3 + i * gw * .22, top + h * .06 + (i % 2) * h * .05, gw * .18, gw * .18, 4, '#fff', '#99a'); if (S) ctx.setLineDash([]); if (o && o.explain) { GB.bpLabel(ctx, 30, 60, 'TALL glass of ICED WATER, ice cubes, condensation', '#ffd23a', true); GB.bpLabel(ctx, 30, 110, 'Seen from above-front (35°), standing upright', '#ffd23a', true); } } },
+    { id: 'L8', name: 'end-dish', type: 'sprite', canvas: [SQ, SQ], key: '#4A5A7A', camera: 'top-down, directly above the plate, lens ~50 mm', box: G.boxes.dish,
+      notes: 'picture · the WIN reveal: the smashed, sambal-drenched chicken on a plain round plate, seen straight from above; a placeholder until the client product shot arrives (rule 6)',
+      shape(ctx, x, y, w, h, S, cell, o) { GB.ell(ctx, x + w / 2, y + h / 2, w * .46, h * .46, '#f2f2f0', '#555'); GB.chicken(ctx, x + w / 2, y + h / 2, w * .5, 3, .95); if (o && o.explain) { GB.bpLabel(ctx, 30, 60, 'TOP-DOWN: round plate filling the canvas, the smashed chicken + sambal centred', '#ffd23a', true); } } },
+    { id: 'L7', name: 'splash', type: 'particle', canvas: [512, 512], key: '#4A5A7A', camera: CAMERA, box: G.boxes.drop,
+      notes: 'picture · ONE sambal drop; the game emits many (code)',
+      shape(ctx, x, y, w, h) { GB.ell(ctx, x + w / 2, y + h / 2, w * .22, h * .26, '#e03020'); } },
+    { id: 'FX', name: 'code-effects', type: 'hud-in-code', canvas: null, key: null, notes: 'code · heat glow, beat ring, pops, screen shake, chilis bursting up, drops, the win reveal' },
+  ],
+  drawFrame(ctx, S, W, H) {
+    const L = id => VIEW.layers.find(l => l.id === id), heat = S.heat;
+    LAYERS.draw(ctx, L('L1'), S, W, H);
+    if (LAYERS.ART.L1) { const v = ctx.createRadialGradient(W / 2, H * .55, W * .45, W / 2, H * .55, W * 1.05); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.42)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H); }   // vignette (code, rule 11)
+    if (heat > 0.3) { const g = ctx.createRadialGradient(W / 2, H / 2, W * .3, W / 2, H / 2, W * .8); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(224,48,32,${(heat - .3) * .6})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+    const mb = LAYERS.boxPx(L('L2'), W, H);
+    if (LAYERS.ART.L2) { ctx.save(); ctx.scale(1, .36); const sy = (mb.y + mb.h * .93) / .36; const sg = ctx.createRadialGradient(mb.x + mb.w / 2, sy, mb.w * .05, mb.x + mb.w / 2, sy, mb.w * .62); sg.addColorStop(0, 'rgba(0,0,0,.55)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(mb.x + mb.w / 2, sy, mb.w * .62, 0, 7); ctx.fill(); ctx.restore(); }   // contact shadow (code, rule 11)
+    const state = heat < .2 ? 0 : heat < .5 ? 1 : heat < .82 ? 2 : 3;
+    LAYERS.draw(ctx, L('L2'), S, W, H, { cell: state });   // ONE picture: mortar with the chicken in it, four states
+    const mx = mb.x + mb.w / 2, my = mb.y + mb.h * .42;
+    S.chilis.forEach(c => { const p = c.y / 0.8; const x = mx + (c.x - .5) * mb.w * (0.4 + p), y = my - Math.sin(p * Math.PI) * H * .22 + p * H * .12; LAYERS.draw(ctx, L('L5'), S, W, H, { cell: c.kind, box: { ...G.boxes.chili, x: x / W, y: y / H }, rot: c.r }); });
+    S.drops.forEach(d => LAYERS.draw(ctx, L('L7'), S, W, H, { box: { ...G.boxes.drop, x: mx / W + (d.x - .5) * 1.1, y: my / H + (d.y - .72) * 1.1 * 640 / 960 } }));
+    if (S.hand.active) { const hx = G.hand.x0 + (G.hand.x1 - G.hand.x0) * S.hand.progress; LAYERS.draw(ctx, L('L6'), S, W, H, { box: { ...G.boxes.water, x: hx } }); if (S.hand.progress > .6) GB.label(ctx, W * (hx + .10), H * (G.boxes.water.y - .15), 'give up?', 18, '#ffd23a'); }
+    GB.beatRing(ctx, W * G.beat.x, H * G.beat.y, W * G.beat.r, S);
+    const k = Math.sin(Math.min(1, S.pestle) * Math.PI), vb = LAYERS.boxPx(L('L4'), W, H);
+    LAYERS.draw(ctx, L('L4'), S, W, H, { box: { ...G.boxes.viewmodel, y: G.boxes.viewmodel.y + G.viewmodel.strikeDrop * k } });   // the strike drops the vertical pestle into the bowl
+    GB.pops(ctx, S, W * .5, H * .5);
+    if (S.mode === 'reveal' || S.mode === 'win') {
+      if (LAYERS.ART.L8) {   // the real dish rises toward the camera, then holds; the card comes later as a sheet
+        const kk = Math.min(1, S.reveal / .9), e = 1 - Math.pow(1 - kk, 3); ctx.save(); ctx.globalAlpha = e * .6; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
+        const d = G.boxes.dish, sc = .3 + .7 * e; LAYERS.draw(ctx, L('L8'), S, W, H, { box: { ...d, w: d.w * sc, h: d.h * sc, y: d.y + (1 - e) * .25 } });
+        if (e > .95) GB.label(ctx, W / 2, H * d.y - H * d.h * .55 - 10, 'GEPUK!', 56, '#fff');
+      } else GB.reveal(ctx, S, W, H, heat);
+    }
+  },
+};
+// Brand kit: sourced from the brand site (00-intake/brand-kit.json, status sourced-unconfirmed). Every colour is from the site's CSS: red = primary, orange #FFBC7D = page accent, cream #FFF2DF = section background.
+Gepuk.CONFIG.brand = { logo: 'assets/brand/logo.png', logoOnArt: 'assets/brand/logo-colour.png', red: '#FF0000', accent: '#FFBC7D', font: 'Lato', fontUrl: 'https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap' };
+Gepuk.run(VIEW);
+</script></body></html>
