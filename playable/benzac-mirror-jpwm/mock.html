@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Don’t Pop It · build · Benzac</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet">
+<script src="_core/draw.js?v=1791797237"></script><script src="_core/layers.js?v=1791797237"></script><script src="_core/dontpop-core.js?v=1791797237"></script></head>
+<body><script>
+/* VIEW: mirror, fixed at eye level: a round bathroom mirror with a stylised cartoon face in it (never a real face, never a
+   likeness), the three Benzac products on the shelf below. The spots rise on the cheeks and forehead (the field is the face
+   oval minus the eyes, nose and mouth); the gel fingertip is the viewmodel. Depth is draw order: bathroom + mirror + face
+   (one plate) → marks → gel sheen (code) → spots → products → fingertip → pops. Same core, same rules as close-up. */
+const CAMERA = 'fixed, straight on at eye level, lens ~35 mm, a round bathroom mirror centred, a tiled wall behind, a shelf below';
+const G = {
+  canvas: [640, 960], hudTop: 0.12, camera: CAMERA,
+  field: { shape: 'ellipse', x: 0.164, y: 0.228, w: 0.67, h: 0.52, avoid: [{ x: 0.314, y: 0.40, r: 0.12 }, { x: 0.684, y: 0.40, r: 0.12 }, { x: 0.499, y: 0.512, r: 0.07 }, { x: 0.499, y: 0.63, r: 0.11 }] },   // TRACED from the generated plate (L1 v2b, 14:48): the face skin inside the mirror minus the brows+eyes, the nose and the mouth (D-033: the picture leads, the geometry follows)
+  spotR: 0.048, tipR: 0.045,
+  boxes: {
+    bathroom: { x: -0.12, y: -0.12, w: 1.24, h: 1.24, anchor: 'top-left' },
+    spot: { w: 0.096, h: 0.096 * 640 / 960, anchor: 'centre' },
+    tip:  { w: 0.72, h: 0.72 * 640 / 960 * 16 / 9, anchor: 'top' },   // the whole hand: index pad at the top of its box, the forearm leaving the frame; the box is tall enough to reach the frame edge from anywhere in the field
+    mark: { w: 0.055, h: 0.055 * 640 / 960, anchor: 'centre' },
+    products: { x: 0.5, y: 0.895, w: 0.56, h: 0.56 * 640 / 960 * 9 / 21, anchor: 'bottom' },   // TRACED on the build screenshot: the packs stand on the painted shelf   // the three products on the shelf: cleanser, gel, moisturiser
+  },
+  tipAt: 0.5, tipPad: 0.035, tipAngle: -0.38,   // the pad centre is at the top centre of the hand canvas, tipPad of its height down; the hand is drawn rotated so it enters from the bottom-right (~22°)
+};
+const SQ = 1024;
+const VIEW = {
+  id: 'mirror', build: true, brandLogo: 'assets/brand/logo.png', title: 'Mirror · bathroom', canvas: G.canvas, camera: CAMERA, geometry: () => G,
+  layers: [
+    { id: 'L1', name: 'bathroom', type: 'plate', canvas: [1280, 1920], key: null, camera: CAMERA, box: G.boxes.bathroom,
+      notes: "picture · a bright bathroom wall (soft tiles) with a round mirror centred at 20-72% of the frame; IN the mirror a stylised cartoon face (flat, friendly, closed-eye smile, neutral stylised skin, no likeness, no photo), cheeks and forehead plain and even; a shelf at 85-90% with nothing on it; the top 12% plain wall for the HUD",
+      shape(ctx, x, y, w, h, S, cell, o) {
+        const k = 1 / 1.24, ox = w * .12 * k, oy = h * .12 * k, fw = w * k, fh = h * k;   // the frame inside the overshoot box
+        ctx.fillStyle = '#c9cfd6'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; for (let i = 0; i < 12; i++) { ctx.beginPath(); ctx.moveTo(x, y + i * h / 11); ctx.lineTo(x + w, y + i * h / 11); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + i * w / 8, y); ctx.lineTo(x + i * w / 8, y + h); ctx.stroke(); }   // tiles
+        ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x, y, w, h * (0.12 + G.hudTop) / 1.24);   // the calm band for the HUD
+        const cx = x + ox + fw * .5, cy = y + oy + fh * .46, rx = fw * .36, ry = fh * .30;
+        GB.ell(ctx, cx, cy, rx * 1.06, ry * 1.06, '#8a8a92', '#55555c'); GB.ell(ctx, cx, cy, rx, ry, '#e9edf1');   // the mirror
+        GB.ell(ctx, x + ox + fw * .5, y + oy + fh * .46, fw * .28, fh * .26, '#d9cfc8', '#8a7a72');   // the face oval
+        GB.rr(ctx, x + ox + fw * .36, y + oy + fh * .18, fw * .28, fh * .07, fw * .03, '#55555c');   // hair
+        ctx.strokeStyle = '#3a3a40'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+        for (const ex of [.40, .60]) { ctx.beginPath(); ctx.arc(x + ox + fw * ex, y + oy + fh * .405, fw * .035, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }   // closed eyes
+        ctx.beginPath(); ctx.moveTo(x + ox + fw * .5, y + oy + fh * .47); ctx.lineTo(x + ox + fw * .485, y + oy + fh * .515); ctx.lineTo(x + ox + fw * .505, y + oy + fh * .52); ctx.stroke();   // nose
+        ctx.beginPath(); ctx.arc(x + ox + fw * .5, y + oy + fh * .59, fw * .07, Math.PI * .15, Math.PI * .85); ctx.stroke();   // smile
+        GB.rr(ctx, x + ox + fw * .1, y + oy + fh * .885, fw * .8, fh * .02, 4, '#b8b8c0', '#8a8a92');   // the shelf
+        if (o && o.explain) { GB.bpZone(ctx, ox, oy, fw, fh * G.hudTop, '#ffa500', 'HUD STRIP 0-12%: plain wall, the lockup and pills sit here', true); const f = G.field; GB.bpZone(ctx, ox + f.x * fw, oy + f.y * fh, f.w * fw, f.h * fh, '#00e5ff', 'FIELD: the face oval; spots rise on cheeks and forehead', true); f.avoid.forEach(a => { ctx.save(); ctx.strokeStyle = '#ff4a2a'; ctx.setLineDash([10, 8]); ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(ox + a.x * fw, oy + a.y * fh, a.r * fw, a.r * fw / 1.5, 0, 0, 7); ctx.stroke(); ctx.restore(); }); GB.bpLabel(ctx, 30, oy + fh * .76, 'red dashes: no spots on the eyes, nose, mouth', '#ff4a2a', true); const p = LAYERS.boxPx({ box: G.boxes.products }, fw, fh); GB.bpZone(ctx, ox + p.x, oy + p.y, p.w, p.h, '#00e5ff', 'KEEP CLEAR: the products stand here', true); } } },
+    { id: 'L2', name: 'spot', type: 'sheet', canvas: [SQ, SQ], key: '#4A5A7A', camera: 'straight on', box: G.boxes.spot, states: true,
+      cells: { cols: 2, rows: 2, names: ['swelling', 'ripe', 'popped', 'calm'] },
+      notes: 'picture ×4 as ONE object · a single cartoon spot in the same flat style as the face: 1 swelling, 2 ripe (white head, shine), 3 popped, 4 calm; edits of one base (rule 13); pulse, shine and shrink are code',
+      shape(ctx, x, y, w, h, S, cell, o) { const cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) * .32;
+        if (cell === 0) { GB.ell(ctx, cx, cy, r * .7, r * .6, '#c99a95', '#8a5a55'); }
+        else if (cell === 1) { GB.ell(ctx, cx, cy, r, r * .9, GB.RED, '#8a2a20'); GB.ell(ctx, cx, cy - r * .08, r * .34, r * .3, '#f3eee8', '#c9b8b0'); }
+        else if (cell === 2) { GB.ell(ctx, cx, cy, r * 1.05, r * .95, '#9a2a22', '#5a1510'); for (let i = 0; i < 7; i++) { const a = i / 7 * 6.283; GB.ell(ctx, cx + Math.cos(a) * r * 1.2, cy + Math.sin(a) * r * 1.05, r * .16, r * .12, '#b8432f'); } }
+        else { GB.ell(ctx, cx, cy, r * .85, r * .75, 'rgba(220,200,195,.7)', 'rgba(150,120,115,.6)'); }
+        if (o && o.explain) GB.bpLabel(ctx, 30, 60, 'One spot, flat cartoon style matching the face; four states as edits of this base', '#ffd23a', true); } },
+    { id: 'L3', name: 'hand', type: 'viewmodel', canvas: [768, 1365], key: '#4A5A7A', camera: 'from above, the hand coming up the frame toward the camera', box: G.boxes.tip, leaves: ['bottom', 'right'],
+      notes: "picture · a whole RIGHT HAND seen from above, palm down: the index finger extended straight up with its pad at the TOP CENTRE of the canvas and a dab of gel on the very tip, the other three fingers curled under the palm, the thumb tucked along the left side, the wrist and forearm leaving through the bottom edge; correct anatomy (rule 21), photographic, the same hand as the close-up view; the game draws it rotated ~22° so it enters from the bottom-right; nothing is extended in code",
+      shape(ctx, x, y, w, h, S, cell, o) { const cx = x + w * G.tipAt, F = '#ecd9cf', K = '#5a4a44'; ctx.lineWidth = 2; ctx.strokeStyle = K; ctx.fillStyle = F;
+        ctx.beginPath(); ctx.moveTo(cx + w * .04, y + h * .44); ctx.lineTo(cx + w * .30, y + h * .44); ctx.lineTo(cx + w * .34, y + h); ctx.lineTo(cx - w * .02, y + h); ctx.closePath(); ctx.fill(); ctx.stroke();   // wrist + forearm, off the bottom
+        GB.rr(ctx, cx - w * .06, y + h * .20, w * .36, h * .26, w * .08, F, K);   // palm (back of the hand)
+        for (let i = 0; i < 3; i++) GB.rr(ctx, cx + w * (.08 + i * .075), y + h * .17, w * .068, h * .10, w * .03, F, K);   // three fingers curled under: only their first joints show
+        GB.rr(ctx, cx - w * .17, y + h * .25, w * .12, h * .14, w * .05, F, K);   // the thumb, tucked along the left
+        ctx.beginPath(); ctx.moveTo(cx - w * .062, y + h * .035); ctx.lineTo(cx - w * .07, y + h * .24); ctx.lineTo(cx + w * .07, y + h * .24); ctx.lineTo(cx + w * .062, y + h * .035); ctx.closePath(); ctx.fill(); ctx.stroke();   // the index finger, straight up
+        GB.ell(ctx, cx, y + h * .035, w * .062, h * .032, F, K); GB.rr(ctx, cx - w * .03, y + h * .012, w * .06, h * .03, w * .02, '#f3e6e0', K);   // pad + nail
+        ctx.beginPath(); ctx.moveTo(cx - w * .065, y + h * .105); ctx.quadraticCurveTo(cx, y + h * .098, cx + w * .065, y + h * .105); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx - w * .068, y + h * .17); ctx.quadraticCurveTo(cx, y + h * .163, cx + w * .068, y + h * .17); ctx.stroke();   // the two joint creases
+        GB.ell(ctx, cx, y + h * .03, w * .04, h * .02, 'rgba(180,220,255,.8)', 'rgba(90,140,200,.8)');   // the gel on the tip
+        if (o && o.explain) { GB.bpLabel(ctx, 30, 60, 'Index pad at the TOP CENTRE; a whole right hand from above; wrist off the bottom', '#ffd23a', true); } } },
+    { id: 'L4', name: 'mark', type: 'sprite', canvas: [512, 512], key: '#4A5A7A', camera: 'straight on', box: G.boxes.mark,
+      notes: 'picture · the mark a popped spot leaves, flat cartoon style; it stays for the round',
+      shape(ctx, x, y, w, h) { const cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) * .3; GB.ell(ctx, cx, cy, r, r * .85, '#7a2a22', '#4a1510'); } },
+    { id: 'L5', name: 'products', type: 'sprite', canvas: [1536, Math.round(1536 * (G.boxes.products.h * 960) / (G.boxes.products.w * 640))], key: '#4A5A7A', camera: 'straight on, slightly from above', box: G.boxes.products,
+      notes: "SUPPLIED or picture · the three Benzac products standing in a row as ONE picture: Purifying Foam Cleanser, AC Mild Strength 2.5% Acne Gel (centre, the one in use), Daily Facial Moisturiser; pack art from the client's kit; the brand slot in play (rule 10)",
+      shape(ctx, x, y, w, h, S, cell, o) { const names = ['CLEANSER', 'AC GEL', 'MOISTURISER']; for (let i = 0; i < 3; i++) { const bx = x + w * (0.08 + i * 0.3), bw = w * .24; GB.rr(ctx, bx, y + h * .12, bw, h * .86, bw * .12, '#ecece9', '#2a2a30'); GB.rr(ctx, bx + bw * .25, y, bw * .5, h * .16, bw * .06, '#8a8a92', '#2a2a30'); GB.rr(ctx, bx + bw * .12, y + h * .42, bw * .76, h * .22, 4, '#1F5FBF'); GB.label(ctx, bx + bw / 2, y + h * .53, names[i], bw * .11, '#fff'); }
+        if (o && o.explain) GB.bpLabel(ctx, 20, 50, 'Three packs, one picture, pack art from the kit', '#ffd23a', true); } },
+    { id: 'FX', name: 'code-effects', type: 'hud-in-code', canvas: null, key: null, notes: 'code · gel sheen trail, swell pulse, shine flicker, calm fade, pop burst, red flash, shake, win glow; HUD and cards are DOM' },
+  ],
+  drawFrame(ctx, S, W, H, C) {
+    const L = id => VIEW.layers.find(l => l.id === id), play = S.mode === 'play' || S.mode === 'attract';
+    LAYERS.draw(ctx, L('L1'), S, W, H);
+    S.marks.forEach(m => { LAYERS.draw(ctx, L('L4'), S, W, H, { box: { ...G.boxes.mark, x: m.x, y: m.y }, alpha: Math.min(1, m.t * 4) }); });
+    S.trail.forEach(p => { const k = 1 - p.t / 0.9; ctx.save(); ctx.globalAlpha = k * .32; ctx.fillStyle = '#cfe6ff'; ctx.beginPath(); ctx.ellipse(W * p.x, H * p.y, W * G.tipR * .75, W * G.tipR * .75, 0, 0, 7); ctx.fill(); ctx.restore(); });
+    S.spots.forEach(s => {
+      if (s.state === 'live') { const sc = 0.35 + 0.65 * s.swell, pulse = s.swell >= 1 ? 1 + 0.04 * Math.sin(S.elapsed * 7 + s.ph) : 1, b = G.boxes.spot, box = { ...b, x: s.x, y: s.y, w: b.w * sc * pulse, h: b.h * sc * pulse };
+        LAYERS.draw(ctx, L('L2'), S, W, H, { box, cell: s.swell < 0.55 ? 0 : 1 });
+        if (s.swell >= 1 && s.calm < 0.3) { const f = (Math.sin(S.elapsed * 5 + s.ph) + 1) / 2; ctx.save(); ctx.globalAlpha = .35 + .5 * f; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(W * s.x - W * G.spotR * .4, H * s.y - W * G.spotR * .42, W * G.spotR * .14, W * G.spotR * .09, -.5, 0, 7); ctx.fill(); ctx.restore(); }
+        if (s.calm > 0) LAYERS.draw(ctx, L('L2'), S, W, H, { box, cell: 3, alpha: Math.min(1, s.calm) }); }
+      else if (s.state === 'calm') { const k = 1 - s.t / 0.6, b = G.boxes.spot; LAYERS.draw(ctx, L('L2'), S, W, H, { box: { ...b, x: s.x, y: s.y, w: b.w * k, h: b.h * k }, cell: 3, alpha: k }); }
+      else { const q = s.t / 0.5; ctx.save(); ctx.globalAlpha = Math.max(0, 1 - q); for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283 + s.ph; GB.ell(ctx, W * s.x + Math.cos(a) * W * G.spotR * 1.6 * q, H * s.y + Math.sin(a) * W * G.spotR * 1.4 * q, W * .01, W * .008, '#b8432f'); } ctx.restore(); }
+    });
+    if (S.red > 0) { ctx.save(); ctx.globalAlpha = S.red * .22; ctx.fillStyle = '#d8432f'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+    LAYERS.draw(ctx, L('L5'), S, W, H);
+    if (play || S.mode === 'reveal') { const b = G.boxes.tip; const tb = { ...b, x: S.tip.x, y: S.tip.y - b.h * G.tipPad }, al = S.down || S.mode === 'attract' ? 1 : .55, px = W * S.tip.x, py = H * S.tip.y; ctx.save(); ctx.translate(px, py); ctx.rotate(G.tipAngle); ctx.translate(-px, -py); LAYERS.draw(ctx, L('L3'), S, W, H, { box: tb, alpha: al }); ctx.restore(); }   // the whole hand, rotated about the index pad so it enters from the bottom-right; nothing extended in code (owner, 14:49)
+    GB.pops(ctx, S, W * S.popAt.x, H * S.popAt.y - W * G.spotR);
+    if (S.mode === 'reveal' || S.mode === 'win') { const k = Math.min(1, S.reveal), e = 1 - Math.pow(1 - k, 3); ctx.save(); ctx.globalAlpha = e * .38; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  },
+};
+DontPop.run(VIEW);
+</script></body></html>

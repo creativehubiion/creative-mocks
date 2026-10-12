@@ -1,0 +1,67 @@
+{
+ "spot": {
+  "cell": 80,
+  "cols": 2,
+  "rows": 2,
+  "names": [
+   "swelling",
+   "ripe",
+   "popped",
+   "calm"
+  ],
+  "states": true,
+  "foot": {
+   "cx": 0.49375,
+   "cy": 0.6125,
+   "rx": 0.16875,
+   "ry": 0.075
+  }
+ },
+ "hand": {
+  "w": 594,
+  "h": 1065,
+  "box": {
+   "w": 0.72,
+   "h": 0.8533333333333332,
+   "anchor": "top"
+  },
+  "foot": {
+   "cx": 0.6624579124579124,
+   "cy": 0.9192488262910798,
+   "rx": 0.1691919191919192,
+   "ry": 0.07981220657276995
+  }
+ },
+ "mark": {
+  "w": 46,
+  "h": 46,
+  "box": {
+   "w": 0.055,
+   "h": 0.03666666666666667,
+   "anchor": "centre"
+  },
+  "foot": {
+   "cx": 0.4891304347826087,
+   "cy": 0.6521739130434783,
+   "rx": 0.22826086956521738,
+   "ry": 0.08695652173913043
+  }
+ },
+ "products": {
+  "w": 466,
+  "h": 200,
+  "box": {
+   "x": 0.5,
+   "y": 0.895,
+   "w": 0.56,
+   "h": 0.16,
+   "anchor": "bottom"
+  },
+  "supplied": [
+   "00-intake/supplied/cleanser.png",
+   "00-intake/supplied/ac-gel.png",
+   "00-intake/supplied/moisturiser.png"
+  ],
+  "note": "placed as supplied, no cutout"
+ }
+}
