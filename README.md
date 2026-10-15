@@ -7,9 +7,12 @@ served by GitHub Pages:
 
 | Format | Folder | Device |
 |---|---|---|
-| Interactive CTV (L-band playables in a 30 s TV break) | `ctv/` | TV + animated remote |
+| Interactive CTV (L-band playables in a 30 s TV break), or a CTV video ad with the break countdown | `ctv/` | TV (+ animated remote when interactive) |
 | Hybrid playable (video on top + game below, 320×480) | `hybrid/` | phone, in-app interstitial |
 | Playable (game only, 320×480) | `playable/` | phone, in-app interstitial |
+| Rewarded video (landscape, reward countdown) | `rewarded/` | phone, landscape |
+| Rewarded video + end card | `rewarded-endcard/` | phone, landscape |
+| Several mocks for one brand on one link | `showcase/` | the mocks' own pages, switched from the header |
 
 The site root shows only the iion logo; brand pages are not linked from anywhere, and every page
 carries `noindex`. Share each brand only its own URL. Links from the old `interactive-ctv-mocks`
@@ -26,6 +29,7 @@ site redirect here.
 
 ## Adding a new brand
 
-1. Copy the format's `_template/` (or an existing brand) to `<format>/<brand>/`.
+1. Copy the format's `_template/` (or an existing brand) to `<format>/<brand>/`. CTV video ads start from `ctv/_template-video/`;
+   several mocks for one brand get a `showcase/<brand>/` page from `showcase/_template/` that links to them.
 2. Replace `mock.html` / `assets/`, and set the page's eyebrow (`<Format> · <Brand>`) and H1.
 3. Commit and push; Pages updates in a minute or two.

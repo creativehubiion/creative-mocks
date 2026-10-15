@@ -1,7 +1,7 @@
 // Mobile previews (hybrid / playable): load in <head>, before the page paints.
 // · On a phone: skip the mock page and open the ad unit full screen (2:3 with black bars, as it serves in-app).
 //   The full-screen URL comes from .ad-slot[data-full] (fallback: the iframe src). Add ?desktop to keep the mock page.
-// · On a desktop: a "Scan to play on your phone" QR card beside the phone, encoding this page's own URL.
+// · On a desktop: a "Scan to play on your phone" QR card beside the phone, encoding this page's own URL (not on .phone[data-noqr]).
 // · On a desktop: the ad slot is pixel-snapped so no hairline shows along the creative's top edge (see below).
 (function () {
   const q = new URLSearchParams(location.search);
@@ -31,7 +31,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     const phone = document.querySelector('.phone');
-    if (!phone) return;
+    if (!phone || phone.hasAttribute('data-noqr')) return;   // QR card is for playable formats only (not rewarded video)
     const card = document.createElement('aside');
     card.className = 'qr-card';
     card.innerHTML = '<div class="qr" aria-hidden="true"></div><div class="txt"><b>Scan to play on your phone</b><span>Opens the ad full screen</span></div>';
@@ -56,7 +56,7 @@
   //   Add ?nosnap to compare.
   document.addEventListener('DOMContentLoaded', () => {
     if (q.has('nosnap')) return;
-    const slot = document.querySelector('.phone .ad-slot'); if (!slot) return;
+    const slot = document.querySelector('.phone .ad-slot'); if (!slot || slot.classList.contains('fill')) return;   // .fill: full-screen landscape slot, not 2:3
     const scr = slot.parentElement;
     const snapSlot = () => {
       const dpr = window.devicePixelRatio || 1, r = scr.getBoundingClientRect(), w = r.width; if (!w) return;

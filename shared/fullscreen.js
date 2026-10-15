@@ -1,4 +1,4 @@
-// CTV pages on phones: a "Full screen" button beside "Turn sound on". Tapping it drops the device mock and shows only the ad
+// CTV and rewarded-video pages on phones: a "Full screen" button beside "Turn sound on". Tapping it drops the device mock and shows only the ad
 // screen (16:9 on black) with sound on. Landscape is never forced: the viewer turns the phone for a bigger picture, as with
 // YouTube. Opening the page in landscape keeps the TV mock; full screen only happens on tap.
 // · Android / Chrome: also enters browser full screen (hides the system bars). Back or ✕ returns to the mock.
@@ -21,7 +21,7 @@
   close.innerHTML = svg('<path d="M6 6l12 12M18 6 6 18"/>');
   const hint = document.createElement('div');
   hint.className = 'fs-hint';
-  hint.innerHTML = svg('<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M2 16a10 10 0 0 0 6 5"/>') + 'Turn your phone sideways for a bigger picture';
+  hint.innerHTML = svg('<rect x="3" y="7" width="10" height="15" rx="2"/><path d="M7 19h2"/><path d="M12 2.5a8.5 8.5 0 0 1 8.5 8.5"/><path d="M18 8.7l2.5 2.6 2.4-2.6"/>') + 'Turn your phone sideways for a bigger picture';
   document.body.append(close, hint);
 
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;

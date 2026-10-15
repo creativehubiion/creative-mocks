@@ -1,0 +1,48 @@
+/* iion mobile preview — the same CSS phone as shared/phone.css, turned to landscape (loads after phone.css).
+   Add class "land" to .phone. The device is phone.css rotated 90° anticlockwise: island on the left, volume buttons on the
+   bottom edge, power on the top edge; every portrait % maps to its rotated axis (frame 2.112:1, screen 852×393).
+   Used for full-screen landscape units (rewarded video): the ad fills the whole screen, so the slot is .ad-slot.fill.
+   Like the TV it fills the stage width (centred); no "Scan to play" card (rewarded video isn't a playable). Phones get the CTV
+   treatment, not the playable one: the page stays, with "Turn sound on" + "Full screen" (shared/fullscreen.js). */
+
+.phone.land{aspect-ratio:2.112;width:min(100cqw,100cqh * 2.112);border-radius:7.1% / 15%}
+.phone.land .screen{left:1.136%;right:1.136%;top:2.4%;bottom:2.4%;border-radius:6.1% / 13.2%}
+.phone.land .ad-slot.fill{inset:0;top:0;aspect-ratio:auto;transform:none}
+.phone.land .island{top:50%;left:1.25%;width:3.75%;height:31%;transform:translateY(-50%)}
+.phone.land .homebar{bottom:2%;width:25%;height:1.3%}
+.phone.land .hw{width:auto;height:1.1%;background:linear-gradient(0deg,#1b1b1d,#3b3b3f)}
+.phone.land .hw-action{left:15%;top:auto;bottom:-.9%;width:3.2%}
+.phone.land .hw-vol1{left:21%;top:auto;bottom:-.9%;width:6.2%}
+.phone.land .hw-vol2{left:28.5%;top:auto;bottom:-.9%;width:6.2%}
+.phone.land .hw-power{left:24%;right:auto;top:-.9%;width:9.5%}
+.phone.land .floor{left:6%;right:6%;bottom:-4.6%;height:5%}
+
+@media (max-width:700px){.phone.land{width:100%;margin:0 auto}}
+
+/* sound button under the phone, as on the TV pages (theme.js moves .controls into .phone) */
+.phone.land .controls{margin-top:clamp(16px,2.6vh,28px);display:flex;gap:10px;white-space:nowrap}
+/* phones: laid out exactly like the CTV pages (page.css v11 "CTV on phones"): device centred in the screen, buttons under it;
+   sideways, the device fills the height and the buttons stack beside it. The shadow is tighter so the screen edge never cuts it. */
+@media (max-width:700px){
+  body:has(.phone.land){height:auto;min-height:100svh;display:flex;flex-direction:column}
+  .stage.phone-stage:has(.phone.land){flex:1 1 auto;container-type:normal;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 16px}
+  .phone.land{width:100%;margin:0 0 74px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.18),inset 0 0 0 5px #0c0c0d,0 2px 3px rgba(0,0,0,.25),0 12px 18px -10px rgba(0,0,0,.4)}
+  .phone.land .controls{left:50%;top:100%;transform:translateX(-50%);margin-top:22px}
+  .phone.land .snd{font-size:14px;padding:11px 18px}
+}
+@media (orientation:landscape) and (max-height:500px){
+  body:has(.phone.land){height:100svh;min-height:0;display:flex;flex-direction:column}
+  .stage.phone-stage:has(.phone.land){flex:1 1 auto;min-height:0;container-type:size;display:flex;flex-direction:row;align-items:center;justify-content:center;padding:10px 20px 14px}
+  .phone.land{width:min(100cqw - 150px,100cqh * 2.112);margin:0 150px 0 0}
+  .phone.land .controls{left:100%;top:50%;transform:translateY(-50%);margin:0 0 0 18px;flex-direction:column;align-items:stretch}
+  .phone.land .snd{font-size:13px;padding:10px 15px}
+}
+
+/* full screen on phones (shared/fullscreen.js), same as the CTV: only the ad, on black; ✕ returns; landscape never forced */
+html.fs .stage{container-type:normal;contain:none}
+html.fs .phone.land{position:fixed;inset:0;width:auto;height:auto;aspect-ratio:auto;margin:0;border-radius:0;background:#000;box-shadow:none;z-index:20}
+html.fs .phone.land .screen{inset:0;border-radius:0}
+html.fs .phone.land .controls{position:fixed;left:16px;bottom:16px;top:auto;transform:none;margin:0;z-index:22}
+html.fs .phone.land .snd{width:44px;height:44px;padding:0;justify-content:center;font-size:0;gap:0;color:#fff;
+  background:rgba(255,255,255,.16);border:0;border-radius:50%;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+html.fs .phone.land .snd svg{width:19px;height:19px}
