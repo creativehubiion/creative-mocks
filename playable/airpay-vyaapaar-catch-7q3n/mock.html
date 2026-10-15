@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Vyaapaar QR Catch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0a4478; --blue:#1068a8; --sky:#9fd3f7; --orange:#ee6c2c;
+    --green:#17a34a; --red:#ef4444; --ink:#101828;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:#000;color:#fff;
+    font-family:Poppins,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none;user-select:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #stage{container-type:size;position:relative;aspect-ratio:2/3;width:min(100vw,66.667vh,640px);height:auto;
+    background:linear-gradient(180deg,#1a7fc7,#0a4478);overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.6)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;background:linear-gradient(180deg,rgba(26,127,199,.72),rgba(8,58,104,.92));gap:14px}
+  .hidden{display:none!important}
+  h1{margin:0;font-size:clamp(28px,8vw,40px);line-height:1.05;letter-spacing:-.5px}
+  h1 span{color:var(--orange)}
+  p{margin:0;color:#e3effa;font-size:clamp(14px,3.8vw,17px);line-height:1.45;max-width:30ch}
+  .brand{font-weight:700;color:var(--sky);font-size:16px}
+  .chip{background:#fff;border-radius:14px;padding:6px 14px;width:200px;box-shadow:0 4px 16px rgba(0,30,70,.25)}
+  .chip img{width:100%;display:block}
+  button,a.btn{appearance:none;border:0;cursor:pointer;font:inherit;font-weight:700;font-size:18px;color:var(--ink);
+    background:var(--orange);padding:14px 36px;border-radius:999px;text-decoration:none;
+    box-shadow:0 6px 0 #b8481a,0 10px 24px rgba(0,0,0,.3);transition:transform .08s}
+  button:active,a.btn:active{transform:translateY(3px);box-shadow:0 3px 0 #b8481a}
+  a.btn.alt{background:#fff;box-shadow:none;color:var(--blue);font-size:15px;padding:10px 24px}
+  .big{font-size:56px;font-weight:800;color:var(--orange)}
+  #mute{position:absolute;top:10px;right:10px;z-index:5;width:38px;height:38px;padding:0;border-radius:50%;
+    font-size:17px;background:rgba(255,255,255,.12);box-shadow:none}
+  #mute:active{transform:none}
+
+
+  /* ---- game-over screen: placement follows the user's reference screenshot (logo, POS and Scan & Pay stand are part of the background art) ---- */
+  #over.screen{display:block;padding:0;overflow:hidden;background:url("assets/bg-gameover-640x960.jpg") center/cover no-repeat}
+  #confetti{position:absolute;inset:0;pointer-events:none}
+  #confetti img{position:absolute;height:auto;opacity:0;transform:translate(-50%,calc(-50% - 8cqh)) rotate(var(--r));animation:cfIn .7s ease-out forwards;animation-delay:var(--d)}
+  #confetti img.cfg{transform:none;animation:cfgIn .8s ease-out forwards;animation-delay:var(--d)}
+  @keyframes cfgIn{to{opacity:1}}
+  @keyframes cfIn{to{opacity:1;transform:translate(-50%,-50%) rotate(var(--r))}}
+  #over .o-card{position:absolute;height:auto;transform:translate(-50%,-50%) rotate(var(--r));filter:drop-shadow(0 1.2cqw 2cqw rgba(10,40,120,.35));z-index:2}
+  #over .c1{width:14.5cqw;left:17.7cqw;top:27.2cqh;--r:-22deg}
+  #over .c2{width:14.5cqw;left:80.5cqw;top:44.3cqh;--r:16deg}
+  #over .o-panel{position:absolute;left:23cqw;width:54cqw;top:23.8cqh;height:37cqh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 2.4cqw;border-radius:7cqw;text-align:center;
+    background:linear-gradient(180deg,#fff,#f3f8ff);border:.5cqw solid rgba(90,150,255,.65);box-shadow:0 0 4.5cqw rgba(50,110,255,.45),0 2cqw 5cqw rgba(0,30,90,.22)}
+  #over h1{margin:0;font-size:6cqw;font-weight:800;color:#0460b0;letter-spacing:-.02em;white-space:nowrap}
+  #over .big{position:relative;font-size:13.5cqw;line-height:1.1;font-weight:800;margin:.6cqw 0 1.4cqw;color:#ff6a1a}
+  #over .big #finalScore{display:inline-block;background:linear-gradient(180deg,#ffa447 0%,#f2711f 55%,#e9501a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(-.12cqw -.12cqw 0 rgba(255,235,205,.9)) drop-shadow(.3cqw .45cqw 0 #d6502a)}
+  #over .tk{position:absolute;top:50%;width:4.4cqw;height:.9cqw;border-radius:1cqw;background:#ffc21a;box-shadow:0 2.2cqw 0 -.1cqw #ffb020}
+  #over .tk.l{left:-7cqw;transform:translateY(-1.5cqw) rotate(24deg)} #over .tk.r{right:-7cqw;transform:translateY(-1.5cqw) rotate(-24deg)}
+  #over .o-panel p{color:#1b2a5a;max-width:44cqw;font-size:3.2cqw;line-height:1.3;margin:0 auto;font-weight:500}
+  #over .stats{margin-top:4.6cqw;display:flex;align-items:center;justify-content:center;gap:2cqw;width:100%;padding:1.8cqw 1cqw;border-radius:3cqw;background:#fdf1dc}
+  #over .st{display:flex;align-items:center;gap:1.2cqw;text-align:left}
+  #over .st img{height:6.4cqw;width:auto;flex:none}
+  #over .st small{display:block;white-space:nowrap;font-size:2.2cqw;font-weight:700;color:#0460b0;line-height:1.1}
+  #over .st b{display:block;white-space:nowrap;font-size:3.5cqw;font-weight:800;color:#f0601a;line-height:1.1}
+  #over .dv{width:.25cqw;height:6cqw;background:#e5c99a}
+  #over #cta{position:absolute;left:48.9cqw;top:73.5cqh;width:51.4cqw;transform:translate(-50%,-50%);display:block}
+  #over #cta img{width:100%;display:block;filter:drop-shadow(0 1cqw 1.6cqw rgba(160,60,0,.35))}
+  #over #cta:active{transform:translate(-50%,-50%) scale(.97)}
+  #over #again{position:absolute;left:50cqw;top:81.2cqh;transform:translate(-50%,-50%);padding:1cqw 2cqw;background:none;border:0;box-shadow:none;font-size:3.8cqw;font-weight:600;color:#0460b0;
+    text-decoration:underline;text-underline-offset:1cqw;text-decoration-thickness:.35cqw;text-shadow:0 0 1.6cqw rgba(255,255,255,.85)}
+  #over #again{display:flex;align-items:center;gap:1.3cqw;text-decoration:none}
+  #over #again span{text-decoration:underline;text-underline-offset:1cqw;text-decoration-thickness:.35cqw;white-space:nowrap}
+  #over #again svg{width:4.2cqw;height:4.2cqw;flex:none;filter:drop-shadow(0 0 1.2cqw rgba(255,255,255,.85))}
+  #over #again:active{transform:translate(-50%,-50%) translateY(.5cqw);box-shadow:none}
+
+  /* ---- "Just a few details" form screen (pops up mid-round) ---- */
+  #form.screen{display:block;padding:0;overflow:hidden;background:url("assets/bg-form-640x960.jpg") center/cover no-repeat;z-index:6}
+  #form .flogo{position:absolute;left:50%;top:5.6cqh;width:70cqw;transform:translateX(-50%)}
+  #form .fhead{position:absolute;left:50%;top:16.5cqh;width:56cqw;transform:translateX(-50%);height:auto;filter:drop-shadow(0 1cqw 1.4cqw rgba(0,30,110,.25))}
+  #form .fpanel{position:absolute;left:11.5cqw;width:77cqw;top:32cqh;height:auto;padding:9.4cqw 13.2cqw 11.2cqw;display:flex;flex-direction:column;align-items:center;
+    background:url("assets/form/card.webp") center/100% 100% no-repeat;filter:drop-shadow(0 1.6cqw 2.4cqw rgba(0,30,90,.25))}
+  #form .ft{font-size:3.6cqw;font-weight:800;color:#0b1d7a;margin:0 0 1.4cqw}
+  #form .row{display:flex;gap:2.4cqw;width:100%;margin-bottom:2.2cqw}
+  #form .opt{position:relative;flex:1;padding:0;border:0;background:none;box-shadow:none;cursor:pointer;transition:transform .12s,filter .12s,opacity .12s}
+  #form .opt img{width:100%;height:auto;display:block;pointer-events:none}
+  #form .row.has .opt:not(.sel){opacity:.72}
+  #form .opt.sel{transform:scale(1.07);filter:drop-shadow(0 0 2.4cqw color-mix(in srgb,var(--c) 85%,transparent))}
+  #form .opt.sel::after{content:"✓";position:absolute;top:-1.6cqw;right:-1.4cqw;width:5cqw;height:5cqw;border-radius:50%;background:var(--c);color:#fff;font-size:3.2cqw;display:flex;align-items:center;justify-content:center;box-shadow:0 .4cqw 1cqw rgba(0,0,0,.25)}
+  #form #fnext{width:40cqw;padding:0;margin-top:.4cqw;border:0;background:none;box-shadow:none;cursor:pointer;filter:drop-shadow(0 0 2.4cqw rgba(60,130,255,.65))}
+  #form #fnext img{width:100%;display:block;pointer-events:none}
+  #form #fnext.shake{animation:fshake .4s}
+  @keyframes fshake{20%,60%{transform:translateX(-1.2cqw)}40%,80%{transform:translateX(1.2cqw)}}
+  #form .row.need .opt{animation:fneed .9s ease-in-out 2}
+  @keyframes fneed{50%{transform:scale(1.05);filter:drop-shadow(0 0 2cqw rgba(255,190,40,.9))}}
+  #form #fskip{margin-top:.6cqw;background:none;border:0;box-shadow:none;padding:.6cqw 2cqw;font-size:3.5cqw;font-weight:700;color:#1a3fc8;text-decoration:underline;text-underline-offset:.9cqw}
+  #form .fpanel{z-index:1}
+  #form .fstand{position:absolute;width:31cqw;right:-9cqw;bottom:9.5cqh;filter:drop-shadow(0 1.5cqw 2cqw rgba(0,20,80,.3));z-index:0}
+  #form .fpos{position:absolute;width:40cqw;left:-8.5cqw;bottom:2.5cqh;filter:drop-shadow(0 2cqw 2cqw rgba(40,20,5,.35));z-index:2}
+  #form .fjar{position:absolute;width:14cqw;left:0;bottom:0;z-index:3}
+  #form .fplant{position:absolute;width:31.7cqw;right:0;bottom:0;z-index:3}
+
+  /* ---- instructions screen (Catch / Avoid) shown after the first screen ---- */
+  #info.screen{display:block;padding:0;overflow:hidden;background:url("assets/bg-instructions-640x960.jpg") center/cover no-repeat}
+  #info .i-panel{position:absolute;left:10cqw;width:80cqw;top:17.5cqh;height:auto;filter:drop-shadow(0 1.5cqw 2.5cqw rgba(0,20,80,.35))}
+  #info #go{position:absolute;left:50%;bottom:3.6cqh;transform:translateX(-50%);width:50cqw;padding:0;background:none;border:0;box-shadow:none;cursor:pointer;filter:drop-shadow(0 0 3cqw rgba(47,107,255,.7));animation:pulseBtn 1.4s ease-in-out infinite}
+  #info #go img{width:100%;display:block}
+  #info .pos-hero,#info .chev{position:absolute}
+
+  /* ---- start screen (matches the "Catch Every Payment" mock) ---- */
+  #start.screen{display:block;padding:0;background:url("assets/bg-instructions-640x960.jpg") center/cover no-repeat;overflow:hidden}
+  #start::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 85% 26% at 50% 29%,rgba(255,255,255,.95),rgba(255,255,255,.55) 45%,transparent 75%),radial-gradient(circle at 97% 14%,rgba(255,255,255,.8),transparent 15%),radial-gradient(circle at 4% 30%,rgba(255,244,214,.55),transparent 18%),radial-gradient(ellipse 50% 14% at 50% 80%,rgba(80,140,255,.35),transparent 70%)}
+  #start>*{position:absolute}
+  #start .chev{margin-top:-7.4cqw}
+  #cards{inset:0}
+  .top-tab{left:50%;transform:translateX(-50%);top:2cqw;width:44cqw}
+  .top-tab img{width:100%;display:block}
+  .hero{left:0;right:0;top:17cqh;margin:0;text-align:center}
+  .hero img{width:58cqw;display:block;margin:0 auto}
+  .swoosh{left:50%;transform:translateX(-50%);top:100%;width:44cqw;height:5cqw;margin-top:.4cqw;position:absolute}
+  .tick{position:absolute;top:60%;width:5.6cqw;height:1.1cqw;border-radius:1cqw;background:#ffc21a}
+  .tick.tl{left:5cqw;transform:rotate(-24deg);box-shadow:0 2.6cqw 0 -0.1cqw #ff8a1f}
+  .tick.tr{right:5cqw;transform:rotate(24deg);box-shadow:0 2.6cqw 0 -0.1cqw #ff8a1f}
+  #start .sub{left:0;right:0;top:34.4cqh;max-width:none;text-align:center;font-size:3cqw;font-weight:600;color:#3a4968;line-height:1.3}
+  #start .hint{left:0;right:0;top:35.2cqh;max-width:none;text-align:center;font-size:3cqw;font-weight:600;color:#5a6988}
+  .qcard{position:absolute;width:13.5cqw;transform:translate(-50%,-50%) rotate(var(--r));background:#fff;border-radius:2.4cqw;padding:1.6cqw 1.6cqw 1.4cqw;
+    text-align:center;border:.35cqw solid var(--glow);box-shadow:0 0 3cqw color-mix(in srgb,var(--glow) 55%,transparent),0 1cqw 2.4cqw rgba(0,0,0,.16);animation:bob 2.6s ease-in-out infinite;animation-delay:var(--d)}
+  .qimg{width:14cqw;height:auto;background:none;border:0;padding:0;border-radius:0;box-shadow:none;filter:drop-shadow(0 0 2.2cqw color-mix(in srgb,var(--glow) 65%,transparent)) drop-shadow(0 1cqw 1.2cqw rgba(0,0,0,.18))}
+  .qcard .nm{font-size:3cqw;font-weight:800;line-height:1.1;margin-bottom:.8cqw;white-space:nowrap;color:#222}
+  .qcard svg{width:100%;display:block}
+  .qcard .nm{display:flex;align-items:center;justify-content:center;height:5.2cqw}
+  .qcard .lg{max-width:82%;max-height:100%;height:100%;object-fit:contain;display:block}
+  @keyframes bob{50%{transform:translate(-50%,calc(-50% - 1.4cqh)) rotate(var(--r))}}
+  .chev{top:72.8cqh;width:12cqw;height:auto;margin-top:-5.2cqw;animation:nudge 1.1s ease-in-out infinite}
+  .chev.l{left:15cqw}.chev.r{right:15cqw;animation-name:nudgeR}
+  #start .hint img{height:4.6cqw;width:auto;vertical-align:middle;margin:-.6cqw .4cqw 0}
+  @keyframes nudge{50%{transform:translateX(-1.6cqw)}} @keyframes nudgeR{50%{transform:translateX(1.6cqw)}}
+  .pos-hero{left:50%;bottom:13cqh;width:37cqw;transform:translateX(-50%);filter:drop-shadow(0 3cqw 2cqw rgba(40,20,5,.55));animation:sway 3s ease-in-out infinite}
+  @keyframes sway{0%,100%{transform:translateX(calc(-50% - 3cqw))}50%{transform:translateX(calc(-50% + 3cqw))}}
+  #start #play{left:50%;bottom:3.6cqh;transform:translateX(-50%);width:50cqw;padding:0;background:none;border:0;box-shadow:none;cursor:pointer;filter:drop-shadow(0 0 3cqw rgba(47,107,255,.7));animation:pulseBtn 1.4s ease-in-out infinite}
+  #start #play img{width:100%;display:block}
+  @keyframes pulseBtn{50%{transform:translateX(-50%) scale(1.04)}}
+  #start #play:active{transform:translateX(-50%) scale(.98);box-shadow:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="c"></canvas>
+
+    <div id="start" class="screen">
+      <h1 class="hero"><img src="assets/heading-catch-every-payment.webp" alt="Catch Every Payment"></h1>
+      <p class="sub">Move the POS to collect<br>QR payments</p>
+      <div id="cards"></div>
+      <img class="chev l" src="assets/arrow-v3-left.webp" alt="">
+      <img class="chev r" src="assets/arrow-v3-right.webp" alt="">
+      <img class="pos-hero" src="assets/pos-terminal-new.webp" alt="airpay POS">
+      <button id="play" aria-label="Tap to Play"><img src="assets/cta-tap-to-play.webp" alt="Tap to Play"></button>
+    </div>
+
+    <div id="info" class="screen hidden">
+      <img class="i-panel" src="assets/instructions-panel.webp" alt="Catch the reward cards, avoid the fraud card">
+      <img class="chev l" src="assets/arrow-left-v2.webp" alt="">
+      <img class="chev r" src="assets/arrow-right-v2.webp" alt="">
+      <img class="pos-hero" src="assets/pos-terminal-new.webp" alt="airpay POS">
+      <button id="go" aria-label="Let's Play"><img src="assets/cta-lets-play.webp" alt="Let's Play"></button>
+    </div>
+
+    <div id="form" class="screen hidden">
+      <img class="flogo" src="assets/logo-badge.webp" alt="airpay vyaapaar">
+      <img class="fhead" src="assets/heading-know-you.webp" alt="Let's get to know you! Just a few details.">
+      <div class="fpanel">
+        <div class="ft">Select Your Gender</div>
+        <div class="row"><button class="opt" data-g="male" style="--c:#2f9bff" aria-label="Male"><img src="assets/form/gender-male.webp" alt="Male"></button><button class="opt" data-g="female" style="--c:#ff4fa0" aria-label="Female"><img src="assets/form/gender-female.webp" alt="Female"></button><button class="opt" data-g="na" style="--c:#8a4fe8" aria-label="Prefer not to say"><img src="assets/form/gender-na.webp" alt="Prefer not to say"></button></div>
+        <div class="ft">Select Your Age Group</div>
+        <div class="row"><button class="opt" data-a="18-30" style="--c:#26d49a" aria-label="18 to 30"><img src="assets/form/age-18-30.webp" alt="18 to 30"></button><button class="opt" data-a="31-45" style="--c:#ffa31a" aria-label="31 to 45"><img src="assets/form/age-31-45.webp" alt="31 to 45"></button><button class="opt" data-a="46-65" style="--c:#8a5fe8" aria-label="46 to 65"><img src="assets/form/age-46-65.webp" alt="46 to 65"></button></div>
+        <button id="fnext" aria-label="Submit"><img src="assets/form/submit.webp" alt="Submit"></button>
+        <button id="fskip">Skip</button>
+      </div>
+      <img class="fstand" src="assets/scan-pay-stand.webp" alt="">
+      <img class="fpos" src="assets/pos-terminal-tilted.webp" alt="">
+      <img class="fjar" src="assets/foreground/candy-jar.webp" alt="">
+      <img class="fplant" src="assets/foreground/plant.webp" alt="">
+    </div>
+
+    <div id="over" class="screen hidden">
+      <div id="confetti"></div>
+      <div class="o-panel">
+        <h1>Aapki kamai</h1>
+        <div class="big"><i class="tk l"></i><span id="finalScore">₹0</span><i class="tk r"></i></div>
+        <p id="finalMsg"></p>
+        <div class="stats">
+          <div class="st"><img src="assets/icons/trophy.webp" alt=""><div><small id="bestLbl">Best:</small><b id="bestVal">₹0</b></div></div>
+          <i class="dv"></i>
+          <div class="st"><img src="assets/icons/flame.webp" alt=""><div><small>Best combo:</small><b id="comboVal">x0</b></div></div>
+        </div>
+      </div>
+      <img class="o-card c1" src="assets/cards/easy.webp" alt="">
+      <img class="o-card c2" src="assets/cards/customers.webp" alt="">
+      <a id="cta" href="#" target="_blank" rel="noopener"><img src="assets/cta-install-now.webp" alt="Install now"></a>
+      <button id="again"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-2.6-5.9M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Play Again</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+// Game settings (mirrors the reference studio: lose condition, round timer, avoid items)
+const CONFIG = {
+  mode: "timed",        // "timed" = beat the clock, "lives" = three lives
+  roundSeconds: 20, formAtSecondsLeft: 6, // pause and show the "Just a few details" form this many seconds before the end (0 to disable)
+      // used in timed mode
+  avoidItems: true,     // show red Fraud QRs
+  ctaUrl: "https://play.google.com/store/apps/details?id=com.airpay.mahaepay_aeps"  // TODO: confirm CTA destination (same placeholder as the earlier playable)
+};
+const W = 360, H = 540;                       // logical resolution
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const $ = id => document.getElementById(id);
+
+// ---------- scaling ----------
+function resize(){
+  const r = cv.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+  ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+}
+addEventListener("resize", resize);
+
+// ---------- audio ----------
+let muted = false, actx = null;
+function tone(f, d, type = "sine", vol = .12, slide = 0){
+  if (muted) return;
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.linearRampToValueAtTime(f + slide, t + d);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d);
+  }catch(e){}
+}
+const sfx = {
+  catch(c){ tone(880 + Math.min(c, 10) * 40, .12, "triangle"); setTimeout(() => tone(1320 + Math.min(c, 10) * 40, .1, "triangle"), 70); },
+  gold(){ [660, 880, 1100, 1320].forEach((f, i) => setTimeout(() => tone(f, .14, "square", .07), i * 70)); },
+  bad(){ tone(180, .3, "sawtooth", .13, -90); },
+  miss(){ tone(300, .25, "square", .08, -120); },
+  over(){ [400, 330, 260, 190].forEach((f, i) => setTimeout(() => tone(f, .25, "triangle", .12), i * 160)); }
+};
+
+// ---------- drawing helpers ----------
+function rr(x, y, w, h, r){
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function rnd(a, b){ return a + Math.random() * (b - a); }
+
+// ---- payment cards: white card, app logo on top, QR below (same look as the start screen) ----
+const APPS = ["gpay", "paytm", "phonepe", "upi", "amazonpay"].map((id, i) => ({
+  id, glow: ["#3b82f6", "#3b82f6", "#8b5cf6", "#22c55e", "#f59e0b"][i]   // iion hosting: the logo SVGs were loaded but never drawn (0.48 MB), so not loaded
+}));
+const LOGO = Object.assign(new Image(), { src: "assets/logo-badge.webp" });
+// sticker-style QR cards (user-supplied art); pay cards pick one of the five payment apps
+const CARD_IMGS = Object.fromEntries(["customers","easy","growth","bonus-v2","fraud"].map(id =>
+  [id, Object.assign(new Image(), { src: `assets/cards/${id}.webp` })]));
+const PAY_IDS = ["customers","easy","growth"];
+const CARD_H = 1.16;                                   // card height / width
+const QN = 17;                                         // QR modules per side
+function makeQR(){
+  const g = [];
+  for (let y = 0; y < QN; y++){ g[y] = []; for (let x = 0; x < QN; x++) g[y][x] = Math.random() < .5; }
+  return g;
+}
+function inFinder(x, y){ return (x < 8 && y < 8) || (x >= QN - 8 && y < 8) || (x < 8 && y >= QN - 8); }
+function hexA(h, a){ const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+const HUD_SCORE = Object.assign(new Image(), { src: "assets/hud-score-badge.webp" });
+const HUD_TIMER = Object.assign(new Image(), { src: "assets/hud-timer-badge.webp" });
+function hudText(t, x0, x1, y, color, size){   // text centred in [x0,x1], shrunk to fit
+  ctx.save(); ctx.textBaseline = "middle"; ctx.textAlign = "center"; ctx.fillStyle = color;
+  let f = size; ctx.font = `800 ${f}px Poppins,system-ui,sans-serif`;
+  while (ctx.measureText(t).width > x1 - x0 && f > 8){ f -= .5; ctx.font = `800 ${f}px Poppins,system-ui,sans-serif`; }
+  ctx.fillText(t, (x0 + x1) / 2, y + 1); ctx.restore();
+}
+function drawSticker(x, y, w, img, glow){
+  if (!(img.complete && img.naturalWidth)) return;
+  const h = w * img.naturalHeight / img.naturalWidth;
+  ctx.save(); ctx.translate(x, y);
+  ctx.shadowColor = glow; ctx.shadowBlur = 9; ctx.shadowOffsetY = 2;
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+function drawCard(x, y, s, it){
+  const w = s, h = s * CARD_H;
+  if (it.kind === "bonus") return drawSticker(x, y, w, CARD_IMGS["bonus-v2"], "rgba(255,176,32,.8)");
+  if (it.kind === "fraud") return drawSticker(x, y, w, CARD_IMGS.fraud, "rgba(220,30,30,.55)");
+  if (it.kind === "pay") return drawSticker(x, y, w, CARD_IMGS[it.app], "rgba(30,60,120,.35)");
+  const pal = {
+    pay:   { bg: "#ffffff", fg: "#111111", glow: "#3b82f6" },
+    gold:  { bg: "#fff4cc", fg: "#5a3300", glow: "#ffc233" },
+    fraud: { bg: "#ffe3e3", fg: "#5a0a0a", glow: "#ef4444" }
+  }[it.kind];
+  ctx.save(); ctx.translate(x, y);
+  // clean rim + tight soft halo
+  ctx.shadowColor = hexA(pal.glow, .55); ctx.shadowBlur = 9; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = pal.bg; rr(-w / 2, -h / 2, w, h, w * .14); ctx.fill();
+  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = hexA(pal.glow, .9); ctx.lineWidth = 1.6; rr(-w / 2, -h / 2, w, h, w * .14); ctx.stroke();
+  // label: app logo, or text for bonus / fraud cards
+  const lh = h * .22;
+  if (it.kind === "pay" && it.cat){
+    const cat = it.cat, txt = "₹" + it.amt, fs = w * .2, isz = lh * .8;
+    ctx.font = `800 ${fs}px Poppins,system-ui,sans-serif`;
+    const tw = ctx.measureText(txt).width, gap = w * .05, tot = isz + gap + tw, y0 = -h / 2 + lh * .55;
+    ctx.save(); ctx.translate(-tot / 2, y0 - isz / 2); ctx.scale(isz / 24, isz / 24);
+    ctx.fillStyle = cat.c; ctx.strokeStyle = cat.c; ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    if (cat.pf) ctx.fill(cat.pf);
+    if (cat.ps) ctx.stroke(cat.ps);
+    if (cat.pw){ ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.6; ctx.stroke(cat.pw); }
+    ctx.restore();
+    ctx.fillStyle = "#0b1d7a"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(txt, -tot / 2 + isz + gap, y0 + 1);
+  } else {
+    ctx.fillStyle = pal.fg; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `800 ${w * .2}px Poppins,system-ui,sans-serif`;
+    ctx.fillText(it.kind === "gold" ? "⚡ INSTANT" : it.kind === "fraud" ? "⚠ FRAUD" : "₹ PAY", 0, -h / 2 + lh * .55);
+  }
+  // QR
+  const q = w * .8, cell = q / QN, ox = -q / 2, oy = -h / 2 + lh * 1.05;
+  ctx.fillStyle = pal.fg;
+  for (let j = 0; j < QN; j++) for (let i = 0; i < QN; i++)
+    if (!inFinder(i, j) && it.grid[j][i]) ctx.fillRect(ox + i * cell, oy + j * cell, cell + .3, cell + .3);
+  [[0, 0], [QN - 7, 0], [0, QN - 7]].forEach(([fx, fy]) => {
+    ctx.fillStyle = pal.fg; ctx.fillRect(ox + fx * cell, oy + fy * cell, 7 * cell, 7 * cell);
+    ctx.fillStyle = pal.bg; ctx.fillRect(ox + (fx + 1) * cell, oy + (fy + 1) * cell, 5 * cell, 5 * cell);
+    ctx.fillStyle = pal.fg; ctx.fillRect(ox + (fx + 2) * cell, oy + (fy + 2) * cell, 3 * cell, 3 * cell);
+  });
+  ctx.restore();
+}
+
+// POS machine — modelled on the white airpay handheld terminal (blue "airpay" strip, black touchscreen)
+// foreground props drawn AFTER the POS so the moving terminal slides behind them (layering: background -> items -> POS -> foreground -> HUD)
+const FG_JAR = Object.assign(new Image(), { src: "assets/foreground/candy-jar.webp" });
+const FG_PLANT = Object.assign(new Image(), { src: "assets/foreground/plant.webp" });
+function drawForeground(){
+  if (FG_JAR.complete && FG_JAR.naturalWidth){ const w = 51, h = w * FG_JAR.naturalHeight / FG_JAR.naturalWidth; ctx.drawImage(FG_JAR, 0, H - h, w, h); }
+  if (FG_PLANT.complete && FG_PLANT.naturalWidth){ const w = 114, h = w * FG_PLANT.naturalHeight / FG_PLANT.naturalWidth; ctx.drawImage(FG_PLANT, W - w, H - h, w, h); }
+}
+const POS_IMG = new Image(); POS_IMG.src = "assets/pos-terminal-new.webp";
+const POS_RATIO = 637 / 553;                       // height / width of the terminal photo
+function drawPOS(x, y, w, flash){
+  if (!(POS_IMG.complete && POS_IMG.naturalWidth)) return drawPOSFallback(x, y, w, flash);
+  const h = w * POS_RATIO;
+  ctx.save(); ctx.translate(x, y);
+  ctx.drawImage(POS_IMG, -w / 2, -h / 2, w, h);
+  if (flash > 0){                                    // payment confirmed: green screen
+    ctx.fillStyle = "#12b886"; rr(-w / 2 + w * .281, -h / 2 + h * .238, w * .433, h * .278, w * .028); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = `700 ${h * .075}px Poppins,system-ui,sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("PAID ✓", -w / 2 + w * .5, -h / 2 + h * .378);
+  }
+  ctx.restore();
+}
+function drawPOSFallback(x, y, w, flash){
+  const h = w * POS_RATIO;
+  ctx.save(); ctx.translate(x, y);
+  // body
+  ctx.shadowColor = "rgba(0,0,0,.4)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 6;
+  const body = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  body.addColorStop(0, "#c9d0d7"); body.addColorStop(.25, "#f4f6f8"); body.addColorStop(.75, "#f4f6f8"); body.addColorStop(1, "#bcc4cc");
+  ctx.fillStyle = body; rr(-w / 2, -h / 2, w, h, 11); ctx.fill();
+  ctx.shadowColor = "transparent";
+  // blue airpay strip
+  ctx.fillStyle = "#1068a8"; rr(-w * .4, -h / 2 + 5, w * .8, h * .1, 4); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.font = `700 ${h * .07}px Poppins,system-ui,sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("airpay", 0, -h / 2 + 5 + h * .052);
+  // black touchscreen
+  const sx = -w * .38, sy = -h / 2 + h * .2, sw = w * .76, sh = h * .46;
+  ctx.fillStyle = flash > 0 ? "#12b886" : "#0a0d12"; rr(sx, sy, sw, sh, 5); ctx.fill();
+  ctx.fillStyle = flash > 0 ? "#fff" : "#7fc4f5";
+  ctx.font = `700 ${h * .1}px Poppins,system-ui,sans-serif`;
+  ctx.fillText(flash > 0 ? "PAID ✓" : "₹ PAY", 0, sy + sh * .42);
+  if (flash <= 0){ ctx.fillStyle = "#ee6c2c"; rr(-w * .16, sy + sh * .68, w * .32, 3, 1.5); ctx.fill(); }
+  // physical buttons + card reader slot
+  ctx.fillStyle = "#8d98a4";
+  for (let i = -1; i <= 1; i++){ ctx.beginPath(); ctx.arc(i * w * .2, h * .38, h * .028, 0, 6.28); ctx.fill(); }
+  ctx.fillStyle = "#3a434d"; rr(-w * .3, h / 2 - 8, w * .6, 3.5, 1.75); ctx.fill();
+  ctx.restore();
+}
+
+// ---------- game state ----------
+const S = { mode: "menu", score: 0, lives: 3, combo: 0, maxCombo: 0, time: 0, items: [], parts: [], floats: [],
+            spawnT: 0, slow: 0, shake: 0, flash: 0, best: 0 };
+try { S.best = +localStorage.getItem("vqc_best") || 0; } catch(e){}
+const P = { x: W / 2, y: H - 118, w: 130, target: W / 2 };
+const keys = {};
+const BG = new Image(); BG.src = "assets/bg-shop-640x960.jpg";
+
+function ramp(){ return Math.min(S.time / (CONFIG.mode === "timed" ? CONFIG.roundSeconds : 90), 1); }
+
+function reset(){
+  Object.assign(S, { mode: "play", score: 0, lives: 3, combo: 0, maxCombo: 0, time: 0, items: [], parts: [], floats: [],
+                     spawnT: .5, slow: 0, shake: 0, flash: 0, formDone: false });
+  P.x = P.target = W / 2;
+}
+
+function spawn(){
+  const d = ramp();                                         // 0 → 1 difficulty over the round
+  const r = Math.random();
+  const kind = CONFIG.avoidItems && r < .12 + d * .08 ? "fraud" : r < .12 + d * .08 + .1 ? "bonus" : "pay";
+  const size = kind === "pay" ? rnd(32, 36) : kind === "bonus" ? 40 : kind === "fraud" ? 36 : 32;
+  S.items.push({
+    kind, x: rnd(size, W - size), y: -size * CARD_H, s: size, app: kind === "pay" ? PAY_IDS[Math.floor(Math.random() * PAY_IDS.length)] : null,
+    vy: rnd(120, 160) + d * 230 + (kind === "gold" ? 40 : 0),
+    sway: Math.random() < .3 + d * .3 ? rnd(20, 50) : 0, ph: rnd(0, 6.28), x0: 0,
+    rot: rnd(-.25, .25), grid: makeQR()
+  });
+  S.items[S.items.length - 1].x0 = S.items[S.items.length - 1].x;
+}
+
+function burst(x, y, color, n = 12){
+  for (let i = 0; i < n; i++){
+    const a = rnd(0, 6.28), v = rnd(60, 200);
+    S.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: rnd(.35, .7), t: 0, c: color, r: rnd(2, 4.5) });
+  }
+}
+function floatText(x, y, text, color){ S.floats.push({ x, y, text, color, t: 0 }); }
+
+function loseLife(){
+  S.combo = 0; S.shake = .3;
+  if (CONFIG.mode === "lives"){ S.lives--; if (S.lives <= 0) endGame(); }
+}
+
+function showConfetti(){            // glowing confetti halves (smaller), upper part of each side only
+  const flip = Math.random() < .5 ? "scaleY(-1)" : "none", L = "assets/confetti/glow-left-clean.webp", R = "assets/confetti/glow-right-clean.webp";
+  $("confetti").innerHTML =
+    `<img class="cfg" src="${L}" alt="" style="left:0;top:17cqh;width:26cqw;--d:0s;transform:${flip}">` +
+    `<img class="cfg" src="${R}" alt="" style="right:0;top:18cqh;width:26cqw;--d:.15s;transform:${flip}">`;
+}
+function endGame(){
+  S.mode = "over"; sfx.over();
+  const newBest = S.score > S.best;
+  if (newBest){ S.best = S.score; try { localStorage.setItem("vqc_best", S.best); } catch(e){} }
+  $("finalScore").textContent = "₹" + S.score.toLocaleString("en-IN");
+  $("finalMsg").textContent =
+    S.score >= 1500 ? "Kam jhanjhat, zyada kamai! Super vyaapaari." :
+    S.score >= 600  ? "Badhiya! Har din kamai badhao." :
+                      "Har payment badhaaye aapka business.";
+  $("bestLbl").textContent = newBest ? "New best:" : "Best:";
+  $("bestVal").textContent = "₹" + S.best.toLocaleString("en-IN");
+  $("comboVal").textContent = "x" + S.maxCombo;
+  setTimeout(() => { showConfetti(); $("over").classList.remove("hidden"); }, 700);
+}
+
+// ---------- update ----------
+function update(dt){
+  S.shake = Math.max(0, S.shake - dt); S.flash = Math.max(0, S.flash - dt);
+  // particles / floats always animate
+  S.parts.forEach(p => { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 400 * dt; });
+  S.parts = S.parts.filter(p => p.t < p.life);
+  S.floats.forEach(f => { f.t += dt; f.y -= 40 * dt; });
+  S.floats = S.floats.filter(f => f.t < .9);
+  if (S.mode !== "play") return;
+
+  S.time += dt;
+  if (CONFIG.mode === "timed" && CONFIG.formAtSecondsLeft > 0 && !S.formDone && S.time >= CONFIG.roundSeconds - CONFIG.formAtSecondsLeft){ S.formDone = true; showForm(); return; }
+  if (CONFIG.mode === "timed" && S.time >= CONFIG.roundSeconds){ S.time = CONFIG.roundSeconds; endGame(); return; }
+  const kx = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.a ? 1 : 0);
+  if (kx) P.target = Math.max(P.w / 2, Math.min(W - P.w / 2, P.target + kx * 520 * dt));
+  P.x += (P.target - P.x) * Math.min(1, dt * 18);
+
+  S.slow = Math.max(0, S.slow - dt);
+  const speed = S.slow > 0 ? .55 : 1;
+  const d = ramp();
+
+  S.spawnT -= dt;
+  if (S.spawnT <= 0){ spawn(); S.spawnT = (1.0 - d * .55) * rnd(.7, 1.15); }
+
+  for (const it of S.items){
+    it.y += it.vy * speed * dt;
+    if (it.sway){ it.ph += dt * 2.2; it.x = it.x0 + Math.sin(it.ph) * it.sway; }
+    it.rot += dt * .4 * Math.sin(it.ph || 1);
+    // catch zone: top surface of POS
+    const top = P.y - P.w * POS_RATIO / 2;
+    if (!it.dead && it.y + it.s * CARD_H / 2 >= top && it.y < P.y && Math.abs(it.x - P.x) < P.w / 2 + it.s * .25){
+      it.dead = true;
+      if (it.kind === "fraud"){
+        sfx.bad(); burst(it.x, top, "#ef4444", 16); if (CONFIG.mode === "timed"){ S.score = Math.max(0, S.score - 50); floatText(it.x, top - 10, "−₹50", "#ff7b7b"); } else floatText(it.x, top - 10, "FRAUD! −1 ♥", "#ff7b7b"); loseLife();
+      } else if (it.kind === "bonus"){
+        const pts = 50; S.score += pts; P.flash = .25; sfx.gold(); burst(it.x, top, "#ffb020", 16);
+        floatText(it.x, top - 10, "+₹" + pts, "#ffd966");
+      } else if (it.kind === "gold"){
+        S.combo++; S.maxCombo = Math.max(S.maxCombo, S.combo); S.slow = 4; P.flash = .25;
+        const pts = 100; S.score += pts; sfx.gold(); burst(it.x, top, "#ffc233", 20);
+        floatText(it.x, top - 10, "+₹" + pts + " Instant Settlement!", "#ffd966");
+        if (CONFIG.mode === "lives" && S.lives < 5 && Math.random() < .35){ S.lives++; floatText(it.x, top - 34, "+1 ♥", "#7dffc0"); }
+      } else {
+        S.combo++; S.maxCombo = Math.max(S.maxCombo, S.combo);
+        const mult = 1 + Math.min(Math.floor(S.combo / 5), 4);         // ×1 … ×5
+        const pts = 10 * mult; S.score += pts; P.flash = .2;
+        sfx.catch(S.combo); burst(it.x, top, "#9fd3f7", 9);
+        floatText(it.x, top - 10, "+₹" + pts + (mult > 1 ? " ×" + mult : ""), "#cfe8f7");
+      }
+    } else if (!it.dead && it.y - it.s * CARD_H / 2 > H){
+      it.dead = true;
+      if (it.kind !== "fraud" && it.kind !== "bonus"){ sfx.miss(); floatText(it.x, H - 30, it.kind === "gold" ? "Missed!" : (CONFIG.mode === "lives" ? "Payment missed −1 ♥" : "Missed!"), "#ff9b9b"); loseLife(); }
+    }
+  }
+  S.items = S.items.filter(i => !i.dead);
+  P.flash = Math.max(0, (P.flash || 0) - dt);
+}
+
+// text with a dark outline so it reads on the bright photo
+// embossed brand-style pop text (same look as the game-over score): vertical gradient fill, darker bottom-right edge, soft yellow glow for legibility
+const POP = {
+  orange: { top: "#ffa447", bot: "#e9501a", dark: "#c8481a", glow: "rgba(255,205,50,.95)" },
+  gold:   { top: "#ffe066", bot: "#f5a300", dark: "#b0700a", glow: "rgba(255,205,50,.95)" },
+  red:    { top: "#ff7b7b", bot: "#e11d2e", dark: "#951224", glow: "rgba(255,40,40,.95)" },
+  green:  { top: "#8fffcb", bot: "#12b886", dark: "#0a7a58", glow: "rgba(255,205,50,.95)" }
+};
+function otext(t, x, y, fill){
+  const k = { "#ffd966": "gold", "#ffd23f": "gold", "#ffe08a": "gold", "#ff7b7b": "red", "#ff9b9b": "red", "#7dffc0": "green" }[fill] || "orange", c = POP[k];
+  const size = parseFloat((ctx.font.match(/(\d+(?:\.\d+)?)px/) || [, 16])[1]), base = ctx.textBaseline;
+  ctx.save(); ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.shadowColor = c.glow; ctx.shadowBlur = size * .7;                                                         // soft glow (yellow; red for fraud/miss)
+  ctx.fillStyle = c.dark; ctx.fillText(t, x + size * .05, y + size * .08);                                    // darker offset edge (casts the glow)
+  ctx.fillText(t, x + size * .05, y + size * .08); ctx.fillText(t, x + size * .05, y + size * .08); ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+  const g = ctx.createLinearGradient(0, y - size * .55, 0, y + size * .55); g.addColorStop(0, c.top); g.addColorStop(1, c.bot);
+  ctx.fillStyle = g; ctx.fillText(t, x, y);
+  ctx.restore();
+}
+
+// ---------- render ----------
+function render(){
+  ctx.save();
+  if (S.shake > 0) ctx.translate(rnd(-4, 4), rnd(-4, 4));
+
+  // background: shop-counter photo (cover-fit, slight overscan so screen-shake never shows edges)
+  if (BG.complete && BG.naturalWidth){
+    const k = Math.max(W / BG.naturalWidth, H / BG.naturalHeight);
+    const bw = BG.naturalWidth * k, bh = BG.naturalHeight * k;
+    ctx.drawImage(BG, (W - bw) / 2, (H - bh) / 2, bw, bh);
+  } else {
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#1a7fc7"); bg.addColorStop(1, "#0a4478");
+    ctx.fillStyle = bg; ctx.fillRect(-10, -10, W + 20, H + 20);
+  }
+  // light brand-blue veil at the top only, so the HUD stays readable; the photo stays bright like the start screen
+  const scrim = ctx.createLinearGradient(0, 0, 0, H);
+  scrim.addColorStop(0, "rgba(8,58,104,.28)"); scrim.addColorStop(.25, "rgba(16,104,168,.06)"); scrim.addColorStop(1, "rgba(16,104,168,0)");
+  ctx.fillStyle = scrim; ctx.fillRect(-10, -10, W + 20, H + 20);
+  // contact shadow under the POS terminal (it stands on the wooden counter)
+  if (S.slow > 0){ ctx.fillStyle = "rgba(255,194,51,.07)"; ctx.fillRect(0, 0, W, H); }
+
+  // items
+  for (const it of S.items){
+    ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot); ctx.translate(-it.x, -it.y);
+    drawCard(it.x, it.y, it.s, it); ctx.restore();
+  }
+  drawPOS(P.x, P.y, P.w, P.flash || 0);
+  drawForeground();
+
+  // particles + floating text
+  for (const p of S.parts){ ctx.globalAlpha = 1 - p.t / p.life; ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "800 15px Poppins,system-ui,sans-serif";
+  for (const f of S.floats){
+    const sc = f.t < .12 ? .6 + f.t / .12 * .65 : f.t < .22 ? 1.25 - (f.t - .12) / .1 * .25 : 1;       // quick pop
+    ctx.save(); ctx.globalAlpha = Math.min(1, (1 - f.t / .9) * 1.6); ctx.translate(Math.max(70, Math.min(W - 70, f.x)), f.y); ctx.scale(sc, sc);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "800 " + (f.text.length > 12 ? 11 : 13) + "px Poppins,system-ui,sans-serif";
+    const a0 = ctx.globalAlpha, fs = f.text.length > 12 ? 11 : 13;
+    for (let i = 2; i >= 1; i--){ ctx.globalAlpha = a0 * (i === 2 ? .12 : .26); otext(f.text, 0, -i * fs * .95, f.color); }   // fading echo trail above
+    ctx.globalAlpha = a0; otext(f.text, 0, 0, f.color);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  // HUD: logo pill top-left; orange timer + coin score pills top-right
+  const cx = W / 2, HY = 8, HH = 30;
+  if (LOGO.complete && LOGO.naturalWidth){ const lw = HH * LOGO.naturalWidth / LOGO.naturalHeight; ctx.drawImage(LOGO, 8, HY, lw, HH); }
+  if (S.mode !== "menu"){
+    ctx.textBaseline = "middle";
+    // score badge (coin tab image) with the points typed into its empty area
+    const sBH = 24, sBW = sBH * 989 / 379, sx = W - 8 - sBW, sTxt = S.score.toLocaleString("en-IN");
+    if (HUD_SCORE.complete && HUD_SCORE.naturalWidth) ctx.drawImage(HUD_SCORE, sx, HY + (HH - sBH) / 2, sBW, sBH);
+    hudText(sTxt, sx + sBW * .365, sx + sBW * .93, HY + HH / 2 + 1, "#0b1d7a", 14);
+    ctx.textAlign = "center";
+    if (CONFIG.mode === "lives"){
+      let hearts = ""; for (let i = 0; i < S.lives; i++) hearts += "❤️";
+      const hw = 78, hx = sx - 6 - hw;
+      ctx.save(); ctx.fillStyle = "#fff"; ctx.shadowColor = "rgba(0,40,90,.25)"; ctx.shadowBlur = 8; rr(hx, HY, hw, HH, HH / 2); ctx.fill(); ctx.restore();
+      ctx.font = "14px Poppins,system-ui,sans-serif"; ctx.fillStyle = "#000"; ctx.fillText(hearts, hx + hw / 2, HY + HH / 2 + 1);
+    } else {
+      const left = Math.max(0, Math.ceil(CONFIG.roundSeconds - S.time));
+      const tBH = 24, tBW = tBH * 941 / 385, tx = sx - 6 - tBW;
+      if (HUD_TIMER.complete && HUD_TIMER.naturalWidth) ctx.drawImage(HUD_TIMER, tx, HY + (HH - tBH) / 2, tBW, tBH);
+      hudText(String(left), tx + tBW * .4, tx + tBW * .92, HY + HH / 2 + 1, left <= 5 ? "#ffe4e4" : "#fff", 15);
+    }
+    if (S.combo >= 2){
+      const mult = 1 + Math.min(Math.floor(S.combo / 5), 4);
+      ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "800 17px Poppins,system-ui,sans-serif";
+      const w1 = "COMBO ", w2 = S.combo + (mult > 1 ? "  ×" + mult : ""), cy = 62, tw1 = ctx.measureText(w1).width, tw = tw1 + ctx.measureText(w2).width, x0 = cx - tw / 2;
+      ctx.lineJoin = "round"; ctx.lineWidth = 5; ctx.strokeStyle = "#fff"; ctx.shadowColor = "rgba(0,25,90,.4)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
+      ctx.strokeText(w1, x0, cy); ctx.strokeText(w2, x0 + tw1, cy); ctx.shadowColor = "transparent";                // white rim like the logo tab
+      const bg = ctx.createLinearGradient(0, cy - 9, 0, cy + 9); bg.addColorStop(0, "#2a7fd0"); bg.addColorStop(1, "#0b58a6");      // airpay blue
+      const og = ctx.createLinearGradient(0, cy - 9, 0, cy + 9); og.addColorStop(0, "#ff8a45"); og.addColorStop(1, "#ee5a1a");      // vyaapaar orange
+      ctx.fillStyle = bg; ctx.fillText(w1, x0, cy); ctx.fillStyle = og; ctx.fillText(w2, x0 + tw1, cy); ctx.restore();
+    }
+    if (S.slow > 0){
+      ctx.textAlign = "center"; ctx.font = "800 12px Poppins,system-ui,sans-serif";
+      otext("⚡ INSTANT SETTLEMENT — SLOW-MO " + S.slow.toFixed(1) + "s", cx, 90, "#ffe08a");
+    }
+  }
+  ctx.restore();
+}
+
+// ---------- loop ----------
+let last = performance.now();
+function frame(now){
+  const dt = Math.min((now - last) / 1000, .05); last = now;
+  update(dt); render(); requestAnimationFrame(frame);
+}
+
+
+// ---- start-screen floating QR cards ----
+function qrSvg(n = 21){
+  const fin = (x, y) => (x < 8 && y < 8) || (x >= n - 8 && y < 8) || (x < 8 && y >= n - 8);
+  let r = "";
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!fin(x, y) && Math.random() < .5) r += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  [[0, 0], [n - 7, 0], [0, n - 7]].forEach(([x, y]) => {
+    r += `<rect x="${x}" y="${y}" width="7" height="7"/><rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3"/>`;
+  });
+  return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" fill="#111">${r}</svg>`;
+}
+function buildStartCards(){
+  const cards = [                                            // 4 cards on a half arc above the POS
+    { id: "customers", x: 17,   y: 59.5, r: -14, glow: "#3b82f6", d: "0s" },
+    { id: "easy",      x: 39,   y: 50, r: -6,  glow: "#f97316", d: ".4s" },
+    { id: "growth",    x: 61,   y: 50, r: 6,   glow: "#8b5cf6", d: ".8s" },
+    { id: "bonus-v2",   x: 83,   y: 59.5, w: 17.5, r: 14,  glow: "#f59e0b", d: ".2s" }
+  ];
+  $("cards").innerHTML = cards.map(c =>
+    `<img class="qcard qimg" src="assets/cards/${c.id}.webp" alt="" style="left:${c.x}cqw;top:${c.y}cqh;${c.w ? `width:${c.w}cqw;` : ""}--r:${c.r}deg;--glow:${c.glow};--d:${c.d}">`).join("");
+}
+
+// ---------- input ----------
+function pointerX(e){
+  const r = cv.getBoundingClientRect();
+  return Math.max(P.w / 2, Math.min(W - P.w / 2, (e.clientX - r.left) / r.width * W));
+}
+let dragging = false;
+cv.addEventListener("pointerdown", e => { dragging = true; cv.setPointerCapture(e.pointerId); if (S.mode === "play") P.target = pointerX(e); });
+cv.addEventListener("pointermove", e => { if ((dragging || e.pointerType === "mouse") && S.mode === "play") P.target = pointerX(e); });
+cv.addEventListener("pointerup", () => dragging = false);
+addEventListener("keydown", e => { keys[e.key] = true; if (e.key === "Enter" && (S.mode === "menu" || S.mode === "over")){ start(); } });
+addEventListener("keyup", e => keys[e.key] = false);
+
+// ---------- "Just a few details" form (pauses the round near the end) ----------
+const FORM = { g: null, a: null };
+function refreshForm(){
+  document.querySelectorAll("#form .opt").forEach(b => b.classList.toggle("sel", b.dataset.g === FORM.g && !!b.dataset.g || b.dataset.a === FORM.a && !!b.dataset.a));
+  document.querySelectorAll("#form .row").forEach(r => r.classList.toggle("has", !!r.querySelector(".sel")));
+
+}
+function showForm(){ FORM.g = FORM.a = null; refreshForm(); S.mode = "form"; dragging = false; $("form").classList.remove("hidden"); }
+function closeForm(skipped){
+  const rec = { gender: skipped ? null : FORM.g, age: skipped ? null : FORM.a, skipped, score: S.score, at: new Date().toISOString() };
+  try { const all = JSON.parse(localStorage.getItem("vqc_profiles") || "[]"); all.push(rec); localStorage.setItem("vqc_profiles", JSON.stringify(all)); } catch(e){}
+  if (typeof CONFIG.onProfile === "function") try { CONFIG.onProfile(rec); } catch(e){}
+  $("form").classList.add("hidden"); S.mode = "play";
+}
+$("form").addEventListener("click", e => {
+  const b = e.target.closest(".opt"); if (!b) return;
+  if (b.dataset.g) FORM.g = b.dataset.g; else FORM.a = b.dataset.a;
+  refreshForm();
+});
+$("fnext").addEventListener("click", () => {
+  if (FORM.g && FORM.a) return closeForm(false);
+  const b = $("fnext"); b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake");          // not ready: shake and pulse the row still missing
+  document.querySelectorAll("#form .row").forEach(r => { r.classList.remove("need"); if (!r.querySelector(".sel")){ void r.offsetWidth; r.classList.add("need"); } });
+});
+$("fskip").addEventListener("click", () => closeForm(true));
+
+function start(){ $("form").classList.add("hidden"); $("start").classList.add("hidden"); $("info").classList.add("hidden"); $("over").classList.add("hidden"); reset(); }
+function showInfo(){ $("start").classList.add("hidden"); $("info").classList.remove("hidden"); }
+$("play").addEventListener("click", showInfo);
+$("go").addEventListener("click", start);
+$("again").addEventListener("click", start);
+$("cta").href = CONFIG.ctaUrl;
+
+resize();
+buildStartCards();
+requestAnimationFrame(t => { last = t; frame(t); });
+})();
+</script>
+</body>
+</html>
