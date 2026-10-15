@@ -25,7 +25,7 @@
   <div class="phone land" data-noqr>
     <div class="screen interstitial">
       <!-- landscape rewarded video: the unit fills the whole screen (its own 16:9 letterbox); viewer taps ripple via data-ripple -->
-      <div class="ad-slot fill" data-full="mock.html?full=1" data-ripple="pointer"><iframe src="mock.html?embed=1&amp;round" title="rewarded video ad" allow="autoplay"></iframe></div>
+      <div class="ad-slot fill" data-full="mock.html?full=1" data-ripple="pointer"><iframe src="mock.html?embed=1&amp;round" title="rewarded video ad" allow="autoplay"></iframe><script>{const v=new URLSearchParams(location.search).get("v"),f=document.currentScript.previousElementSibling;if(v&&f&&f.tagName==="IFRAME")f.src=f.getAttribute("src")+"&v="+encodeURIComponent(v);}</script></div>
       <div class="island"></div>
       <div class="homebar"></div>
     </div>

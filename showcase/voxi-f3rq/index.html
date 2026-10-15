@@ -107,6 +107,7 @@ html.night .mk-menu button[aria-current="true"],html.night .mk-menu button[aria-
 
 const frames = [...document.querySelectorAll('.view')];
 const PHONE_TABS = 3;   // phones: up to 3 mocks as a tab bar row, 4+ as the dropdown pill + menu card
+const VER = new URLSearchParams(location.search).get('v');   // cache-buster: share the link with ?v=<anything new> after an update
 const FORCE_PICKER = new URLSearchParams(location.search).has('picker');   // ?picker: always the pill + menu (to compare)
 const IS_PHONE = (navigator.userAgentData && navigator.userAgentData.mobile) ||
   /iPhone|iPod|Android.+Mobile|Windows Phone|Mobile Safari/i.test(navigator.userAgent) && !/iPad|Tablet/i.test(navigator.userAgent);
@@ -136,7 +137,8 @@ function show(i) {
       setTimeout(() => st.classList.remove('mk-enter'), 700); });
   };
   // on a phone, mobile mock pages normally jump to the full-screen ad; here ?desktop keeps the page so the tabs stay
-  nxt.src = MOCKS[i].url + (IS_PHONE ? '?desktop' : '');
+  const q = []; if (IS_PHONE) q.push('desktop'); if (VER) q.push('v=' + encodeURIComponent(VER));   // ?v= on this link reaches every page
+  nxt.src = MOCKS[i].url + (q.length ? '?' + q.join('&') : '');
 }
 // ready to show = the device's video has a frame (or 1.2 s passed), then two paints so the layout has settled
 function ready(f) {
