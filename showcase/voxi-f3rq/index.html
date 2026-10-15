@@ -84,7 +84,9 @@ html.night .mk-menu button:hover{background:rgba(255,255,255,.07)}
 html.night .mk-menu button[aria-current="true"],html.night .mk-menu button[aria-current="true"] svg{color:#2997ff}
 .nav.mk-compact .mk-tabs{display:none}
 .nav.mk-compact .mk-pick{display:flex}
-@media (max-width:700px){.mk-pick{grid-area:title;margin-top:2px}}   /* equal space above and below the pill */
+/* phones: the second row sits clear of the logo/toggle row; the pill's top lines up with the tab icons, and both headers end at
+   the same height (107px at 390 wide) */
+@media (max-width:700px){.mk-pick{grid-area:title;margin-top:12px}.nav.mk-compact{padding-bottom:15px}}
 .mk-tabs .mk-short{display:none}
 /* switching is deliberate: the device leaves (dips + fades), a beat of empty stage, the new one rises into place; header stays */
 .stage.mk-out{opacity:0;transform:translateY(12px) scale(.965);transition:opacity .2s ease-in,transform .22s ease-in}
@@ -94,7 +96,7 @@ html.night .mk-menu button[aria-current="true"],html.night .mk-menu button[aria-
 /* phones: the header's second row is a small tab bar — equal tabs, icon over a short label, blue underline on the active one */
 @media (max-width:700px){
   .nav:not(.mk-compact){padding-bottom:0}
-  .nav:not(.mk-compact) .mk-tabs{grid-area:title;justify-self:stretch;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;margin:0 -14px}
+  .nav:not(.mk-compact) .mk-tabs{grid-area:title;justify-self:stretch;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;margin:8px -14px 0}
   .mk-tabs button{flex-direction:column;justify-content:flex-start;gap:4px;padding:4px 4px 9px;font-size:11.5px;line-height:1.2;white-space:normal;text-align:center}
   .mk-tabs button svg{width:22px;height:22px}
   .mk-tabs button::after{left:18%;right:18%;bottom:0}
