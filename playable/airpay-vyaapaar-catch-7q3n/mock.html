@@ -109,7 +109,7 @@
   #start.screen{display:block;padding:0;background:url("assets/bg-instructions-640x960.jpg") center/cover no-repeat;overflow:hidden}
   #start::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 85% 26% at 50% 29%,rgba(255,255,255,.95),rgba(255,255,255,.55) 45%,transparent 75%),radial-gradient(circle at 97% 14%,rgba(255,255,255,.8),transparent 15%),radial-gradient(circle at 4% 30%,rgba(255,244,214,.55),transparent 18%),radial-gradient(ellipse 50% 14% at 50% 80%,rgba(80,140,255,.35),transparent 70%)}
   #start>*{position:absolute}
-  #start .chev{margin-top:-7.4cqw}
+  #start .chev,#info .chev{margin-top:-7.4cqw}   /* same arrows on both screens (iion: first-screen style) */
   #cards{inset:0}
   .top-tab{left:50%;transform:translateX(-50%);top:2cqw;width:44cqw}
   .top-tab img{width:100%;display:block}
@@ -158,8 +158,8 @@
 
     <div id="info" class="screen hidden">
       <img class="i-panel" src="assets/instructions-panel.webp" alt="Catch the reward cards, avoid the fraud card">
-      <img class="chev l" src="assets/arrow-left-v2.webp" alt="">
-      <img class="chev r" src="assets/arrow-right-v2.webp" alt="">
+      <img class="chev l" src="assets/arrow-v3-left.webp" alt="">
+      <img class="chev r" src="assets/arrow-v3-right.webp" alt="">
       <img class="pos-hero" src="assets/pos-terminal-new.webp" alt="airpay POS">
       <button id="go" aria-label="Let's Play"><img src="assets/cta-lets-play.webp" alt="Let's Play"></button>
     </div>
