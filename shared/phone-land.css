@@ -45,6 +45,7 @@
 html.fs .stage{container-type:normal;contain:none}
 html.fs .phone.land{position:fixed;inset:0;width:auto;height:auto;aspect-ratio:auto;margin:0;border-radius:0;background:#000;box-shadow:none;z-index:20}
 html.fs .phone.land .screen{inset:0;border-radius:0}
+html.fs .phone.land .island,html.fs .phone.land .homebar,html.fs .phone.land .hw,html.fs .phone.land .floor{display:none}   /* only the ad: no camera island, home bar or side buttons */
 html.fs .phone.land .screen,html.fs .phone.land .ad-slot.fill,html.fs .phone.land .ad-slot.fill iframe{clip-path:none;-webkit-clip-path:none}
 html.fs .phone.land .controls{position:fixed;left:16px;bottom:16px;top:auto;transform:none;margin:0;z-index:22}
 html.fs .phone.land .snd{width:44px;height:44px;padding:0;justify-content:center;font-size:0;gap:0;color:#fff;
