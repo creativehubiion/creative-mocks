@@ -19,7 +19,9 @@
     rowGap: [1.1, 0.85, 0.66],     // seconds between hazard rows, by zone (rule 18: generous first)
     twoLane: [0.2, 0.6, 0.8],     // chance a row blocks two lanes, by zone
     maxShift: [2, 2, 1],           // when a row blocks two lanes, how far its free lane may sit from the last row's free lane
-    rollerShare: [0, 0, 0.6],      // share of two-lane rows that are one spiked roller across both lanes (zone 3)
+    rollerShare: [0, 0, 0.6],
+    mover: [0, 0.3, 0.4],          // share of one-lane rows whose hazard slides one lane over as the runner approaches (owner 18:52: "how a game would do it")
+    moveAt: [1.2, 0.75],           // seconds before it is reached: the slide starts (after a short wobble), and is over; 0.75 s leaves a first-timer time to react (rule 18)      // share of two-lane rows that are one spiked roller across both lanes (zone 3)
     startRings: 6, ringLine: 5, ringGap: 3.2, ringChance: [0.7, 0.42, 0.32],
     greedLine: [0.2, 0.35, 0.5],   // chance a ring line runs into a lane the NEXT row blocks (the rich lane brushes the spikes)
     laneSecs: 0.13,                // time to cross one lane
@@ -31,7 +33,7 @@
     humanLook: 0.8, humanReact: [0.36, 0.62],   // the first-timer bot: sees a row this far ahead (s), reacts this much later
     copy: {
       brand: 'SONIC 4 · LOGO', hint: 'Swipe to change lane', leadInHint: 'Grab the rings',
-      cueSpill: 'Rings lost! No rings = next hit ends it', cueRoller: 'Two lanes blocked: find the gap',
+      cueSpill: 'Rings lost! No rings = next hit ends it', cueRoller: 'Two lanes blocked: find the gap', cueMover: 'Watch it: some hazards move!',
       zones: ['JUNGLE', 'ZONE 2 · FASTER', 'ZONE 3 · FASTER'], zoneNames: ['Jungle', 'Checkered hills', 'Desert ruins'],
       startTitle: 'Three zones. One run.', startLine: 'Swipe left and right. Grab rings, dodge spikes.', play: 'Run',
       winStamp: 'FINISH', winTitle: 'In cinemas 19 March 2027', winLine: 'The fastest hero is back.', cta: 'Get tickets',
@@ -66,7 +68,8 @@
         } else lanes = [pick([-1, 0, 1])];
         const roller = lanes.length === 2 && Math.abs(lanes[0] - lanes[1]) === 1 && Math.random() < C.rollerShare[Z.i];
         const kinds = roller ? ['roller'] : lanes.map(() => pick(['spikes', 'spikes', 'boulder']));
-        rows.push({ z: rz, zone: Z.i, lanes, kinds, roller, free: [-1, 0, 1].filter(l => !lanes.includes(l)) });
+        let from = null; if (lanes.length === 1 && Math.random() < C.mover[Z.i]) { from = lanes[0]; lanes = [from === 0 ? pick([-1, 1]) : 0]; }   // a mover: shown in 'from', ends in its lane
+        rows.push({ z: rz, zone: Z.i, lanes, kinds, roller, from, free: [-1, 0, 1].filter(l => !lanes.includes(l)) });
         prevFree = rows[rows.length - 1].free;
         rz += v * C.rowGap[Z.i] * rand(0.92, 1.15);
       }
@@ -85,6 +88,11 @@
     for (let pz = 8; pz < z + 200; pz += rand(8, 14)) { const zi = pz < zones[1].start ? 0 : pz < zones[2].start ? 1 : 2; props.push({ z: pz, side: Math.random() < .5 ? -1 : 1, cell: zi * 3 + Math.floor(Math.random() * 3), off: rand(1.0, 3.5), zone: zi }); }
     return { zones, rows, rings, props, length: z };
   }
+
+  // a mover's slide: 0 until moveAt[0] s before the runner reaches it, 1 from moveAt[1] s on (eased), and its lane on screen now
+  function moveK(r, Sx) { if (r.from == null) return 1; const t = (r.z - Sx.z) / Math.max(1, Sx.v), [a, b] = CONFIG.moveAt, k = clamp((a - t) / (a - b), 0, 1); return k * k * (3 - 2 * k); }
+  function laneNow(r, l, Sx) { if (r.from == null) return l; const k = moveK(r, Sx), t = (r.z - Sx.z) / Math.max(1, Sx.v);
+    return r.from + (l - r.from) * k; }   // no wobble: a shake reads as a glitch (owner 19:01); the eased slide is the tell
 
   let S;
   function reset(mode) {
@@ -136,6 +144,7 @@
       // hazards: a row hits if the runner's lane overlaps one of its blocked lanes as it passes
       for (const row of S.course.rows) { if (row.done || row.z > S.z) continue; if (row.z < z0 - 1) { row.done = true; continue; } row.done = true;
         if (row.lanes.some(l => Math.abs(l - S.laneX) < C.hitHalf)) { hit(row); if (S.mode !== 'play' && S.mode !== 'attract') return; } }
+      if (!S.seen.mover) { const r = S.course.rows.find(r => r.from != null && moveK(r, S) > 0 && r.z > S.z); if (r) { S.seen.mover = true; S.cue = { text: C.copy.cueMover, until: S.elapsed + 1.4 }; } }
       if (!S.seen.roller) { const r = S.course.rows.find(r => r.roller && r.z - S.z < S.v * 1.1 && r.z > S.z); if (r) { S.seen.roller = true; S.cue = { text: C.copy.cueRoller, until: S.elapsed + 1.6 }; } }
       if (S.z >= S.course.length) return finish('win');
       if (S.elapsed > 40) return finish('fail', 'time');   // no dead state
@@ -160,7 +169,9 @@
     const look = HUMAN ? (G.humanLook || C.humanLook) : 1.3;   // the view sets how early a first-timer sees a row (the low camera hides it longer)
     const ahead = S.course.rows.filter(r => !r.done && r.z > S.z && r.z - S.z < v * look);
     let rows = ahead;
-    if (HUMAN) rows = ahead.filter(r => { if (r.seenAt == null) { r.seenAt = S.elapsed; r.react = rand(C.humanReact[0], C.humanReact[1]); } return S.elapsed - r.seenAt >= r.react; });
+    if (HUMAN) rows = ahead.filter(r => { if (r.from != null && !r.sawMove && moveK(r, S) > 0) { r.sawMove = true; r.seenAt = null; }   // it moved: the eye has to react again
+      if (r.seenAt == null) { r.seenAt = S.elapsed; r.react = rand(C.humanReact[0], C.humanReact[1]); } return S.elapsed - r.seenAt >= r.react; })
+      .map(r => r.from != null && !r.sawMove ? { ...r, lanes: [r.from], free: [-1, 0, 1].filter(l => l !== r.from) } : r);
     let want = S.lane;
     const r0 = rows[0], r1 = rows[1];
     const ringLaneAhead = () => { const rs = S.course.rings.filter(r => !r.got && r.z > S.z && r.z - S.z < v * 0.9); return rs.length ? rs[0].lane : null; };
@@ -209,19 +220,53 @@
     { sky: ['#b5cbd8', '#e6eef3'], ground: ['#8fae86', '#86a47d'], road: ['#a49a8c', '#9a9083'], edge: ['#8a6a52', '#6d5240'] },
     { sky: ['#d6c6b0', '#f1e8dc'], ground: ['#c9b08e', '#bfa684'], road: ['#b8ad9d', '#ada292'], edge: ['#9a7a5a', '#86684b'] },
   ];
+  // the colour grade (rule 36): mobile games are high-key and saturated. Baked into each zone's pictures ONCE at load, by pixel
+  // maths (no per-frame filters, and canvas filters are missing on older iPhones): gamma lifts the shadows, then saturation, then contrast
+  const GRADE = [{ gamma: 1.3, sat: 1.32, con: 1.06 }, { gamma: 1.06, sat: 1.15, con: 1.04 }, { gamma: 1.06, sat: 1.12, con: 1.04 }];
+  function grade(src, zi, sx = 0, sy = 0, sw = src.width, sh = src.height) {
+    const c = document.createElement('canvas'); c.width = sw; c.height = sh; const x = c.getContext('2d'); x.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+    try { const Gd = GRADE[zi], im = x.getImageData(0, 0, sw, sh), d = im.data, lut = new Uint8ClampedArray(256);
+      for (let i = 0; i < 256; i++) lut[i] = 255 * Math.pow(i / 255, 1 / Gd.gamma);
+      for (let i = 0; i < d.length; i += 4) { let r = lut[d[i]], g = lut[d[i + 1]], b = lut[d[i + 2]]; const l = .3 * r + .59 * g + .11 * b;
+        r = l + (r - l) * Gd.sat; g = l + (g - l) * Gd.sat; b = l + (b - l) * Gd.sat;
+        d[i] = 128 + (r - 128) * Gd.con; d[i + 1] = 128 + (g - 128) * Gd.con; d[i + 2] = 128 + (b - 128) * Gd.con; }
+      x.putImageData(im, 0, 0); } catch (e) { }
+    return c;
+  }
+  // per-zone texture calm for the GPU path: a mip bias softens fine detail (the jungle floor was busy enough to read as noise, owner 19:09)
+  const GLBIAS = { ground: [1.2, 0.3, 0.3], road: [0.6, 0, 0] };
+  const GRADED = {};
+  function gradePlates() { ['L1a', 'L1b', 'L1c'].forEach((id, zi) => { const im = LAYERS.ART[id]; if (im && !GRADED[id]) { GRADED[id] = 1; LAYERS.ART[id] = grade(im, zi); } }); }
   const SP = {};
   function stripPattern(ctx, id, zi) {   // one zone's strip of a three-strip tile as a repeating pattern, made once
     const k = id + zi; if (SP[k] !== undefined) return SP[k];
     const im = LAYERS.ART[id]; if (!im) return null;
-    const w = Math.floor(im.width / 3), h = im.height, c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, zi * w, 0, w, h, 0, 0, w, h);
-    return (SP[k] = { p: ctx.createPattern(c, 'repeat'), w, h });
+    const w = Math.floor(im.width / 3), h = im.height, c = grade(im, zi, zi * w, 0, w, h);
+    return (SP[k] = { c, w, h, lv: {} });
   }
   const GP = {};
   function groundPattern(ctx, zi) {   // the zone's ground strip as a repeating pattern, made once
     if (GP[zi] !== undefined) return GP[zi];
     const im = LAYERS.ART.L3b; if (!im) return null;
-    const w = Math.floor(im.width / 3), h = im.height, c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, zi * w, 0, w, h, 0, 0, w, h);
-    return (GP[zi] = { p: ctx.createPattern(c, 'repeat'), w, h });
+    const w = Math.floor(im.width / 3), h = im.height, c = grade(im, zi, zi * w, 0, w, h);
+    return (GP[zi] = { c, w, h, lv: {} });
+  }
+  // the pattern for a strip at this segment's scale: the copy halved across (ix) and in depth (iy) until it is within 2x of the screen
+  // (no mipmaps in canvas patterns: a 1000 px strip squeezed into 20 device px speckles and crawls as the camera moves)
+  function patAt(ctx, P, sx, sy, up = 0) {
+    const d = LAYERS.devScale(ctx), lvl = s => { const r = s * d; return r >= 1 ? 0 : Math.min(7, Math.floor(Math.log2(1 / r))); }, ix = lvl(sx), iy = Math.min(8, lvl(sy) + up), k = ix + ',' + iy;
+    if (!P.lv[k]) { const w = Math.max(1, Math.round(P.w / 2 ** ix)), h = Math.max(1, Math.round(P.h / 2 ** iy));
+      let src = P.c; if (ix || iy) { src = document.createElement('canvas'); src.width = w; src.height = h; const x = src.getContext('2d'); x.imageSmoothingQuality = 'high';
+        x.drawImage(ix ? LAYERS.mip(P.c, ix) : P.c, 0, 0, w, h); }   // across first (the halved copy), then squeezed in depth
+      P.lv[k] = { p: ctx.createPattern(src, 'repeat'), fx: P.w / w, fy: P.h / h }; }
+    return P.lv[k];
+  }
+  // fill with a strip, blending the two nearest copies by how far between them this depth is (trilinear): one copy per row of
+  // the road would switch sharpness in steps, and the steps travel toward the camera as visible bands (owner 19:01: "a mirage")
+  function fillPat(ctx, P, sx, sy, tx, ty, fill) {
+    const lod = Math.log2(1 / Math.max(1e-6, sy * LAYERS.devScale(ctx))), f = lod <= 0 ? 0 : lod - Math.floor(lod);
+    const m = patAt(ctx, P, sx, sy); m.p.setTransform(new DOMMatrix([sx * m.fx, 0, 0, sy * m.fy, tx, ty])); ctx.fillStyle = m.p; fill();
+    if (f > .06 && lod < 8) { const n = patAt(ctx, P, sx, sy, 1); n.p.setTransform(new DOMMatrix([sx * n.fx, 0, 0, sy * n.fy, tx, ty])); ctx.save(); ctx.globalAlpha *= f; ctx.fillStyle = n.p; fill(); ctx.restore(); }
   }
   const GC = {};
   function groundOf(zi) {
@@ -234,31 +279,58 @@
   function render(ctx, Sx, W, H, VIEW) {
     const C = CONFIG, cam = camera(Sx), L = id => VIEW.layers.find(l => l.id === id), zi = zoneAt(Sx.z);
     // backdrop: the zone's plate, drifting a little with the curve
-    const drift = -roadX(Sx.z + 40) * 0.012;
-    LAYERS.draw(ctx, L(['L1a', 'L1b', 'L1c'][zi]), Sx, W, H, { box: { ...G.boxes.backdrop, x: G.boxes.backdrop.x + drift } });
-    // road: segments far → near
-    const seg = C.segLen, zStart = Math.floor(cam.z / seg) * seg, pts = [];
-    for (let z = zStart + Math.ceil(C.drawDist / seg) * seg; z > cam.z + 0.6;) { const p = proj(cam, roadX(z), roadY(z), z, W, H); if (p) pts.push({ z, ...p }); const dz = z - cam.z; z -= dz < 18 ? 1 : dz < 45 ? 2 : 4; }   // finer near the camera: the texture stays a trapezoid, not a staircase
-    const tile = LAYERS.ART.L3, tileLen = tile ? G.roadHalf * 2 * (tile.height / (tile.width / 3)) : 24;   // the strip keeps its aspect on the road
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1]; const zz = zoneAt(a.z), T = groundOf(zz), band = Math.floor(a.z / 6) % 2;
-      if (b.y <= a.y) continue;
-      const gpat = groundPattern(ctx, zz);
-      if (gpat) { const ppm = (a.s + b.s) / 2, GW = 8, gl = GW * gpat.h / gpat.w, sx = ppm * GW / gpat.w, sy2 = (b.y - a.y) / ((a.z - b.z) / gl * gpat.h), r0 = (1 - (((a.z % gl) + gl) % gl) / gl) * gpat.h;
-        gpat.p.setTransform(new DOMMatrix([sx, 0, 0, sy2, (a.x + b.x) / 2, a.y - r0 * sy2])); ctx.fillStyle = gpat.p; ctx.fillRect(0, a.y, W, b.y - a.y + 1);
-        }
-      else { ctx.fillStyle = T.ground[band]; ctx.fillRect(0, a.y, W, b.y - a.y + 1); }
-      const ha = G.roadHalf * a.s, hb = G.roadHalf * b.s, ea = ha * 1.12, eb = hb * 1.12;
-      const rp = tile ? stripPattern(ctx, 'L3', zz) : null;
-      if (rp) {   // the road strip as a pattern scaled to this depth: one path fill per segment, no clipping
-        const ppm = (a.s + b.s) / 2, sx = ppm * G.roadHalf * 2 / rp.w, sy2 = (b.y - a.y) / ((a.z - b.z) / tileLen * rp.h), r0 = (1 - (((a.z % tileLen) + tileLen) % tileLen) / tileLen) * rp.h;
-        rp.p.setTransform(new DOMMatrix([sx, 0, 0, sy2, (a.x + b.x) / 2 - G.roadHalf * ppm, a.y - r0 * sy2])); ctx.fillStyle = rp.p;
-        ctx.beginPath(); ctx.moveTo(a.x - ha, a.y - .5); ctx.lineTo(a.x + ha, a.y - .5); ctx.lineTo(b.x + hb, b.y + .5); ctx.lineTo(b.x - hb, b.y + .5); ctx.closePath(); ctx.fill();
-      } else quad(ctx, a.x - ha, a.y, a.x + ha, b.x + hb, b.y, b.x - hb, T.road[band]);
-      ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(30,20,10,.22)'; ctx.lineWidth = Math.max(1, .14 * (a.s + b.s) / 2);   // the verge: one continuous soft line where the road meets the ground (no stepped bands)
-      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(a.x + sd * ha * 1.02, a.y); ctx.lineTo(b.x + sd * hb * 1.02, b.y); ctx.stroke(); }
-      ctx.restore();
-      if (Math.floor(a.z / 3) % 2 === 0) for (const lx of [-0.5, 0.5]) { const wa = 0.05 * a.s, wb = 0.05 * b.s, xa = a.x + lx * G.laneW * a.s, xb = b.x + lx * G.laneW * b.s; quad(ctx, xa - wa, a.y, xa + wa, xb + wb, b.y, xb - wb, 'rgba(255,255,255,.55)'); }
+    gradePlates(); const drift = -roadX(Sx.z + 40) * 0.012;
+    const bx = { ...G.boxes.backdrop, x: G.boxes.backdrop.x + drift }, PL = ['L1a', 'L1b', 'L1c'];
+    const nz = Sx.course.zones[zi + 1], skyT = nz ? clamp(1 - (nz.start - Sx.z) / 25, 0, 1) : 0, skyE = skyT * skyT * (3 - 2 * skyT);
+    const A = LAYERS.ART, useGL = !has('no-gl') && window.GLWORLD && A.L3 && A.L3b && A.L1a && A.L1b && A.L1c && ctx.canvas.id === 'game' && GLWORLD.init(ctx.canvas);
+    if (useGL) {   // the world on the GPU (glworld.js): sky, ground, road, dashes; the 2D canvas above stays clear for everything else
+      const m = ctx.getTransform(), base = ctx.canvas.width / W;
+      GLWORLD.draw({ W, H, dpr: base, cam, k: G.k, hz: G.hz, roadX, roadY, roadHalf: G.roadHalf, laneW: G.laneW, drawDist: C.drawDist,
+        zones: Sx.course.zones.slice(1).map(Z => Z.start), shake: [m.e / base, m.f / base],
+        plates: [{ key: PL[zi], src: A[PL[zi]], box: bx, alpha: 1 }, ...(nz ? [{ key: PL[zi + 1], src: A[PL[zi + 1]], box: bx, alpha: skyE }] : [])],
+        ground: [0, 1, 2].map(z => groundPattern(ctx, z).c), groundW: 8, groundAspect: groundPattern(ctx, 0).h / groundPattern(ctx, 0).w,
+        road: [0, 1, 2].map(z => stripPattern(ctx, 'L3', z).c), roadLen: G.roadHalf * 2 * (A.L3.height / (A.L3.width / 3)),
+        bias: { ground: GLBIAS.ground, road: GLBIAS.road } });
+    } else {
+      LAYERS.draw(ctx, L(PL[zi]), Sx, W, H, { box: bx });
+      const nz = Sx.course.zones[zi + 1]; if (nz) { const t = clamp(1 - (nz.start - Sx.z) / 25, 0, 1); if (t > 0) LAYERS.draw(ctx, L(PL[zi + 1]), Sx, W, H, { box: bx, alpha: t * t * (3 - 2 * t) }); }   // the next zone's sky dissolves in over the last 25 m: a cut read as a jump (owner 19:05)
+      // road: segments far → near
+      const seg = C.segLen, zStart = Math.floor(cam.z / seg) * seg, pts = [];
+      for (let z = zStart + Math.ceil(C.drawDist / seg) * seg; z > cam.z + 0.6;) { const p = proj(cam, roadX(z), roadY(z), z, W, H); if (p) pts.push({ z, ...p }); const dz = z - cam.z; z -= dz < 18 ? 1 : dz < 45 ? 2 : 4; }   // finer near the camera: the texture stays a trapezoid, not a staircase
+      const tile = LAYERS.ART.L3, tileLen = tile ? G.roadHalf * 2 * (tile.height / (tile.width / 3)) : 24;   // the strip keeps its aspect on the road
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1]; const zz = zoneAt(a.z), T = groundOf(zz), band = Math.floor(a.z / 6) % 2;
+        if (b.y <= a.y) continue;
+        const ha = G.roadHalf * a.s, hb = G.roadHalf * b.s;
+        // the far edge fades in over the last 30 m (the farthest row is added in 4 m steps: a hard edge there jumps up and down), and
+        // two zones cross-fade over 10 m around their boundary (a hard seam between two textures steps with the rows) (owner 19:02)
+        const far = clamp((C.drawDist - (a.z - cam.z)) / 30, 0, 1), zm = (a.z + b.z) / 2, nb = Sx.course.zones.slice(1).find(Z => Math.abs(zm - Z.start) < 5);
+        ctx.save(); ctx.globalAlpha = far;
+        const paint = (zz, al) => { if (al <= .01) return; const T = groundOf(zz); ctx.save(); ctx.globalAlpha *= al;
+        const gpat = groundPattern(ctx, zz);
+        if (gpat) { const ppm = (a.s + b.s) / 2, GW = 8, gl = GW * gpat.h / gpat.w, sx = ppm * GW / gpat.w, sy2 = (b.y - a.y) / ((a.z - b.z) / gl * gpat.h), r0 = (1 - (((a.z % gl) + gl) % gl) / gl) * gpat.h;
+          fillPat(ctx, gpat, sx, sy2, (a.x + b.x) / 2, a.y - r0 * sy2, () => ctx.fillRect(0, a.y, W, b.y - a.y + 1));
+          }
+        else { ctx.fillStyle = T.ground[band]; ctx.fillRect(0, a.y, W, b.y - a.y + 1); }
+        const rp = tile ? stripPattern(ctx, 'L3', zz) : null;
+        if (rp) {   // the road strip as a pattern scaled to this depth: one path fill per segment, no clipping
+          const ppm = (a.s + b.s) / 2, sx = ppm * G.roadHalf * 2 / rp.w, sy2 = (b.y - a.y) / ((a.z - b.z) / tileLen * rp.h), r0 = (1 - (((a.z % tileLen) + tileLen) % tileLen) / tileLen) * rp.h;
+          ctx.beginPath(); ctx.moveTo(a.x - ha, a.y - .5); ctx.lineTo(a.x + ha, a.y - .5); ctx.lineTo(b.x + hb, b.y + .5); ctx.lineTo(b.x - hb, b.y + .5); ctx.closePath();
+          fillPat(ctx, rp, sx, sy2, (a.x + b.x) / 2 - G.roadHalf * ppm, a.y - r0 * sy2, () => ctx.fill());
+        } else quad(ctx, a.x - ha, a.y, a.x + ha, b.x + hb, b.y, b.x - hb, T.road[band]);
+        ctx.restore(); };
+        if (nb) { const t = clamp((zm - nb.start + 5) / 10, 0, 1); paint(nb.i - 1, 1); paint(nb.i, t); } else paint(zz, 1);
+        ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(30,20,10,.22)'; ctx.lineWidth = Math.max(1, .14 * (a.s + b.s) / 2);   // the verge: one continuous soft line where the road meets the ground (no stepped bands)
+        for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(a.x + sd * ha * 1.02, a.y); ctx.lineTo(b.x + sd * hb * 1.02, b.y); ctx.stroke(); }
+        ctx.restore();
+        const dpx = .1 * b.s * LAYERS.devScale(ctx), da = .55 * Math.min(1, dpx);   // the dash's width in device pixels: thinner than one fades instead of flickering
+        if (da > .03) for (let k = Math.floor(b.z / 6) * 6; k < a.z; k += 6) {   // dash = [k, k+3] m; screen position interpolated in 1/distance, exact under perspective
+          const z0 = Math.max(k, b.z), z1 = Math.min(k + 3, a.z); if (z1 <= z0) continue;
+          const at = z => { const t = (1 / (z - cam.z) - 1 / (b.z - cam.z)) / (1 / (a.z - cam.z) - 1 / (b.z - cam.z)); return { x: b.x + (a.x - b.x) * t, y: b.y + (a.y - b.y) * t, s: b.s + (a.s - b.s) * t }; };
+          const p = at(z1), q = at(z0);
+          for (const lx of [-0.5, 0.5]) { const wa = 0.05 * p.s, wb = 0.05 * q.s, xa = p.x + lx * G.laneW * p.s, xb = q.x + lx * G.laneW * q.s; quad(ctx, xa - wa, p.y, xa + wa, xb + wb, q.y, xb - wb, `rgba(255,255,255,${da.toFixed(3)})`); } }
+        ctx.restore();
+      }
     }
     // objects far → near: props, hazards, rings, the boost rings, the finish gate, the runner
     const objs = [];
@@ -270,15 +342,17 @@
     objs.push({ z: Sx.z, k: 'runner' });
     objs.sort((a, b) => b.z - a.z);
     for (const o of objs) {
+      const dd = o.z - cam.z, lim = o.k === 'ring' ? C.drawDist * .7 : C.drawDist; ctx.globalAlpha = o.k === 'runner' ? 1 : clamp((lim - dd) / (o.k === 'ring' ? 15 : 30), 0, 1);   // things fade in at the far edge, never pop
       if (o.k === 'prop') { const p = o.p, x = roadX(p.z) + p.side * (G.roadHalf * 1.12 + p.off + 1.2), q = proj(cam, x, roadY(p.z), p.z, W, H); if (!q) continue; const h = G.propH * q.s; drawGrounded(ctx, L('L2'), p.cell, q.x, q.y, h, h, Sx, W, H); }
       else if (o.k === 'row') { const r = o.r;
         if (r.roller) { const lx = (r.lanes[0] + r.lanes[1]) / 2, q = proj(cam, roadX(r.z) + lx * G.laneW, roadY(r.z), r.z, W, H); if (!q) continue; const w = G.laneW * 2 * q.s * 0.98; drawGrounded(ctx, L('L6'), 0, q.x, q.y, w, w * 0.5, Sx, W, H); }
-        else r.lanes.forEach((l, j) => { const q = proj(cam, roadX(r.z) + l * G.laneW, roadY(r.z), r.z, W, H); if (!q) return; const w = G.laneW * q.s * 0.92; drawGrounded(ctx, L('L5'), r.kinds[j] === 'boulder' ? 1 : 0, q.x, q.y, w, w, Sx, W, H); }); }
+        else r.lanes.forEach((l0, j) => { const l = laneNow(r, l0, Sx), q = proj(cam, roadX(r.z) + l * G.laneW, roadY(r.z), r.z, W, H); if (!q) return; const w = G.laneW * q.s * 0.92; drawGrounded(ctx, L('L5'), r.kinds[j] === 'boulder' ? 1 : 0, q.x, q.y, w, w, Sx, W, H); }); }
       else if (o.k === 'ring') { const r = o.r, q = proj(cam, roadX(r.z) + r.lane * G.laneW, roadY(r.z) + 0.55, r.z, W, H); if (!q) continue; const gq = proj(cam, roadX(r.z) + r.lane * G.laneW, roadY(r.z), r.z, W, H); if (gq) shadowAt(ctx, gq.x, gq.y, 0.5 * gq.s, .5); goldRing(ctx, q.x, q.y, 0.3 * q.s, Math.cos((Sx.clock || 0) * 2.6 + r.z * .35)); }
       else if (o.k === 'gate') { const q = proj(cam, roadX(o.z), roadY(o.z) + 2.4, o.z, W, H); if (!q) continue; goldRing(ctx, q.x, q.y, 2.3 * q.s, 1, true); }
       else if (o.k === 'finish') { const q = proj(cam, roadX(o.z), roadY(o.z), o.z, W, H); if (!q) continue; const w = G.roadHalf * 2.6 * q.s; drawGrounded(ctx, L('L7'), 0, q.x, q.y, w, w, Sx, W, H); finishWord(ctx, q.x, q.y, w); }   // the word is code (no text in pictures), set on the banner measured in the picture
       else if (o.k === 'runner') drawRunner(ctx, Sx, cam, W, H, L('L4'));
     }
+    ctx.globalAlpha = 1;
     lightPass(ctx, Sx, W, H, zi);
     // speed lines on a boost; red flash on a spill
     if (Sx.boost > 0 || Sx.mode === 'reveal') { ctx.save(); ctx.globalAlpha = Math.max(Sx.boost, Sx.mode === 'reveal' ? .6 : 0) * .55; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283 + Sx.z * 0.07, r0 = W * (0.42 + ((i * 37) % 10) / 40), r1 = r0 + W * 0.18; ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(a) * r0, H * G.hz + Math.sin(a) * r0); ctx.lineTo(W / 2 + Math.cos(a) * r1, H * G.hz + Math.sin(a) * r1); ctx.stroke(); } ctx.restore(); }
@@ -304,7 +378,8 @@
     const im = LAYERS.ART[L.id], k = `${L.id}:${cell}`; if (!im) return null; if (SIL[k]) return SIL[k];
     let sx = 0, sy = 0, sw = im.width, sh = im.height; if (L.cells) { sw = im.width / L.cells.cols; sh = im.height / L.cells.rows; sx = (cell % L.cells.cols) * sw; sy = Math.floor(cell / L.cells.cols) * sh; }
     const P = 4, sc = Math.min(1, 160 / Math.max(sw, sh)), iw = Math.round(sw * sc), ih = Math.round(sh * sc), c = document.createElement('canvas'); c.width = iw + 2 * P; c.height = ih + 2 * P; const x = c.getContext('2d');
-    x.filter = 'blur(1.5px)'; x.drawImage(im, sx, sy, sw, sh, P, P, iw, ih); x.filter = 'none'; x.globalCompositeOperation = 'source-in';
+    const sm = document.createElement('canvas'); sm.width = Math.max(1, Math.round(iw / 3)); sm.height = Math.max(1, Math.round(ih / 3)); sm.getContext('2d').drawImage(im, sx, sy, sw, sh, 0, 0, sm.width, sm.height);
+    x.imageSmoothingQuality = 'high'; x.drawImage(sm, P, P, iw, ih); x.globalCompositeOperation = 'source-in';   // soft edge by a small copy scaled up: works on every phone (ctx.filter does not)
     const g = x.createLinearGradient(0, P + ih, 0, P); g.addColorStop(0, 'rgba(12,10,24,1)'); g.addColorStop(.5, 'rgba(12,10,24,.6)'); g.addColorStop(1, 'rgba(12,10,24,.25)');   // darkest at the base, fading toward the far end
     x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
     return (SIL[k] = { c, P, iw, ih });
@@ -322,12 +397,12 @@
     const sil = silhouette(L, cell); if (!sil || w < 3) { shadowAt(ctx, x, y, w * .6); return; }
     const s = w / sil.iw;   // the same scale the picture is drawn at: the shadow's base edges are the object's base edges
     ctx.save(); ctx.globalAlpha = Math.max(.12, .5 - lift / h) * near; ctx.translate(x, y); ctx.transform(1, 0, -0.3 * near, -0.13 * near - .02, 0, 0);   // laid on the ground toward the camera, a little right; y = 0 is the base, so the base never moves
-    ctx.drawImage(sil.c, -w / 2 - sil.P * s, -h - sil.P * s, sil.c.width * s, sil.c.height * s); ctx.restore();
+    LAYERS.drawImg(ctx, sil.c, 0, 0, sil.c.width, sil.c.height, -w / 2 - sil.P * s, -h - sil.P * s, sil.c.width * s, sil.c.height * s); ctx.restore();
     shadowAt(ctx, x, y, w * .3, .35 * near);   // a thin contact line where it touches the ground
   }
   const LIGHT = { key: '', zones: {} };
   const ZLIGHT = [   // per zone: the light colour, its strength, haze strength, shafts
-    { light: '255,236,170', a: .30, haze: .55, shafts: true, shade: .30 },
+    { light: '255,240,190', a: .34, haze: .32, shafts: true, shade: .12 },   // the jungle: sunlit, not murky (owner 18:59: "a bit darkish")
     { light: '255,248,220', a: .22, haze: .45, shafts: false, shade: .18 },
     { light: '255,214,140', a: .34, haze: .60, shafts: false, shade: .22 },
   ];
@@ -352,7 +427,9 @@
     return (LIGHT.zones[zi] = { all, art: !!LAYERS.ART.L1a });
   }
   function lightPass(ctx, Sx, W, H, zi) {
-    ctx.drawImage(lightLayers(W, H, zi).all, 0, 0, W, H);   // one cached full-screen layer per zone: haze, light, shade, vignette
+    const nz = Sx.course.zones[zi + 1], t = nz ? clamp(1 - (nz.start - Sx.z) / 25, 0, 1) : 0, e = t * t * (3 - 2 * t);
+    ctx.save(); ctx.globalAlpha = 1 - e; ctx.drawImage(lightLayers(W, H, zi).all, 0, 0, W, H);   // one cached full-screen layer per zone: haze, light, shade, vignette
+    if (e > 0) { ctx.globalAlpha = e; ctx.drawImage(lightLayers(W, H, zi + 1).all, 0, 0, W, H); } ctx.restore();   // and the next zone's light dissolves in with its sky
   }
   // the banner's box in the gate picture, measured once from its red cloth (the picture decides where the word goes, not a guess)
   let BANNER = null;
@@ -391,8 +468,8 @@
     if (im) { const sq = Math.max(.1, Math.abs(squash)); let best = 0; RSQ.forEach((v, i) => { if (Math.abs(v - sq) < Math.abs(RSQ[best] - sq)) best = i; });
       const cw = im.width / 3, ch = im.height / 2, d = r * 2.1;   // the processed cell is trimmed to the ring: its height is the ring's diameter
       const cellW = d * (cw / ch), wNow = cellW * sq / RSQ[best];   // the painted angle's shading, the exact width of this moment's turn: no stepping between frames
-      ctx.drawImage(im, (best % 3) * cw, Math.floor(best / 3) * ch, cw, ch, x - wNow / 2, y - d / 2, wNow, d);
-      if (big) { ctx.save(); ctx.globalAlpha = .3; ctx.globalCompositeOperation = 'screen'; ctx.drawImage(im, 0, 0, cw, ch, x - d * .55, y - d * .55, d * 1.1, d * 1.1); ctx.restore(); }
+      LAYERS.drawImg(ctx, im, (best % 3) * cw, Math.floor(best / 3) * ch, cw, ch, x - wNow / 2, y - d / 2, wNow, d);
+      if (big) { ctx.save(); ctx.globalAlpha = .3; ctx.globalCompositeOperation = 'screen'; LAYERS.drawImg(ctx, im, 0, 0, cw, ch, x - d * .55, y - d * .55, d * 1.1, d * 1.1); ctx.restore(); }
       return; }
     const sp = ringSprite(), k = r / sp.R, d = sp.S * k, sq = Math.max(.16, squash);
     ctx.save(); ctx.translate(x, y); ctx.scale(sq, 1); ctx.drawImage(sp.c, -d / 2, -d / 2, d, d); ctx.restore();
@@ -516,7 +593,7 @@
   const CSS = `
   html,body{margin:0;height:100%;background:#000;font-family:Inter,system-ui,sans-serif;-webkit-user-select:none;user-select:none}
   .frame{--accent:#1E50D0;--ink:#13233d;--red:#e0202a;--gold:#ffd23a;position:relative;width:min(100vw,calc(100dvh*2/3));aspect-ratio:2/3;margin:0 auto;overflow:hidden;background:#2a2a2e;container-type:inline-size;touch-action:none}
-  canvas#game{position:absolute;inset:0;width:100%;height:100%;display:block}
+  canvas#game,canvas#world{position:absolute;inset:0;width:100%;height:100%;display:block}
   .hud{position:absolute;inset:0;pointer-events:none;color:#fff;font-weight:700}
   .brandmark{position:absolute;left:50%;top:2.6cqw;transform:translateX(-50%);height:6cqw;display:flex;align-items:center;justify-content:center;font-size:2.6cqw;font-weight:900;letter-spacing:.12em;color:var(--ink);border:1px dashed rgba(19,35,61,.45);border-radius:1.5cqw;padding:0 3cqw;background:rgba(255,255,255,.55);white-space:nowrap}
   .watch{position:absolute;left:50%;top:11.4cqw;transform:translateX(-50%) skewX(-8deg);display:flex;align-items:center;gap:1.6cqw;background:var(--zc,#4a7a3a);border:.6cqw solid rgba(255,255,255,.85);border-radius:1.6cqw;padding:.8cqw 3cqw;font-size:5cqw;font-weight:900;font-style:italic;font-variant-numeric:tabular-nums;box-shadow:0 .6cqw 1.6cqw rgba(0,0,0,.25)}
@@ -546,7 +623,7 @@
   .loader{position:absolute;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;background:#0d1a3a;transition:opacity .45s ease}
   .loader.done{opacity:0;pointer-events:none}.loader[hidden]{display:none}
   .loader .bar{width:38cqw;height:1.4cqw;border-radius:1cqw;background:rgba(255,255,255,.15);overflow:hidden}.loader .bar i{display:block;height:100%;width:0;background:var(--gold);border-radius:1cqw;transition:width .25s ease}
-  .frame.loading canvas#game,.frame.loading .hud,.frame.loading .card{visibility:hidden}
+  .frame.loading canvas#game,.frame.loading canvas#world,.frame.loading .hud,.frame.loading .card{visibility:hidden}
   .brandmark:has(img){border:0;background:none;padding:0;height:9cqw;top:1.6cqw}.brandmark img{height:100%;width:auto;display:block;filter:drop-shadow(0 .4cqw .8cqw rgba(0,0,0,.45))}
   .card .lockup:has(img){border:0;background:none;padding:0}.card .lockup img{height:14cqw;width:auto;display:block}
   /* game-style screens: slanted bands, a checkered speed strip, a blinking press line, results that count up (owner 15:51) */
@@ -687,7 +764,7 @@
     const $ = id => document.getElementById(id);
     const canvas = $('game'), ctx = canvas.getContext('2d');
     let W = 640, H = 960; const dpr = Math.min(1.5, devicePixelRatio || 1);   // phone budget: 1.5x is sharp at slot size, 2x costs 78% more pixels per frame
-    const resize = () => { const r = $('frame').getBoundingClientRect(); W = r.width; H = r.height; canvas.width = W * dpr; canvas.height = H * dpr; };
+    const resize = () => { const r = $('frame').getBoundingClientRect(); W = r.width; H = r.height; canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); };
     new ResizeObserver(resize).observe($('frame')); resize();
     function showCard(which) {
       const t = S.elapsed.toFixed(1), stat = `${t} s · ${S.ringsTotal} ${C.rings}`;
@@ -717,12 +794,13 @@
     window.addEventListener('keydown', e => { if (e.code === 'ArrowLeft') swipe(-1, 'user'); if (e.code === 'ArrowRight') swipe(1, 'user'); if (e.code === 'Space' && S.mode === 'attract') startRound(); });
     reset(BOT && !ATTRACT ? 'play' : 'attract');
     if (ATTRACT || BOT) $('startCard').hidden = true;
-    let last = performance.now(), lastRings = -1; const FPS = { n: 0, acc: 0, v: 0 };
+    let last = performance.now(), lastRings = -1; const FT = { v: 0 }; const FPS = { n: 0, acc: 0, v: 0 };
     function frame(now) {
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const raw = Math.min(0.05, (now - last) / 1000); last = now; FT.v = FT.v ? FT.v + (raw - FT.v) * .1 : raw;
+      const dt = Math.abs(raw - FT.v) < FT.v * .5 ? FT.v : raw;   // phones report frame times with jitter; moving by the jittery time while the screen shows frames evenly reads as a stutter, so steady frames move by the running average
       if (S.mode === 'attract' || (BOT && !ATTRACT && S.mode === 'play')) autopilot(dt);
       update(dt);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0); ctx.clearRect(0, 0, W, H);   // default (low) sampling: the mip copies do the filtering, 'high' per frame costs ~25% on a phone
       ctx.save(); if (S.shake > 0) ctx.translate((Math.random() - .5) * 10 * S.shake, (Math.random() - .5) * 10 * S.shake);
       VIEW.drawFrame(ctx, S, W, H, CONFIG);
       ctx.restore();

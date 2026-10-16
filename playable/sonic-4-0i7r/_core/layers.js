@@ -32,14 +32,31 @@ window.LAYERS = (function () {
     }
     return { x, y, w, h };
   }
+  /* mipmaps (rule 34): canvas drawImage and patterns sample without mipmaps on phones, so a large picture drawn small
+     skips texels and shimmers as speckles. Every in-game picture is drawn from a pre-halved copy within 2x of its
+     on-screen size, measured in DEVICE pixels (the context transform includes the pixel ratio). */
+  const MIPS = new WeakMap();
+  function mip(im, n) {
+    let L = MIPS.get(im); if (!L) { L = [im]; MIPS.set(im, L); }
+    while (L.length <= n) { const s = L[L.length - 1], w = Math.max(1, Math.round(s.width / 2)), h = Math.max(1, Math.round(s.height / 2));
+      if (w === s.width && h === s.height) break;
+      const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(s, 0, 0, w, h); L.push(c); }
+    return L[Math.min(n, L.length - 1)];
+  }
+  function devScale(ctx) { const m = ctx.getTransform(); return Math.hypot(m.a, m.b) || 1; }
+  function drawImg(ctx, im, sx, sy, sw, sh, dx, dy, dw, dh) {
+    const r = Math.abs(dw) * devScale(ctx) / sw, lod = r >= 1 ? 0 : Math.min(6, Math.log2(1 / r)), n = Math.floor(lod), t = lod - n;
+    const one = (k, a) => { const m = k ? mip(im, k) : im, f = m.width / im.width, g = m.height / im.height; if (a < 1) { ctx.save(); ctx.globalAlpha *= a; } ctx.drawImage(m, sx * f, sy * g, sw * f, sh * g, dx, dy, dw, dh); if (a < 1) ctx.restore(); };
+    if (t < .06 || n >= 6) one(n, 1); else if (t > .94) one(n + 1, 1); else { one(n + 1, 1); one(n, 1 - t); }   // trilinear: the two nearest copies blended, so the sharpness never steps as a sprite grows
+  }
   /* draw a layer in the game. opts: { box (override, frame fractions), rot (radians about the pivot), pivot ([px,py] in px), cell (sheet index), alpha } */
   function draw(ctx, L, S, W, H, opts = {}) {
     const b = boxPx(L, W, H, opts.box); const im = ART[L.id];
     ctx.save(); if (opts.alpha != null) ctx.globalAlpha = opts.alpha;
     if (opts.rot) { const p = opts.pivot || [b.x + b.w / 2, b.y + b.h / 2]; ctx.translate(p[0], p[1]); ctx.rotate(opts.rot); ctx.translate(-p[0], -p[1]); }
     if (im) {
-      if (L.type === 'sheet' && L.cells) { const cw = im.width / L.cells.cols, ch = im.height / L.cells.rows, i = opts.cell || 0; ctx.drawImage(im, (i % L.cells.cols) * cw, Math.floor(i / L.cells.cols) * ch, cw, ch, b.x, b.y, b.w, b.h); }
-      else ctx.drawImage(im, b.x, b.y, b.w, b.h);
+      if (L.type === 'sheet' && L.cells) { const cw = im.width / L.cells.cols, ch = im.height / L.cells.rows, i = opts.cell || 0; drawImg(ctx, im, (i % L.cells.cols) * cw, Math.floor(i / L.cells.cols) * ch, cw, ch, b.x, b.y, b.w, b.h); }
+      else drawImg(ctx, im, 0, 0, im.width, im.height, b.x, b.y, b.w, b.h);
     } else L.shape(ctx, b.x, b.y, b.w, b.h, S, opts.cell || 0);
     ctx.restore();
     return b;
@@ -52,5 +69,5 @@ window.LAYERS = (function () {
       else L.shape(ctx, 0, 0, W, H, null, o.cell || 0, o); }
     if (o.explain) { if (L.camera) { ctx.font = '700 34px Arial'; const t = 'CAMERA: ' + L.camera; if (ctx.measureText(t).width > W - 60) { const parts = t.split(', '); const mid = Math.ceil(parts.length / 2); GB.bpLabel(ctx, 30, H - 90, parts.slice(0, mid).join(', ') + ',', '#ffd23a', true); GB.bpLabel(ctx, 30, H - 40, parts.slice(mid).join(', '), '#ffd23a', true); } else GB.bpLabel(ctx, 30, H - 40, t, '#ffd23a', true); } if (L.explain) L.explain(ctx, W, H); }
   }
-  return { ART, META, load, boxPx, draw, blueprint };
+  return { ART, META, load, boxPx, draw, blueprint, mip, drawImg, devScale };
 })();
