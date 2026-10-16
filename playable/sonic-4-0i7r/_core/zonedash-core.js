@@ -13,15 +13,21 @@
   const CONFIG = {
     ctaUrl: 'https://www.paramountmovies.com/',  // placeholder until the client names the ticket door; window.clickTag overrides
     speeds: [26, 32, 38],          // m/s per zone (the runner is ~1 m tall; lanes 1.6 m)
-    zoneSecs: [6.2, 6.2, 6.2],     // seconds of running per zone at full speed: ~20 s with the lead-in
+    zoneSecs: [12, 12, 12],        // seconds of running per zone at full speed: ~37 s with the lead-in (owner 19:32, 19:35: more time in each zone, kept fun by movers; was 6.2)
     leadIn: 1.0,                   // a straight stretch with a ring line before anything can hurt (rule 16)
     gateLead: 1.1,                 // seconds after each boost ring before the first hazard of the new zone (rule 16)
-    rowGap: [1.1, 0.85, 0.66],     // seconds between hazard rows, by zone (rule 18: generous first)
+    rowGap: [0.9, 0.72, 0.64],      // was 1.1, 0.85, 0.66: denser rows so every second asks for a move (owner 19:59, measured: lane changes per second)     // seconds between hazard rows, by zone (rule 18: generous first)
     twoLane: [0.2, 0.6, 0.8],     // chance a row blocks two lanes, by zone
     maxShift: [2, 2, 1],           // when a row blocks two lanes, how far its free lane may sit from the last row's free lane
-    rollerShare: [0, 0, 0.6],
-    mover: [0, 0.3, 0.4],          // share of one-lane rows whose hazard slides one lane over as the runner approaches (owner 18:52: "how a game would do it")
-    moveAt: [1.2, 0.75],           // seconds before it is reached: the slide starts (after a short wobble), and is over; 0.75 s leaves a first-timer time to react (rule 18)      // share of two-lane rows that are one spiked roller across both lanes (zone 3)
+    rollerShare: [0, 0, 0.6],      // share of two-lane rows that are one spiked roller across both lanes (zone 3)
+    // movers (owner 18:52, 19:35, 19:36: "how a game would do it", "continuously moving, time your direction", "fun like an obstacle runner"):
+    // shares of rows by kind, per zone. slide = one hazard slides a lane; patrol = a boulder rolls back and forth across all three lanes
+    // without stopping (time the gap); oncoming = a boulder rolls toward the runner down its lane; gap = a two-lane block whose gap moves
+    movers: [{ slide: .15, patrol: .12, oncoming: 0, gap: 0 }, { slide: .15, patrol: .2, oncoming: .15, gap: .15 }, { slide: .12, patrol: .22, oncoming: .18, gap: .2 }],
+    target: [0.6, 0.72, 0.75],     // share of rows placed in the racing line (or with their gap away from it): every row asks for a move
+    moveAt: [1.2, 0.75],           // seconds before it is reached: a slide starts, and is over; 0.75 s leaves a first-timer time to react (rule 18)
+    patrolW: [[2.0, 2.4], [2.3, 2.8], [2.6, 3.2]],   // a patrol's sweep speed (rad/s) by zone: one full sweep L-R-L takes 2-3 s
+    oncomingV: [7, 10],            // m/s toward the runner (it starts rolling when it comes into view)
     startRings: 6, ringLine: 5, ringGap: 3.2, ringChance: [0.7, 0.42, 0.32],
     greedLine: [0.2, 0.35, 0.5],   // chance a ring line runs into a lane the NEXT row blocks (the rich lane brushes the spikes)
     laneSecs: 0.13,                // time to cross one lane
@@ -29,11 +35,11 @@
     hitHalf: 0.42,                 // lane overlap that counts as a hit (lane units)
     drawDist: 150, segLen: 2,
     curve: { a: 2.2, l: 70 }, hill: { a: 0.9, l: 55 },   // gentle sway and swell of the course (metres)
-    idleToAttract: 3, readySecs: 1.5,   // READY · SET · GO! before the run starts (owner 16:25, 16:28: the expected countdown)
+    idleToAttract: 3, readySecs: 1.5, stopSecs: 0.9,   // stopSecs: from the line to standing still (owner 19:26: stop from momentum, then the win pose)   // READY · SET · GO! before the run starts (owner 16:25, 16:28: the expected countdown)
     humanLook: 0.8, humanReact: [0.36, 0.62],   // the first-timer bot: sees a row this far ahead (s), reacts this much later
     copy: {
       brand: 'SONIC 4 · LOGO', hint: 'Swipe to change lane', leadInHint: 'Grab the rings',
-      cueSpill: 'Rings lost! No rings = next hit ends it', cueRoller: 'Two lanes blocked: find the gap', cueMover: 'Watch it: some hazards move!',
+      cueSpill: 'Rings lost! No rings = next hit ends it', cueRoller: 'Two lanes blocked: find the gap', cueMover: 'Watch it: some hazards move!', cuePatrol: 'Time it: the boulder rolls across!', cueOncoming: 'Incoming! Dodge the boulder!',
       zones: ['JUNGLE', 'ZONE 2 · FASTER', 'ZONE 3 · FASTER'], zoneNames: ['Jungle', 'Checkered hills', 'Desert ruins'],
       startTitle: 'Three zones. One run.', startLine: 'Swipe left and right. Grab rings, dodge spikes.', play: 'Run',
       winStamp: 'FINISH', winTitle: 'In cinemas 19 March 2027', winLine: 'The fastest hero is back.', cta: 'Get tickets',
@@ -57,21 +63,37 @@
     const C = CONFIG, zones = []; let z = 0;
     for (let i = 0; i < 3; i++) { const len = C.speeds[i] * C.zoneSecs[i] + (i === 0 ? C.speeds[0] * C.leadIn : 0); zones.push({ i, start: z, end: z + len }); z += len; }
     const rows = [], rings = [], props = [];
-    let prevFree = [0];
+    // the racing line (owner 19:59: "too straightforward, you just keep moving in a line"): `expect` is the lane a good runner is in when
+    // the next row arrives; most rows are put IN that lane (or leave their gap AWAY from it), so every row asks for a move. Kinds come
+    // from a shuffled deck per zone, not dice: every kind the zone uses appears, at least twice, spread through it.
+    let prevFree = [0], expect = 0;
     zones.forEach(Z => {
-      const v = C.speeds[Z.i]; let rz = Z.start + v * (Z.i === 0 ? C.leadIn + 0.9 : C.gateLead);
+      const v = C.speeds[Z.i], MV = C.movers[Z.i]; let rz = Z.start + v * (Z.i === 0 ? C.leadIn + 0.9 : C.gateLead);
+      const N = Math.max(4, Math.round((Z.end - v * .6 - rz) / (v * C.rowGap[Z.i] * 1.1))), deck = [];
+      for (const k of ['patrol', 'oncoming', 'slide', 'gap']) if (MV[k] > 0) for (let n = Math.max(2, Math.round(MV[k] * N)); n--;) deck.push(k);
+      while (deck.length < N) deck.push('static');
+      for (let a = deck.length - 1; a > 0; a--) { const b = Math.floor(Math.random() * (a + 1)); [deck[a], deck[b]] = [deck[b], deck[a]]; }
+      deck.unshift('static');   // each zone opens on a plain row
       while (rz < Z.end - v * 0.6) {
-        let lanes;
-        if (Math.random() < C.twoLane[Z.i]) {   // two blocked: the free lane is within maxShift of a free lane of the last row
-          const cand = [-1, 0, 1].filter(f => prevFree.some(p => Math.abs(p - f) <= C.maxShift[Z.i]));
-          const free = pick(cand); lanes = [-1, 0, 1].filter(l => l !== free);
-        } else lanes = [pick([-1, 0, 1])];
-        const roller = lanes.length === 2 && Math.abs(lanes[0] - lanes[1]) === 1 && Math.random() < C.rollerShare[Z.i];
-        const kinds = roller ? ['roller'] : lanes.map(() => pick(['spikes', 'spikes', 'boulder']));
-        let from = null; if (lanes.length === 1 && Math.random() < C.mover[Z.i]) { from = lanes[0]; lanes = [from === 0 ? pick([-1, 1]) : 0]; }   // a mover: shown in 'from', ends in its lane
-        rows.push({ z: rz, zone: Z.i, lanes, kinds, roller, from, free: [-1, 0, 1].filter(l => !lanes.includes(l)) });
-        prevFree = rows[rows.length - 1].free;
-        rz += v * C.rowGap[Z.i] * rand(0.92, 1.15);
+        const want = deck.shift() || 'static', tgt = Math.random() < C.target[Z.i];
+        let lanes = null, kinds, kind = 'static', from = null, ph = 0, w = 0, vz = 0, gapMul = 1, roller = false;
+        const reach = () => [-1, 0, 1].filter(f => prevFree.some(q => Math.abs(q - f) <= C.maxShift[Z.i]));
+        const gapAway = () => { const c = reach(), away = c.filter(f => f !== expect); return tgt && away.length ? pick(away) : pick(c); };
+        if (want === 'patrol') { kind = 'patrol'; lanes = [expect]; kinds = ['boulder']; ph = rand(0, 6.283); w = rand(...C.patrolW[Z.i]); gapMul = 1.25; }
+        else if (want === 'oncoming') { kind = 'oncoming'; lanes = [tgt ? expect : pick([-1, 0, 1])]; kinds = ['boulder']; vz = rand(...C.oncomingV); gapMul = (v + vz) / v; }
+        else if (want === 'slide') { const to = tgt ? expect : pick([-1, 0, 1]); kind = 'slide'; lanes = [to]; from = [to === 0 ? pick([-1, 1]) : 0]; kinds = [pick(['spikes', 'boulder'])]; }   // it slides INTO the racing line
+        else if (want === 'gap') { const f0 = gapAway(), opts = [f0 - 1, f0 + 1].filter(f => f >= -1 && f <= 1 && reach().includes(f));
+          if (opts.length) { const f1 = pick(opts); kind = 'slide'; from = [-1, 0, 1].filter(l => l !== f0); lanes = [-1, 0, 1].filter(l => l !== f1); kinds = lanes.map(() => pick(['spikes', 'spikes', 'boulder'])); } }
+        if (!lanes) {   // a plain row: one hazard on the racing line, or two leaving the gap away from it
+          if (Math.random() < C.twoLane[Z.i]) { const f = gapAway(); lanes = [-1, 0, 1].filter(l => l !== f); roller = Math.abs(lanes[0] - lanes[1]) === 1 && Math.random() < C.rollerShare[Z.i]; }
+          else lanes = [tgt ? expect : pick([-1, 0, 1])];
+          kinds = roller ? ['roller'] : lanes.map(() => pick(['spikes', 'spikes', 'boulder'])); }
+        if (kind === 'oncoming' && rows.length) rz = Math.max(rz, rows[rows.length - 1].z + v * C.rowGap[Z.i] * gapMul);
+        const free = [-1, 0, 1].filter(l => !lanes.includes(l));
+        rows.push({ z: rz, z0: rz, zone: Z.i, lanes, kinds, roller, kind, from, ph, w, vz, free });
+        prevFree = kind === 'patrol' ? [-1, 0, 1] : free;
+        expect = kind === 'patrol' ? pick([-1, 0, 1]) : free.slice().sort((a, b) => Math.abs(a - expect) - Math.abs(b - expect) || Math.random() - .5)[0];   // the runner takes the nearest way past
+        rz += v * C.rowGap[Z.i] * rand(0.92, 1.15) * gapMul;
       }
     });
     // the start line of rings: straight down the middle lane, before anything can hurt
@@ -91,8 +113,8 @@
 
   // a mover's slide: 0 until moveAt[0] s before the runner reaches it, 1 from moveAt[1] s on (eased), and its lane on screen now
   function moveK(r, Sx) { if (r.from == null) return 1; const t = (r.z - Sx.z) / Math.max(1, Sx.v), [a, b] = CONFIG.moveAt, k = clamp((a - t) / (a - b), 0, 1); return k * k * (3 - 2 * k); }
-  function laneNow(r, l, Sx) { if (r.from == null) return l; const k = moveK(r, Sx), t = (r.z - Sx.z) / Math.max(1, Sx.v);
-    return r.from + (l - r.from) * k; }   // no wobble: a shake reads as a glitch (owner 19:01); the eased slide is the tell
+  function laneNow(r, l, Sx, j = 0) { if (r.kind === 'patrol') return patrolAt(r, Sx.elapsed); if (r.from == null) return l; return r.from[j] + (l - r.from[j]) * moveK(r, Sx); }
+  const patrolAt = (r, t) => Math.sin(r.ph + t * r.w);   // -1..1 lanes, never stopping   // no wobble: a shake reads as a glitch (owner 19:01); the eased slide is the tell
 
   let S;
   function reset(mode) {
@@ -106,7 +128,7 @@
   // ── input: one control, the swipe ──────────────────────
   function swipe(dir, src) {
     if (S.mode !== 'play' && S.mode !== 'attract') return;
-    S.lane = clamp(S.lane + dir, -1, 1); S.swiped = true; S.idle = 0; if (src === 'user') SFX.unlock();   // no lane-change sound (owner 16:31)
+    const was = S.lane; S.lane = clamp(S.lane + dir, -1, 1); if (S.lane !== was) S.swipes = (S.swipes || 0) + 1; S.swiped = true; S.idle = 0; if (src === 'user') SFX.unlock();   // no lane-change sound (owner 16:31)
   }
   function hit(row) {
     if (S.mercy > 0) return;
@@ -117,16 +139,21 @@
       if (!S.seen.spill) { S.seen.spill = true; S.cue = { text: CONFIG.copy.cueSpill, until: S.elapsed + 2.2 }; }
     } else finish('fail', 'norings');
   }
+  // the finish sequence (L4b cells): run frames until the brake, then each pose at its time (s after the line); the last one holds
+  const FINSEQ = [[.18, 0], [.3, 1], [.44, 2], [.62, 3], [.92, 4], [1.06, 5], [1.24, 6], [1.42, 7, 'L4']];   // the last pose is the run sheet's win cell (the new sheet's cell 8 carried the mark on his legs, rule 33)
   function finish(result, why) {
     if (S.mode === 'attract') { reset('attract'); return; }   // the splash loop never ends on a card
     S.mode = result === 'win' ? 'reveal' : 'fail'; S.why = why || null; S.reveal = 0;
-    if (!SIM) { SFX.music(false); if (result === 'win') { SFX.win(); hideHud(true); setTimeout(() => showCard('win'), 1700); } else { SFX.fail(); hideHud(true); setTimeout(() => showCard('fail'), 900); } }
+    if (!SIM) { SFX.music(false); if (result === 'win') { SFX.win(); hideHud(true); setTimeout(() => showCard('win'), 2100);   /* after the fist is up */ } else { SFX.fail(); hideHud(true); setTimeout(() => showCard('fail'), 900); } }
   }
   function update(dt) {
     S.clock = (S.clock || 0) + dt;
     if (S.mode === 'ready') { S.readyT = (S.readyT || 0) + dt; if (S.readyT >= CONFIG.readySecs) { S.mode = 'play'; if (!SIM) { SFX.boost(); SFX.music(true); SFX.duck(false); } S.boost = .6; S.dust = Array.from({ length: 14 }, () => ({ a: rand(-3.1, 0), v: rand(.4, 1), t: 0, life: rand(.4, .7), r: rand(.03, .07) })); } return; }
     const C = CONFIG;
-    if (S.mode === 'reveal') { S.reveal += dt; S.v = Math.max(8, S.v - dt * 14); S.z += S.v * dt; if (S.reveal > 1.6) S.mode = 'win'; }
+    if (S.mode === 'reveal' || S.mode === 'win') { const d = S.lane - S.laneX, st = dt / CONFIG.laneSecs; S.laneX = Math.abs(d) <= st ? S.lane : S.laneX + Math.sign(d) * st; }   // a swipe in flight completes
+    if (S.mode === 'reveal') { S.reveal += dt; S.v0 = S.v0 || S.v; const k = Math.max(0, 1 - S.reveal / CONFIG.stopSecs); S.v = S.v0 * k * k; S.z += S.v * dt;   // momentum: eased to a stop
+      if (!S.skidDust && S.reveal > FINSEQ[2][0]) { S.skidDust = true; S.dust = Array.from({ length: 12 }, () => ({ a: rand(-3.1, 0), v: rand(.3, .8), t: 0, life: rand(.35, .6), r: rand(.025, .055) })); }   // the skid kicks dust
+      if (S.reveal > 2.0) S.mode = 'win'; }
     if (S.mode === 'fail') { S.tumble += dt; S.v = Math.max(0, S.v - dt * 40); S.z += S.v * dt; }
     if (S.mode === 'play' || S.mode === 'attract') {
       S.elapsed += dt; S.idle += dt;
@@ -142,14 +169,19 @@
       // rings collected as they pass
       S.course.rings.forEach(r => { if (!r.got && r.z > z0 - 0.5 && r.z <= S.z + 0.3 && Math.abs(r.lane - S.laneX) < 0.5) { r.got = true; S.rings++; S.ringsTotal++; if (!SIM) SFX.ring(); } });
       // hazards: a row hits if the runner's lane overlaps one of its blocked lanes as it passes
-      for (const row of S.course.rows) { if (row.done || row.z > S.z) continue; if (row.z < z0 - 1) { row.done = true; continue; } row.done = true;
-        if (row.lanes.some(l => Math.abs(l - S.laneX) < C.hitHalf)) { hit(row); if (S.mode !== 'play' && S.mode !== 'attract') return; } }
-      if (!S.seen.mover) { const r = S.course.rows.find(r => r.from != null && moveK(r, S) > 0 && r.z > S.z); if (r) { S.seen.mover = true; S.cue = { text: C.copy.cueMover, until: S.elapsed + 1.4 }; } }
+      for (const row of S.course.rows) { if (row.done) continue;
+        if (row.kind === 'oncoming' && row.z - S.z < 90) row.z -= row.vz * dt;   // it starts rolling once it is in view
+        if (row.kind === 'patrol' && row.z - S.z < 120) { const tc = (row.z - S.z) / Math.max(1, S.v), p = patrolAt(row, S.elapsed + tc); row.lanes = [-1, 0, 1].filter(l => Math.abs(l - p) < C.hitHalf + .3); row.free = [-1, 0, 1].filter(l => !row.lanes.includes(l)); } }   // where it will be at contact (the bots read this)
+      for (const row of S.course.rows) { if (row.done || row.z > S.z) continue; if (row.z < z0 - 1 - (row.vz || 0) * dt) { row.done = true; continue; } row.done = true;
+        const at = row.kind === 'patrol' ? [patrolAt(row, S.elapsed)] : row.lanes;   // a patrol hits where it really is
+        if (at.some(l => Math.abs(l - S.laneX) < C.hitHalf)) { hit(row); if (S.mode !== 'play' && S.mode !== 'attract') return; } }
+      for (const [kd, txt] of [['patrol', C.copy.cuePatrol], ['oncoming', C.copy.cueOncoming], ['slide', C.copy.cueMover]]) if (!S.seen[kd]) { const r = S.course.rows.find(r => r.kind === kd && r.z > S.z && (r.z - S.z) / S.v < 1.6); if (r) { S.seen[kd] = true; S.cue = { text: txt, until: S.elapsed + 1.4 }; break; } }   // each new kind is named once, the first time it shows
       if (!S.seen.roller) { const r = S.course.rows.find(r => r.roller && r.z - S.z < S.v * 1.1 && r.z > S.z); if (r) { S.seen.roller = true; S.cue = { text: C.copy.cueRoller, until: S.elapsed + 1.6 }; } }
       if (S.z >= S.course.length) return finish('win');
-      if (S.elapsed > 40) return finish('fail', 'time');   // no dead state
+      if (S.elapsed > 60) return finish('fail', 'time');   // no dead state
     }
-    S.trail.push({ x: roadX(S.z) + S.laneX * G.laneW, z: S.z }); S.trail = S.trail.filter(p => S.z - p.z < G.camBack + 2);
+    const tl = (G.camBack + 2) * (S.mode === 'reveal' || S.mode === 'win' ? (S.v0 ? Math.sqrt(S.v / S.v0) : 0) : 1);   // stopping: the trail shortens with his speed and is gone when he stands
+    if (tl > 0) S.trail.push({ x: roadX(S.z) + S.laneX * G.laneW, z: S.z }); S.trail = S.trail.filter(p => S.z - p.z < tl);
     S.scatter.forEach(p => p.t += dt); S.scatter = S.scatter.filter(p => p.t < p.life);
     if (S.dust) { S.dust.forEach(p => p.t += dt); S.dust = S.dust.filter(p => p.t < p.life); }
     S.flash = Math.max(0, S.flash - dt * 4); S.red = Math.max(0, S.red - dt * 2.5); S.shake = Math.max(0, S.shake - dt * 5); S.boost = Math.max(0, S.boost - dt * 0.8);
@@ -167,11 +199,12 @@
     if (HUMAN && S.elapsed < 0.6) return;
     if (S.elapsed < B.nextAt) return;
     const look = HUMAN ? (G.humanLook || C.humanLook) : 1.3;   // the view sets how early a first-timer sees a row (the low camera hides it longer)
-    const ahead = S.course.rows.filter(r => !r.done && r.z > S.z && r.z - S.z < v * look);
+    const ahead = S.course.rows.filter(r => !r.done && r.z > S.z && (r.z - S.z) / (v + (r.vz || 0)) < look).sort((a, b) => a.z - b.z);
     let rows = ahead;
     if (HUMAN) rows = ahead.filter(r => { if (r.from != null && !r.sawMove && moveK(r, S) > 0) { r.sawMove = true; r.seenAt = null; }   // it moved: the eye has to react again
       if (r.seenAt == null) { r.seenAt = S.elapsed; r.react = rand(C.humanReact[0], C.humanReact[1]); } return S.elapsed - r.seenAt >= r.react; })
-      .map(r => r.from != null && !r.sawMove ? { ...r, lanes: [r.from], free: [-1, 0, 1].filter(l => l !== r.from) } : r);
+      .map(r => r.kind === 'patrol' ? (l => ({ ...r, lanes: [l], free: [-1, 0, 1].filter(x => x !== l) }))(Math.round(patrolAt(r, S.elapsed)))
+        : r.from != null && !r.sawMove ? { ...r, lanes: r.from.slice(), free: [-1, 0, 1].filter(l => !r.from.includes(l)) } : r);
     let want = S.lane;
     const r0 = rows[0], r1 = rows[1];
     const ringLaneAhead = () => { const rs = S.course.rings.filter(r => !r.got && r.z > S.z && r.z - S.z < v * 0.9); return rs.length ? rs[0].lane : null; };
@@ -199,14 +232,16 @@
   }
   // ── sim ─────────────────────────────────────────────────
   function runSim() {
-    const out = [], N = +(Q.get('n') || 20);
+    const out = [], N = +(Q.get('n') || 20), STATS = { sw: [], kinds: {} };
     for (let r = 0; r < N; r++) {
       reset('play'); let n = 0;
       while (S.mode === 'play') { autopilot(1 / 60); update(1 / 60); if (++n > 60 * 45) break; }
+      STATS.sw.push((S.swipes || 0) / Math.max(1, S.elapsed));
       out.push(`${S.mode === 'reveal' || S.mode === 'win' ? 'win ' : 'fail'} t=${S.elapsed.toFixed(1)} zone=${S.zone + 1} rings=${S.ringsTotal} spills=${S.spills} why=${S.why || '-'}`);
     }
     const wins = out.filter(l => l.startsWith('win')).length;
-    document.title = 'SIM'; document.body.innerHTML = `<pre id="sim">${HUMANBOT ? 'human bot' : 'perfect bot'}: ${wins}/${N} wins\n${out.join('\n')}</pre>`;
+    { const kd = {}; S.course.rows.forEach(r => kd[r.kind] = (kd[r.kind] || 0) + 1); STATS.kinds = kd; }   // the last course's mix (each course is random; shown as a sample)
+    document.title = 'SIM'; document.body.innerHTML = `<pre id="sim">${HUMANBOT ? 'human bot' : 'perfect bot'}: ${wins}/${N} wins · lane changes ${(STATS.sw.reduce((a, b) => a + b, 0) / N).toFixed(2)}/s · rows ${JSON.stringify(STATS.kinds)}\n${out.join('\n')}</pre>`;
     throw new Error('sim done');
   }
 
@@ -276,7 +311,27 @@
       const col = k => `rgb(${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)})`; GC[zi] = { ground: [col(1), col(.93)], edge: [col(.62), col(.55)], road: ZC[zi].road }; } catch (e) { GC[zi] = ZC[zi]; }
     return GC[zi];
   }
+  // everything a run will need is built BEFORE it starts (owner 20:04: "low frames at times, stuttery, shaking"): the shrunk copies of
+  // every sprite, every shadow shape, each zone's light layer, each zone's sky on the GPU. Built lazily, each cost a frame mid-run,
+  // and the next zone's light and sky landed exactly on the zone line.
+  let WARM = false;
+  function prewarm(ctx, W, H, VIEW) {
+    const A = LAYERS.ART; if (WARM || !A.L1a || !A.L1b || !A.L1c || !A.L3 || !A.L3b) return; WARM = true;
+    gradePlates();
+    VIEW.layers.forEach(L => { const im = A[L.id]; if (!im || !['sheet', 'sprite', 'particle'].includes(L.type)) return;
+      for (let n = 1; n <= 5; n++) LAYERS.mip(im, n);
+      const cells = L.cells ? L.cells.cols * L.cells.rows : 1; for (let c = 0; c < cells; c++) silhouette(L, c); });
+    [0, 1, 2].forEach(z => { lightLayers(W, H, z); groundPattern(ctx, z); stripPattern(ctx, 'L3', z); });
+    if (window.GLWORLD && GLWORLD.init(ctx.canvas)) { ['L1a', 'L1b', 'L1c'].forEach(id => GLWORLD.preload('plate:' + id, A[id], false));
+      shadowAt(ctx, 0, 0, 1); GLWORLD.preloadSprite(SHADOW); [PUFF, DOT].forEach(c => c && GLWORLD.preloadSprite(c)); Object.values(SIL).forEach(s => GLWORLD.preloadSprite(s.c));
+      VIEW.layers.forEach(L => { if (A[L.id] && !['plate', 'tile', 'mask-texture'].includes(L.type)) GLWORLD.preloadSprite(A[L.id]); });
+      [0, 1, 2].forEach(z => { GLWORLD.preload('g' + z, groundPattern(ctx, z).c, true); GLWORLD.preload('r' + z, stripPattern(ctx, 'L3', z).c, true); }); }
+  }
+  const PROF = has('prof') ? (window.__prof = { world: 0, objects: 0, runner: 0, trail: 0, after: 0, n: 0, objs: 0 }) : null, PT = () => performance.now();   // ?prof: ms per part of the frame (perfprobe reads it)
   function render(ctx, Sx, W, H, VIEW) {
+    const t0 = PROF && PT();
+    prewarm(ctx, W, H, VIEW);
+    FRAMEW = W;   // the frame width for the shadows (reading canvas.clientWidth forced a page layout per object, 20:06)
     const C = CONFIG, cam = camera(Sx), L = id => VIEW.layers.find(l => l.id === id), zi = zoneAt(Sx.z);
     // backdrop: the zone's plate, drifting a little with the curve
     gradePlates(); const drift = -roadX(Sx.z + 40) * 0.012;
@@ -332,6 +387,7 @@
         ctx.restore();
       }
     }
+    const t1 = PROF && PT(); let tr = 0;
     // objects far → near: props, hazards, rings, the boost rings, the finish gate, the runner
     const objs = [];
     Sx.course.props.forEach(p => { if (p.z > cam.z + 1 && p.z - cam.z < C.drawDist) objs.push({ z: p.z, k: 'prop', p }); });
@@ -341,21 +397,25 @@
     if (Sx.course.length - cam.z < C.drawDist && Sx.course.length > cam.z + 1) objs.push({ z: Sx.course.length, k: 'finish' });
     objs.push({ z: Sx.z, k: 'runner' });
     objs.sort((a, b) => b.z - a.z);
+    const glSink = useGL ? (c, im, sx, sy, sw, sh, dx, dy, dw, dh) => { const m = c.getTransform(), P = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+      GLWORLD.sprite(im, sx, sy, sw, sh, [...P(dx, dy), ...P(dx + dw, dy), ...P(dx, dy + dh), ...P(dx + dw, dy + dh)], c.globalAlpha); } : null;
     for (const o of objs) {
+      LAYERS.setSink(glSink); GLON = !!glSink;   // every sprite of the world on the GPU, the runner and his trail included (owner 20:28)
       const dd = o.z - cam.z, lim = o.k === 'ring' ? C.drawDist * .7 : C.drawDist; ctx.globalAlpha = o.k === 'runner' ? 1 : clamp((lim - dd) / (o.k === 'ring' ? 15 : 30), 0, 1);   // things fade in at the far edge, never pop
       if (o.k === 'prop') { const p = o.p, x = roadX(p.z) + p.side * (G.roadHalf * 1.12 + p.off + 1.2), q = proj(cam, x, roadY(p.z), p.z, W, H); if (!q) continue; const h = G.propH * q.s; drawGrounded(ctx, L('L2'), p.cell, q.x, q.y, h, h, Sx, W, H); }
       else if (o.k === 'row') { const r = o.r;
         if (r.roller) { const lx = (r.lanes[0] + r.lanes[1]) / 2, q = proj(cam, roadX(r.z) + lx * G.laneW, roadY(r.z), r.z, W, H); if (!q) continue; const w = G.laneW * 2 * q.s * 0.98; drawGrounded(ctx, L('L6'), 0, q.x, q.y, w, w * 0.5, Sx, W, H); }
-        else r.lanes.forEach((l0, j) => { const l = laneNow(r, l0, Sx), q = proj(cam, roadX(r.z) + l * G.laneW, roadY(r.z), r.z, W, H); if (!q) return; const w = G.laneW * q.s * 0.92; drawGrounded(ctx, L('L5'), r.kinds[j] === 'boulder' ? 1 : 0, q.x, q.y, w, w, Sx, W, H); }); }
+        else (r.kind === 'patrol' ? [0] : r.lanes).forEach((l0, j) => { const l = laneNow(r, l0, Sx, j), q = proj(cam, roadX(r.z) + l * G.laneW, roadY(r.z), r.z, W, H); if (!q) return; const w = G.laneW * q.s * 0.92; drawGrounded(ctx, L('L5'), r.kinds[j] === 'boulder' ? 1 : 0, q.x, q.y, w, w, Sx, W, H, r.kind === 'patrol' ? l * G.laneW / .74 : r.kind === 'oncoming' ? (r.z - r.z0) / .74 : 0); }); }   // rolling boulders turn as they roll
       else if (o.k === 'ring') { const r = o.r, q = proj(cam, roadX(r.z) + r.lane * G.laneW, roadY(r.z) + 0.55, r.z, W, H); if (!q) continue; const gq = proj(cam, roadX(r.z) + r.lane * G.laneW, roadY(r.z), r.z, W, H); if (gq) shadowAt(ctx, gq.x, gq.y, 0.5 * gq.s, .5); goldRing(ctx, q.x, q.y, 0.3 * q.s, Math.cos((Sx.clock || 0) * 2.6 + r.z * .35)); }
       else if (o.k === 'gate') { const q = proj(cam, roadX(o.z), roadY(o.z) + 2.4, o.z, W, H); if (!q) continue; goldRing(ctx, q.x, q.y, 2.3 * q.s, 1, true); }
       else if (o.k === 'finish') { const q = proj(cam, roadX(o.z), roadY(o.z), o.z, W, H); if (!q) continue; const w = G.roadHalf * 2.6 * q.s; drawGrounded(ctx, L('L7'), 0, q.x, q.y, w, w, Sx, W, H); finishWord(ctx, q.x, q.y, w); }   // the word is code (no text in pictures), set on the banner measured in the picture
-      else if (o.k === 'runner') drawRunner(ctx, Sx, cam, W, H, L('L4'));
+      else if (o.k === 'runner') { const a = PROF && PT(); drawRunner(ctx, Sx, cam, W, H, L('L4'), L('L4b')); if (PROF) tr = PT() - a; }
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1; LAYERS.setSink(null); GLON = false; if (useGL) GLWORLD.flush();
+    const t2 = PROF && PT();
     lightPass(ctx, Sx, W, H, zi);
     // speed lines on a boost; red flash on a spill
-    if (Sx.boost > 0 || Sx.mode === 'reveal') { ctx.save(); ctx.globalAlpha = Math.max(Sx.boost, Sx.mode === 'reveal' ? .6 : 0) * .55; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283 + Sx.z * 0.07, r0 = W * (0.42 + ((i * 37) % 10) / 40), r1 = r0 + W * 0.18; ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(a) * r0, H * G.hz + Math.sin(a) * r0); ctx.lineTo(W / 2 + Math.cos(a) * r1, H * G.hz + Math.sin(a) * r1); ctx.stroke(); } ctx.restore(); }
+    if (Sx.boost > 0 || (Sx.mode === 'reveal' && Sx.v > 6)) { ctx.save(); ctx.globalAlpha = Math.max(Sx.boost, Sx.mode === 'reveal' ? .6 : 0) * .55; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283 + Sx.z * 0.07, r0 = W * (0.42 + ((i * 37) % 10) / 40), r1 = r0 + W * 0.18; ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(a) * r0, H * G.hz + Math.sin(a) * r0); ctx.lineTo(W / 2 + Math.cos(a) * r1, H * G.hz + Math.sin(a) * r1); ctx.stroke(); } ctx.restore(); }
     if (Sx.red > 0) { ctx.save(); ctx.globalAlpha = Sx.red * .25; ctx.fillStyle = '#d8232f'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
     if (Sx.mode === 'ready') { const t = Sx.readyT || 0, beat = CONFIG.readySecs / 3, n = Math.min(2, Math.floor(t / beat)), k = (t - n * beat) / beat;
       const word = ['READY', 'SET', 'GO!'][n], go = n === 2, x = n === 0 ? W / 2 + (1 - Math.min(1, k * 3.2)) * W : W / 2, sc = n === 1 ? 1 + .25 * Math.max(0, 1 - k * 4) : go ? 1 + .35 * Math.min(1, k * 2.2) : 1, a = go ? Math.min(1, (1 - k) * 2.5) : 1;
@@ -364,12 +424,13 @@
       if (!SIM && n !== Sx.readyBeat) { Sx.readyBeat = n; SFX.beep(go); } }
     if (Sx.banner != null && Sx.bannerT < 1.8 && (Sx.mode === 'play' || Sx.mode === 'attract')) { const k = Sx.bannerT, a = k < .2 ? k / .2 : k > 1.4 ? (1.8 - k) / .4 : 1; ctx.save(); ctx.globalAlpha = a; ctx.font = `italic 900 ${Math.round(W * .085)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = W * .012; ctx.strokeStyle = '#13233d'; ctx.strokeText(CONFIG.copy.zones[Sx.banner], W / 2, H * .3); ctx.fillStyle = '#ffd23a'; ctx.fillText(CONFIG.copy.zones[Sx.banner], W / 2, H * .3); ctx.restore(); }
     if (Sx.mode !== 'attract') GB.pops(ctx, Sx, W / 2, H * G.feet - G.runnerH * runnerScale(Sx, cam, W, H) * 1.1);
+    if (PROF) { const t3 = PT(); PROF.world += t1 - t0; PROF.objects += t2 - t1 - tr; PROF.runner += tr; PROF.after += t3 - t2; PROF.n++; PROF.objs += objs.length; }
   }
   // ── lighting (code, rule 11 + rule 25): no shadowBlur, no filters: cached sprites and cached full-screen layers ──
-  let SHADOW = null, PUFF = null;
+  let SHADOW = null, PUFF = null, DOT = null, GLON = false;
   function shadowAt(ctx, x, y, w, a = 1) {
     if (!SHADOW) { SHADOW = document.createElement('canvas'); SHADOW.width = 128; SHADOW.height = 64; const c = SHADOW.getContext('2d'); c.translate(64, 32); c.scale(1, .5); const g = c.createRadialGradient(0, 0, 0, 0, 0, 62); g.addColorStop(0, 'rgba(10,8,20,.7)'); g.addColorStop(.55, 'rgba(10,8,20,.4)'); g.addColorStop(1, 'rgba(10,8,20,0)'); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 62, 0, 7); c.fill(); }
-    if (w < 2) return; ctx.save(); ctx.globalAlpha = a; ctx.drawImage(SHADOW, x - w / 2, y - w * .06, w, w * .12); ctx.restore();   // centred under the base
+    if (w < 2) return; ctx.save(); ctx.globalAlpha = a; LAYERS.drawImg(ctx, SHADOW, 0, 0, SHADOW.width, SHADOW.height, x - w / 2, y - w * .06, w, w * .12); ctx.restore();   // centred under the base
   }
   // a shadow in the object's own shape: its silhouette (cached once per picture and cell, blurred once offscreen), laid on the
   // ground behind it, flattened and thrown to the right, away from the light in the upper left; plus a small dark contact patch
@@ -386,15 +447,15 @@
   }
   // every grounded sprite goes through here (rule 26): its base sits SINK of its height below the ground line and is clipped there,
   // so no anti-aliased gap or transparent margin can ever show under it; then its shadow from the same base
-  const SINK = .025;
-  function drawGrounded(ctx, L, cell, x, y, w, h, Sx, W, H) {
+  const SINK = .025; let FRAMEW = 640;
+  function drawGrounded(ctx, L, cell, x, y, w, h, Sx, W, H, rot = 0) {
     castShadow(ctx, L, cell, x, y, w, h);
-    ctx.save(); ctx.beginPath(); ctx.rect(x - w, y - h * 2, w * 2, h * 2); ctx.clip();
-    LAYERS.draw(ctx, L, Sx, W, H, { box: { x: x / W, y: (y + h * SINK) / H, w: w / W, h: h / H, anchor: 'bottom' }, cell }); ctx.restore();
+    if (rot) LAYERS.draw(ctx, L, Sx, W, H, { box: { x: x / W, y: (y + h * SINK) / H, w: w / W, h: h / H, anchor: 'bottom' }, cell, rot, pivot: [x, y + h * SINK - h / 2] });   // a rolling boulder: round, nothing to hide
+    else LAYERS.draw(ctx, L, Sx, W, H, { box: { x: x / W, y: (y + h * SINK) / H, w: w / W, h: h / H, anchor: 'bottom' }, cell, cropB: SINK });   // the sunk base left off by its source rows (no clip region: clips are costly on phones)
   }
   function castShadow(ctx, L, cell, x, y, w, h, lift = 0) {
-    const near = Math.min(1, Math.max(0, (w / ctx.canvas.clientWidth - .015) / .08)); if (near <= 0) return;   // by on-screen size: gone when tiny, full from ~10% of the frame
-    const sil = silhouette(L, cell); if (!sil || w < 3) { shadowAt(ctx, x, y, w * .6); return; }
+    const near = Math.min(1, Math.max(0, (w / FRAMEW - .015) / .08)); if (near <= 0) return;   // by on-screen size: gone when tiny, full from ~10% of the frame
+    const sil = silhouette(L, cell); if (!sil || near < .45) { shadowAt(ctx, x, y, w * .6, .5 * Math.max(.3, near)); return; }   // far and small: a soft patch is all the eye reads (one cheap draw)
     const s = w / sil.iw;   // the same scale the picture is drawn at: the shadow's base edges are the object's base edges
     ctx.save(); ctx.globalAlpha = Math.max(.12, .5 - lift / h) * near; ctx.translate(x, y); ctx.transform(1, 0, -0.3 * near, -0.13 * near - .02, 0, 0);   // laid on the ground toward the camera, a little right; y = 0 is the base, so the base never moves
     LAYERS.drawImg(ctx, sil.c, 0, 0, sil.c.width, sil.c.height, -w / 2 - sil.P * s, -h - sil.P * s, sil.c.width * s, sil.c.height * s); ctx.restore();
@@ -476,35 +537,59 @@
     if (big) { ctx.save(); ctx.globalAlpha = .35; ctx.globalCompositeOperation = 'screen'; ctx.translate(x, y); ctx.drawImage(sp.c, -d * .55, -d * .55, d * 1.1, d * 1.1); ctx.restore(); }   // the boost ring glows
   }
   function runnerScale(Sx, cam) { return G.k / (Sx.z - cam.z); }
-  function drawRunner(ctx, Sx, cam, W, H, L4) {
+  // the trail on the GPU: the 2D version's shapes as triangles, in device pixels (the context's transform, shake included, applied here)
+  function trailGL(ctx, pts, zs, nz, L, R, Sx) {
+    const m = ctx.getTransform(), D = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f], sc = Math.hypot(m.a, m.b), last = pts[pts.length - 1].s;
+    const BLUE = [26 / 255, 63 / 255, 214 / 255, 1], xy = [];
+    for (let i = 0; i < L.length - 1; i++) { const a = D(L[i][0], L[i][1]), b = D(R[i][0], R[i][1]), c = D(L[i + 1][0], L[i + 1][1]), d = D(R[i + 1][0], R[i + 1][1]); xy.push(a[0], a[1], b[0], b[1], c[0], c[1], b[0], b[1], d[0], d[1], c[0], c[1]); }
+    GLWORLD.tris(xy, BLUE);   // the ink ribbon
+    const line = (P2, w, col) => { const o = [], hw = Math.max(.6, w * sc / 2); for (let i = 0; i < P2.length - 1; i++) { const [x0, y0] = D(P2[i][0], P2[i][1]), [x1, y1] = D(P2[i + 1][0], P2[i + 1][1]), dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l * hw, ny = dx / l * hw;
+      o.push(x0 + nx, y0 + ny, x1 + nx, y1 + ny, x0 - nx, y0 - ny, x1 + nx, y1 + ny, x1 - nx, y1 - ny, x0 - nx, y0 - ny); } GLWORLD.tris(o, col); };
+    const ink = [13 / 255, 36 / 255, 144 / 255, 1], lw = Math.max(1, last * .012); line(L, lw, ink); line(R, lw, ink);   // its dark edge
+    line(pts.map(p => [p.x - p.s * .05, p.y]), Math.max(1, last * .025), [92 / 255, 134 / 255, 1, .35]);   // a wet highlight down one side
+    for (const side of [-1, 1]) for (const off of [.17, .22]) { let run = []; const w = Math.max(1.2, last * (off < .2 ? .026 : .016));   // brush streaks, broken
+      pts.forEach((p, i) => { const z = zs[i] || 0, on = nz(z * 1.7 + off * 10 + side) > -.05, x = p.x + side * p.s * Math.min(1, Math.max(.4, (Sx.z - z) / .3)) * (off + .025 * nz(z * 3 + off));
+        if (on) run.push([x, p.y]); else { if (run.length > 1) line(run, w, BLUE); run = []; } }); if (run.length > 1) line(run, w, BLUE); }
+    if (!DOT) { DOT = document.createElement('canvas'); DOT.width = DOT.height = 32; const x = DOT.getContext('2d'), g = x.createRadialGradient(16, 16, 0, 16, 16, 15); g.addColorStop(0, '#fff'); g.addColorStop(.7, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); }
+    const c = Sx.clock || 0; pts.forEach((p, i) => { const z = zs[i] || 0, h = Math.abs(Math.sin(z * 12.9898) * 43758.5453) % 1; if (h <= .55) return;   // glitter
+      const tw = .4 + .6 * Math.abs(Math.sin(c * 7 + h * 40)), [x, y] = D(p.x + (h - .78) * p.s * .9, p.y), r = Math.max(1.3, p.s * .016) * sc;
+      GLWORLD.sprite(DOT, 0, 0, 32, 32, [x - r, y - r, x + r, y - r, x - r, y + r, x + r, y + r], tw, h > .9 ? [1, 214 / 255, 1] : [1, 122 / 255, 217 / 255]); });
+  }
+  function drawRunner(ctx, Sx, cam, W, H, L4, L4b) {
     const x = roadX(Sx.z) + Sx.laneX * G.laneW, q = proj(cam, x, roadY(Sx.z), Sx.z, W, H); if (!q) return;
     // the blue trail: where the runner has been, from his heels to the bottom of the frame (code)
+    const tt0 = PROF && PT();
     const pts = Sx.trail.map(p => { const q2 = proj(cam, p.x, roadY(p.z) + 0.02, p.z, W, H); return q2 && { ...q2, z: p.z }; }).filter(Boolean);   // each point keeps its own distance (the taper and the ragged edge need it)
     if (pts.length > 2) {   // the video's trail: a painted ink ribbon with ragged edges, brush streaks peeling off its sides, glitter along it
       const zs = pts.map(p => p.z), nz = z => Math.sin(z * 2.3) * .5 + Math.sin(z * 5.7 + 1.3) * .3 + Math.sin(z * 11.1) * .2;   // fixed to the ground: the ragged edge does not crawl
       const L = [], R = []; pts.forEach((p, i) => { const z = zs[i] || 0, tp = Math.min(1, Math.max(.4, (Sx.z - z) / .3)), w = p.s * tp * (.12 + .06 * nz(z)), wr = p.s * tp * (.12 + .06 * nz(z + 7.7));; L.push([p.x - w, p.y]); R.push([p.x + wr, p.y]); });
-      ctx.save(); ctx.beginPath(); ctx.moveTo(L[0][0], L[0][1]); L.forEach(q => ctx.lineTo(q[0], q[1])); for (let i = R.length - 1; i >= 0; i--) ctx.lineTo(R[i][0], R[i][1]); ctx.closePath();
+      if (GLON) trailGL(ctx, pts, zs, nz, L, R, Sx);
+      else { ctx.save(); ctx.beginPath(); ctx.moveTo(L[0][0], L[0][1]); L.forEach(q => ctx.lineTo(q[0], q[1])); for (let i = R.length - 1; i >= 0; i--) ctx.lineTo(R[i][0], R[i][1]); ctx.closePath();
       ctx.fillStyle = '#1a3fd6'; ctx.fill(); ctx.lineWidth = Math.max(1, pts[pts.length - 1].s * .012); ctx.strokeStyle = '#0d2490'; ctx.stroke();
       ctx.globalAlpha = .35; ctx.beginPath(); pts.forEach((p, i) => { const x = p.x - p.s * .05; i ? ctx.lineTo(x, p.y) : ctx.moveTo(x, p.y); }); ctx.lineWidth = Math.max(1, pts[pts.length - 1].s * .025); ctx.strokeStyle = '#5c86ff'; ctx.stroke(); ctx.globalAlpha = 1;   // a wet highlight down one side
       ctx.lineCap = 'round'; ctx.strokeStyle = '#1a3fd6';
       for (const side of [-1, 1]) for (const off of [.17, .22]) { ctx.beginPath(); let on = false; pts.forEach((p, i) => { const z = zs[i] || 0, draw = nz(z * 1.7 + off * 10 + side) > -.05; const x = p.x + side * p.s * Math.min(1, Math.max(.4, (Sx.z - z) / .3)) * (off + .025 * nz(z * 3 + off)); if (draw && !on) { ctx.moveTo(x, p.y); on = true; } else if (draw) ctx.lineTo(x, p.y); else on = false; }); ctx.lineWidth = Math.max(1.2, pts[pts.length - 1].s * (off < .2 ? .026 : .016)); ctx.stroke(); }   // brush streaks, broken
       const c = Sx.clock || 0; pts.forEach((p, i) => { const z = zs[i] || 0, h = Math.abs(Math.sin(z * 12.9898) * 43758.5453) % 1; if (h > .55) { const tw = .4 + .6 * Math.abs(Math.sin(c * 7 + h * 40)); ctx.globalAlpha = tw; ctx.fillStyle = h > .9 ? '#ffd6ff' : '#ff7ad9'; ctx.beginPath(); ctx.arc(p.x + (h - .78) * p.s * .9, p.y, Math.max(1.3, p.s * .016), 0, 7); ctx.fill(); } }); ctx.globalAlpha = 1;   // glitter
-      ctx.restore(); }
+      ctx.restore(); } }
+    if (PROF) PROF.trail += PT() - tt0;
     if (Sx.dust && Sx.dust.length) { if (!PUFF) { PUFF = document.createElement('canvas'); PUFF.width = PUFF.height = 64; const x = PUFF.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 31); g.addColorStop(0, 'rgba(255,248,232,.9)'); g.addColorStop(.6, 'rgba(240,226,200,.45)'); g.addColorStop(1, 'rgba(240,226,200,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
-      ctx.save(); Sx.dust.forEach(p => { const k = p.t / p.life, r = p.r * W * .7 * (1 + k * 1.8), px = q.x + Math.cos(p.a) * p.v * W * .12 * k, py = q.y - Math.abs(Math.sin(p.a)) * p.v * W * .05 * k; ctx.globalAlpha = (1 - k) * .7; ctx.drawImage(PUFF, px - r, py - r * .7, r * 2, r * 1.4); }); ctx.restore(); }   // the dust kick on GO!: pale soft puffs
+      ctx.save(); Sx.dust.forEach(p => { const k = p.t / p.life, r = p.r * W * .7 * (1 + k * 1.8), px = q.x + Math.cos(p.a) * p.v * W * .12 * k, py = q.y - Math.abs(Math.sin(p.a)) * p.v * W * .05 * k; ctx.globalAlpha = (1 - k) * .7; LAYERS.drawImg(ctx, PUFF, 0, 0, 64, 64, px - r, py - r * .7, r * 2, r * 1.4); }); ctx.restore(); }   // the dust kick on GO!: pale soft puffs
     // scattered rings fly out from the runner
     Sx.scatter.forEach(p => { const t = p.t, px = q.x + Math.cos(p.a) * p.sp * W * t * 0.9, py = q.y - G.runnerH * q.s * .5 + Math.sin(p.a) * p.sp * W * t * 0.9 + W * 1.2 * t * t; ctx.save(); ctx.globalAlpha = 1 - t / p.life; goldRing(ctx, px, py, W * .018, Math.abs(Math.cos(t * 9 + p.a)) * .8 + .2); ctx.restore(); });
     let h = G.runnerH * q.s, frameI = Math.floor(Sx.z / 1.1) % 6, bob = Math.abs(Math.sin(Sx.z / 1.1 * Math.PI)) * h * 0.04, squat = 1;
     if (Sx.mode === 'ready') { const t = Sx.readyT || 0, beat = CONFIG.readySecs / 3, c = Sx.clock || 0;
       if (t < beat * 2 - .12) { const ph = c * 12; frameI = Math.floor(ph) % 6; bob = Math.abs(Math.sin(ph / 3 * Math.PI)) * h * .025; squat = 1 - .012 * Math.sin(c * 4.2); }   // jogging on the spot: all six run frames at 12 fps, two steps per cycle, a soft bob and breath
       else { frameI = 2; squat = .9; bob = 0; } }   // SET: crouched to launch
-    const cell = Sx.mode === 'fail' ? 6 : Sx.mode === 'reveal' || Sx.mode === 'win' ? 7 : frameI;
-    castShadow(ctx, L4, cell, q.x, q.y, h, h, bob);   // his own shape on the ground; it stays down while he bobs
+    let sheet = L4, cell = Sx.mode === 'fail' ? 6 : frameI;
+    if ((Sx.mode === 'reveal' || Sx.mode === 'win') && LAYERS.ART.L4b) { const t = Sx.mode === 'win' ? 9 : Sx.reveal, f = FINSEQ.filter(s => t >= s[0]).pop();
+      if (f) { sheet = f[2] === 'L4' ? L4 : L4b; cell = f[1]; bob = 0; } }   // before the brake he is still mid-stride: the run cycle carries straight into frame 1
+    else if (Sx.mode === 'reveal' || Sx.mode === 'win') cell = 7;
+    castShadow(ctx, sheet, cell, q.x, q.y, h, h, bob);   // his own shape on the ground; it stays down while he bobs
     if (Sx.mercy > 0 && Math.floor(Sx.mercy * 14) % 2) return;   // flicker after a spill
     ctx.save(); if (Sx.mode === 'fail') { ctx.translate(q.x, q.y); ctx.rotate(Math.min(1.3, Sx.tumble * 3)); ctx.translate(-q.x, -q.y); }
-    const lean = (Sx.lane - Sx.laneX) * -0.25; ctx.translate(q.x, q.y); ctx.rotate(lean); ctx.translate(-q.x, -q.y);
+    const lean = Sx.mode === 'play' || Sx.mode === 'attract' ? (Sx.lane - Sx.laneX) * -0.25 : 0;   // no lean once the run is over (owner 20:05: he finished slanted) ctx.translate(q.x, q.y); ctx.rotate(lean); ctx.translate(-q.x, -q.y);
     if (squat !== 1) { ctx.translate(q.x, q.y); ctx.scale(1 + (1 - squat) * .5, squat); ctx.translate(-q.x, -q.y); }
-    LAYERS.draw(ctx, L4, Sx, W, H, { box: { x: q.x / W, y: (q.y - bob) / H, w: h / W, h: h / H, anchor: 'bottom' }, cell });
+    LAYERS.draw(ctx, sheet, Sx, W, H, { box: { x: q.x / W, y: (q.y - bob) / H, w: h / W, h: h / H, anchor: 'bottom' }, cell });
     ctx.restore();
   }
 
@@ -556,6 +641,9 @@
       { id: 'L10', name: 'ring', type: 'sheet', canvas: [1536, 1024], key: '#4A5A7A', camera: 'straight on, at eye level', cells: { cols: 3, rows: 2, names: ['face on', 'turned 25°', 'turned 42°', 'turned 58°', 'turned 72°', 'edge on'] },
         notes: 'picture ×6 · the gold ring at six angles of one spin, same ring, same light, centred in each cell, in the render of the world (owner 16:01: the code ring looked disconnected from the world art); the game plays the angles to spin it; the scatter and the boost glow stay code',
         shape(ctx, x, y, w, h, S, cell) { const sq = [1, .9, .74, .52, .3, .12][cell], cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) * .36; ctx.save(); ctx.translate(cx, cy); ctx.scale(sq, 1); ctx.lineWidth = r * .32; ctx.strokeStyle = '#f2c200'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.stroke(); ctx.restore(); } },
+      { id: 'L4b', name: 'runner-finish', type: 'sheet', canvas: [2048, 1024], key: '#FF00FF', camera: 'from behind and slightly above', cells: { cols: 4, rows: 2, names: ['slowing', 'brake', 'skid', 'one-leg stop', 'feet down', 'stand', 'arms up', 'victory fist'] },
+        notes: 'picture · the finish sequence in the run sheet’s exact format (same grid, scale, foot line, magenta key): he brakes, skids, stops on one leg from the momentum, settles and raises his fist (owner 19:26)',
+        shape(ctx, x, y, w, h, S, cell) { GB.ell(ctx, x + w / 2, y + h * .6, w * .2, h * .35, '#a9a9b1', '#2a2a30'); } },
       { id: 'L5', name: 'hazards', type: 'sheet', canvas: [1024, 512], key: '#4A5A7A', camera: CAM, cells: { cols: 2, rows: 1, names: ['spike strip', 'boulder'] },
         notes: 'picture ×2 · one lane wide each, standing on the ground at the bottom of the cell, seen from the chase camera: 1 a low strip of silver spikes on a dark base, 2 a round boulder; both read as STOP at 30 px',
         shape(ctx, x, y, w, h, S, cell) { const cx = x + w / 2, by = y + h * .98, K = '#1a1a1e';
@@ -596,7 +684,7 @@
   canvas#game,canvas#world{position:absolute;inset:0;width:100%;height:100%;display:block}
   .hud{position:absolute;inset:0;pointer-events:none;color:#fff;font-weight:700}
   .brandmark{position:absolute;left:50%;top:2.6cqw;transform:translateX(-50%);height:6cqw;display:flex;align-items:center;justify-content:center;font-size:2.6cqw;font-weight:900;letter-spacing:.12em;color:var(--ink);border:1px dashed rgba(19,35,61,.45);border-radius:1.5cqw;padding:0 3cqw;background:rgba(255,255,255,.55);white-space:nowrap}
-  .watch{position:absolute;left:50%;top:11.4cqw;transform:translateX(-50%) skewX(-8deg);display:flex;align-items:center;gap:1.6cqw;background:var(--zc,#4a7a3a);border:.6cqw solid rgba(255,255,255,.85);border-radius:1.6cqw;padding:.8cqw 3cqw;font-size:5cqw;font-weight:900;font-style:italic;font-variant-numeric:tabular-nums;box-shadow:0 .6cqw 1.6cqw rgba(0,0,0,.25)}
+  .watch{contain:layout style paint;will-change:transform;font-variant-numeric:tabular-nums;position:absolute;left:50%;top:11.4cqw;transform:translateX(-50%) skewX(-8deg);display:flex;align-items:center;gap:1.6cqw;background:var(--zc,#4a7a3a);border:.6cqw solid rgba(255,255,255,.85);border-radius:1.6cqw;padding:.8cqw 3cqw;font-size:5cqw;font-weight:900;font-style:italic;font-variant-numeric:tabular-nums;box-shadow:0 .6cqw 1.6cqw rgba(0,0,0,.25)}
   .watch small{font-size:2.8cqw;opacity:.85}.watch .zd{display:flex;gap:.8cqw}.watch .zd i{width:1.8cqw;height:1.8cqw;border-radius:50%;background:rgba(255,255,255,.35)}.watch .zd i.on{background:#fff}
   .rings{position:absolute;left:3.4cqw;top:11.6cqw;display:flex;align-items:center;gap:1.4cqw;font-size:4.6cqw;font-weight:900;font-style:italic;color:#fff;text-shadow:0 .4cqw 0 rgba(0,0,0,.35)}
   .rings i{display:block;width:4.6cqw;height:4.6cqw;border-radius:50%;border:1.1cqw solid var(--gold);box-sizing:border-box}.rings.zero{color:var(--red);animation:blink .5s steps(2) infinite}@keyframes blink{50%{opacity:.35}}
@@ -605,7 +693,7 @@
   .hint.cue{background:#fff;color:var(--ink)}
   .card{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 8cqw 9cqw;text-align:center;background:linear-gradient(180deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.93) 60%)}
   .card[hidden]{display:none}
-  .frame:has(.card:not([hidden])) .watch,.frame:has(.card:not([hidden])) .rings,.frame:has(.card:not([hidden])) .hint,.frame:has(.card:not([hidden])) .greylabel,.frame:has(.card:not([hidden])) .brandmark{display:none}
+  .frame.carded .watch,.frame.carded .rings,.frame.carded .hint,.frame.carded .greylabel,.frame.carded .brandmark{display:none}
   .card .stamp{font-size:11cqw;line-height:1;font-weight:900;font-style:italic;letter-spacing:.02em;color:var(--accent);transform:skewX(-8deg);animation:stamp .35s cubic-bezier(.2,1.4,.3,1) both;margin-bottom:4cqw}
   @keyframes stamp{0%{transform:skewX(-8deg) scale(1.8);opacity:0}100%{transform:skewX(-8deg) scale(1);opacity:1}}
   .card.fail{background:rgba(0,0,0,.92);justify-content:center}.card.fail .stamp{color:var(--red);font-size:14cqw;margin-bottom:6cqw}.card.fail h1,.card.fail p{color:#fff}.card.fail .stat{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}.card.fail .btn.ghost{color:#fff}
@@ -769,13 +857,15 @@
     function showCard(which) {
       const t = S.elapsed.toFixed(1), stat = `${t} s · ${S.ringsTotal} ${C.rings}`;
       if (which === 'win') { $('winStat').textContent = stat; $('winCard').hidden = false;
-        const total = S.ringsTotal * 100 + Math.max(0, Math.round((30 - S.elapsed) * 500));
+        const total = S.ringsTotal * 100 + Math.max(0, Math.round((CONFIG.zoneSecs.reduce((a, b) => a + b, 0) + CONFIG.leadIn + 10 - S.elapsed) * 500));
         const count = (id, to, ms, dec, done) => { const el = $(id), t0 = performance.now(); let lastTick = 0; const step = now => { const k = Math.min(1, (now - t0) / ms); el.textContent = (to * k).toFixed(dec); if (k < 1) { if (!SIM && now - lastTick > 55) { SFX.tick(); lastTick = now; } requestAnimationFrame(step); } else { if (!SIM) SFX.ring(); done && done(); } }; requestAnimationFrame(step); };   /* ticks WHILE the number climbs, the coin ding the moment it lands: sound and number move together */
         ['tTime', 'tRings', 'tTotal'].forEach(id => $(id).textContent = '0');
         setTimeout(() => count('tTime', S.elapsed, 450, 1, () => count('tRings', S.ringsTotal, 450, 0, () => count('tTotal', total, 700, 0))), 520); }
       else { $('failWhy').textContent = C.failWhy[S.why] || C.failWhy.norings; $('failStat').textContent = `${C.zoneNames[S.zone]} · ${t} s`; $('failCard').hidden = false; }
     }
     window.__showCard = showCard; window.__hideHud = on => $('frame').classList.toggle('revealing', !!on);
+    { const fr = $('frame'), cards = [...fr.querySelectorAll('.card')], sync = () => fr.classList.toggle('carded', cards.some(c => !c.hidden));   // .carded replaces a :has() selector: :has made every DOM change (the timer, each frame) re-check styles across the frame, costly in Safari (owner 20:15)
+      const mo = new MutationObserver(sync); cards.forEach(c => mo.observe(c, { attributes: true, attributeFilter: ['hidden'] })); sync(); }
     const hideCards = () => { ['winCard', 'failCard', 'startCard'].forEach(i => $(i).hidden = true); $('frame').classList.remove('revealing'); };
     const startRound = () => { SFX.unlock(); const st = $('startCard');
       if (!st.hidden && !st.classList.contains('leave')) { st.classList.add('leave'); setTimeout(() => { st.classList.remove('leave'); hideCards(); reset('ready'); }, 380); }
@@ -794,23 +884,22 @@
     window.addEventListener('keydown', e => { if (e.code === 'ArrowLeft') swipe(-1, 'user'); if (e.code === 'ArrowRight') swipe(1, 'user'); if (e.code === 'Space' && S.mode === 'attract') startRound(); });
     reset(BOT && !ATTRACT ? 'play' : 'attract');
     if (ATTRACT || BOT) $('startCard').hidden = true;
-    let last = performance.now(), lastRings = -1; const FT = { v: 0 }; const FPS = { n: 0, acc: 0, v: 0 };
+    let last = performance.now(), lastRings = -1; const HUD = {}; const FPS = { n: 0, acc: 0, v: 0 };
     function frame(now) {
-      const raw = Math.min(0.05, (now - last) / 1000); last = now; FT.v = FT.v ? FT.v + (raw - FT.v) * .1 : raw;
-      const dt = Math.abs(raw - FT.v) < FT.v * .5 ? FT.v : raw;   // phones report frame times with jitter; moving by the jittery time while the screen shows frames evenly reads as a stutter, so steady frames move by the running average
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;   // the frame's own vsync time: smoothing it made uneven phone frames judder (20:05)   // phones report frame times with jitter; moving by the jittery time while the screen shows frames evenly reads as a stutter, so steady frames move by the running average
       if (S.mode === 'attract' || (BOT && !ATTRACT && S.mode === 'play')) autopilot(dt);
       update(dt);
       ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0); ctx.clearRect(0, 0, W, H);   // default (low) sampling: the mip copies do the filtering, 'high' per frame costs ~25% on a phone
-      ctx.save(); if (S.shake > 0) ctx.translate((Math.random() - .5) * 10 * S.shake, (Math.random() - .5) * 10 * S.shake);
+      ctx.save(); if (S.shake > 0) { const c = S.clock || 0; ctx.translate(Math.sin(c * 38) * 5 * S.shake, Math.cos(c * 31) * 3 * S.shake); }   // a hit: a short smooth wobble (random jitter read as the game shaking)
       VIEW.drawFrame(ctx, S, W, H, CONFIG);
       ctx.restore();
       if (has('fps')) { FPS.n++; FPS.acc += dt; if (FPS.acc >= .5) { FPS.v = Math.round(FPS.n / FPS.acc); FPS.n = 0; FPS.acc = 0; } ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(W - 74, H - 30, 70, 24); ctx.fillStyle = FPS.v >= 50 ? '#6f6' : FPS.v >= 30 ? '#fd4' : '#f55'; ctx.font = '700 14px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(FPS.v + ' fps', W - 66, H - 13); }   // ?fps: a frame counter for checking on a real phone
-      $('time').innerHTML = fmt(S.elapsed); $('watch').style.setProperty('--zc', ZONECOL[S.zone]); $('watch').querySelectorAll('.zd i').forEach((d, i) => d.classList.toggle('on', i <= S.zone));
+      const tx = fmt(S.elapsed); if (tx !== HUD.t) { $('time').innerHTML = tx; HUD.t = tx; }
+      if (S.zone !== HUD.z) { HUD.z = S.zone; $('watch').style.setProperty('--zc', ZONECOL[S.zone]); $('watch').querySelectorAll('.zd i').forEach((d, i) => d.classList.toggle('on', i <= S.zone)); }
       if (S.rings !== lastRings) { const r = $('rings'); $('ringN').textContent = S.rings; r.classList.remove('bump'); void r.offsetWidth; r.classList.add(S.rings > lastRings ? 'bump' : 'x'); lastRings = S.rings; }
-      $('rings').classList.toggle('zero', S.rings === 0 && S.mode === 'play' && S.elapsed > 2);
-      const hint = $('hint'), cueOn = S.cue && S.elapsed < S.cue.until;
-      hint.textContent = cueOn ? S.cue.text : S.elapsed < CONFIG.leadIn ? C.leadInHint : C.hint; hint.classList.toggle('cue', !!cueOn);
-      hint.style.opacity = cueOn || S.mode === 'attract' || (S.mode === 'play' && !S.swiped) ? 1 : 0;
+      const zr = S.rings === 0 && S.mode === 'play' && S.elapsed > 2; if (zr !== HUD.zr) { HUD.zr = zr; $('rings').classList.toggle('zero', zr); }
+      const hint = $('hint'), cueOn = !!(S.cue && S.elapsed < S.cue.until), ht = cueOn ? S.cue.text : S.elapsed < CONFIG.leadIn ? C.leadInHint : C.hint, ho = cueOn || S.mode === 'attract' || (S.mode === 'play' && !S.swiped) ? 1 : 0;
+      if (ht !== HUD.ht) { HUD.ht = ht; hint.textContent = ht; } if (cueOn !== HUD.cue) { HUD.cue = cueOn; hint.classList.toggle('cue', cueOn); } if (ho !== HUD.ho) { HUD.ho = ho; hint.style.opacity = ho; }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);

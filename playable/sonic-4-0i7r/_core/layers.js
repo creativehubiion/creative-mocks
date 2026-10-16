@@ -44,10 +44,11 @@ window.LAYERS = (function () {
     return L[Math.min(n, L.length - 1)];
   }
   function devScale(ctx) { const m = ctx.getTransform(); return Math.hypot(m.a, m.b) || 1; }
+  let SINKF = null;   // when set, pictures go to the GPU sprite batch instead (glworld.js); the GPU's own mipmaps do the filtering
   function drawImg(ctx, im, sx, sy, sw, sh, dx, dy, dw, dh) {
-    const r = Math.abs(dw) * devScale(ctx) / sw, lod = r >= 1 ? 0 : Math.min(6, Math.log2(1 / r)), n = Math.floor(lod), t = lod - n;
-    const one = (k, a) => { const m = k ? mip(im, k) : im, f = m.width / im.width, g = m.height / im.height; if (a < 1) { ctx.save(); ctx.globalAlpha *= a; } ctx.drawImage(m, sx * f, sy * g, sw * f, sh * g, dx, dy, dw, dh); if (a < 1) ctx.restore(); };
-    if (t < .06 || n >= 6) one(n, 1); else if (t > .94) one(n + 1, 1); else { one(n + 1, 1); one(n, 1 - t); }   // trilinear: the two nearest copies blended, so the sharpness never steps as a sprite grows
+    if (SINKF) return SINKF(ctx, im, sx, sy, sw, sh, dx, dy, dw, dh);
+    const r = Math.abs(dw) * devScale(ctx) / sw, n = r >= .7 ? 0 : Math.min(6, Math.round(Math.log2(1 / r)));   // the nearest copy, ONE draw (a blended second draw doubled the phone's 2D cost, 20:05)
+    const m = n ? mip(im, n) : im, f = m.width / im.width, g = m.height / im.height; ctx.drawImage(m, sx * f, sy * g, sw * f, sh * g, dx, dy, dw, dh);
   }
   /* draw a layer in the game. opts: { box (override, frame fractions), rot (radians about the pivot), pivot ([px,py] in px), cell (sheet index), alpha } */
   function draw(ctx, L, S, W, H, opts = {}) {
@@ -55,8 +56,9 @@ window.LAYERS = (function () {
     ctx.save(); if (opts.alpha != null) ctx.globalAlpha = opts.alpha;
     if (opts.rot) { const p = opts.pivot || [b.x + b.w / 2, b.y + b.h / 2]; ctx.translate(p[0], p[1]); ctx.rotate(opts.rot); ctx.translate(-p[0], -p[1]); }
     if (im) {
-      if (L.type === 'sheet' && L.cells) { const cw = im.width / L.cells.cols, ch = im.height / L.cells.rows, i = opts.cell || 0; drawImg(ctx, im, (i % L.cells.cols) * cw, Math.floor(i / L.cells.cols) * ch, cw, ch, b.x, b.y, b.w, b.h); }
-      else drawImg(ctx, im, 0, 0, im.width, im.height, b.x, b.y, b.w, b.h);
+      const k = 1 - (opts.cropB || 0);   // cropB: the bottom fraction left off (a grounded object's sunk base)
+      if (L.type === 'sheet' && L.cells) { const cw = im.width / L.cells.cols, ch = im.height / L.cells.rows, i = opts.cell || 0; drawImg(ctx, im, (i % L.cells.cols) * cw, Math.floor(i / L.cells.cols) * ch, cw, ch * k, b.x, b.y, b.w, b.h * k); }
+      else drawImg(ctx, im, 0, 0, im.width, im.height * k, b.x, b.y, b.w, b.h * k);
     } else L.shape(ctx, b.x, b.y, b.w, b.h, S, opts.cell || 0);
     ctx.restore();
     return b;
@@ -69,5 +71,5 @@ window.LAYERS = (function () {
       else L.shape(ctx, 0, 0, W, H, null, o.cell || 0, o); }
     if (o.explain) { if (L.camera) { ctx.font = '700 34px Arial'; const t = 'CAMERA: ' + L.camera; if (ctx.measureText(t).width > W - 60) { const parts = t.split(', '); const mid = Math.ceil(parts.length / 2); GB.bpLabel(ctx, 30, H - 90, parts.slice(0, mid).join(', ') + ',', '#ffd23a', true); GB.bpLabel(ctx, 30, H - 40, parts.slice(mid).join(', '), '#ffd23a', true); } else GB.bpLabel(ctx, 30, H - 40, t, '#ffd23a', true); } if (L.explain) L.explain(ctx, W, H); }
   }
-  return { ART, META, load, boxPx, draw, blueprint, mip, drawImg, devScale };
+  return { ART, META, load, boxPx, draw, blueprint, mip, drawImg, devScale, setSink: f => { SINKF = f; } };
 })();

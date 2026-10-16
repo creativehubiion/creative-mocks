@@ -103,5 +103,57 @@ window.GLWORLD = (function () {
     gl.disable(gl.POLYGON_OFFSET_FILL);
     return true;
   }
-  return { init, draw, get ok() { return !!gl; } };
+  /* ── world sprites on the GPU (owner 20:21: props "shaking as if there is a mirage, even on load"; "what industry WebGL games do").
+     Canvas 2D drew each prop from one of a few pre-shrunk copies and jumped between them as it came closer: a flicker of sharpness.
+     Here every prop, hazard, ring, gate and their shadows is a textured quad from a mipmapped texture, filtered trilinearly and
+     anisotropically, premultiplied (no dark fringes), batched in draw order (one draw call per texture run). The caller hands the
+     quad's four corners in device pixels (its 2D transform already applied), so rotation, squash and fades carry over unchanged. */
+  const VS_SPR = `attribute vec2 p; attribute vec2 uv; attribute vec4 c; uniform vec2 res; varying vec2 vUv; varying vec4 vC;
+    void main() { vUv = uv; vC = c; gl_Position = vec4(p.x / res.x * 2.0 - 1.0, 1.0 - p.y / res.y * 2.0, 0.0, 1.0); }`;
+  const FS_SPR = `precision mediump float; uniform sampler2D t; varying vec2 vUv; varying vec4 vC; void main() { gl_FragColor = texture2D(t, vUv) * vC; }`;
+  const ST = new Map(); let sb = new Float32Array(8 * 6 * 512), nv = 0, sTex = null, sBuf = null, WHITE = null;
+  const F = 8;   // floats per vertex: x, y, u, v, r, g, b, a (colour premultiplied)
+  function spriteTex(src) {   // one mipmapped texture per picture, made once (powers of two up to 2048: WebGL 1 mipmaps need them)
+    let t = ST.get(src); if (t) return t;
+    const p2 = n => { let p = 1; while (p < n && p < 2048) p *= 2; return p; }, c = document.createElement('canvas'); c.width = p2(src.width); c.height = p2(src.height);
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height);
+    t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+    ST.set(src, t); return t;
+  }
+  const SEG = [];   // runs of vertices sharing a texture, in draw order: the whole frame is uploaded ONCE, then one bind + one draw per run
+  function useTex(t) { if (t === sTex) return; if (sTex) SEG.push({ t: sTex, start: SEG.length ? SEG[SEG.length - 1].end : 0, end: nv }); sTex = t; }
+  function room(n) { if ((nv + n) * F > sb.length) { const nb = new Float32Array(Math.max(sb.length * 2, (nv + n) * F)); nb.set(sb); sb = nb; } }
+  function vtx(x, y, u, v, c) { const o = nv * F; sb[o] = x; sb[o + 1] = y; sb[o + 2] = u; sb[o + 3] = v; sb[o + 4] = c[0]; sb[o + 5] = c[1]; sb[o + 6] = c[2]; sb[o + 7] = c[3]; nv++; }
+  function flush() {
+    if (sTex) SEG.push({ t: sTex, start: SEG.length ? SEG[SEG.length - 1].end : 0, end: nv });
+    if (!nv || !gl) { nv = 0; SEG.length = 0; sTex = null; return; }
+    if (!P.spr) P.spr = prog(VS_SPR, FS_SPR); if (!sBuf) sBuf = gl.createBuffer();
+    for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+    const L = P.spr.loc; gl.useProgram(P.spr.p); gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.uniform2f(L.res, cv.width, cv.height); gl.activeTexture(gl.TEXTURE0); gl.uniform1i(L.t, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, sBuf); gl.bufferData(gl.ARRAY_BUFFER, sb.subarray(0, nv * F), gl.STREAM_DRAW);
+    gl.enableVertexAttribArray(L['@p']); gl.vertexAttribPointer(L['@p'], 2, gl.FLOAT, false, F * 4, 0);
+    gl.enableVertexAttribArray(L['@uv']); gl.vertexAttribPointer(L['@uv'], 2, gl.FLOAT, false, F * 4, 8);
+    gl.enableVertexAttribArray(L['@c']); gl.vertexAttribPointer(L['@c'], 4, gl.FLOAT, false, F * 4, 16);
+    for (const g of SEG) if (g.end > g.start) { gl.bindTexture(gl.TEXTURE_2D, g.t); gl.drawArrays(gl.TRIANGLES, g.start, g.end - g.start); }
+    nv = 0; SEG.length = 0; sTex = null;
+  }
+  // a picture: q = its four corners [x0,y0, x1,y1, x2,y2, x3,y3] (top-left, top-right, bottom-left, bottom-right) in device pixels;
+  // tint multiplies its colour (glitter dots are one white dot tinted)
+  function sprite(src, sx, sy, sw, sh, q, alpha, tint) {
+    if (!gl || alpha <= 0) return; useTex(spriteTex(src)); room(6);
+    const u0 = sx / src.width, v0 = sy / src.height, u1 = (sx + sw) / src.width, v1 = (sy + sh) / src.height, c = tint ? [tint[0] * alpha, tint[1] * alpha, tint[2] * alpha, alpha] : [alpha, alpha, alpha, alpha];
+    vtx(q[0], q[1], u0, v0, c); vtx(q[2], q[3], u1, v0, c); vtx(q[4], q[5], u0, v1, c); vtx(q[2], q[3], u1, v0, c); vtx(q[6], q[7], u1, v1, c); vtx(q[4], q[5], u0, v1, c);
+  }
+  // flat-coloured triangles (the trail's ribbon and brush strokes): xy = [x0,y0, x1,y1, x2,y2, ...] in device pixels, rgba 0..1 (straight alpha)
+  function tris(xy, rgba) {
+    if (!gl || rgba[3] <= 0 || xy.length < 6) return;
+    if (!WHITE) { const c = document.createElement('canvas'); c.width = c.height = 4; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 4, 4); WHITE = c; }
+    useTex(spriteTex(WHITE)); room(xy.length / 2); const a = rgba[3], c = [rgba[0] * a, rgba[1] * a, rgba[2] * a, a];
+    for (let i = 0; i < xy.length; i += 2) vtx(xy[i], xy[i + 1], .5, .5, c);
+  }
+  return { init, draw, sprite, tris, flush, preloadSprite: src => { if (gl && src) spriteTex(src); }, preload: (key, src, repeat) => { if (gl && src) tex(key, src, repeat); }, get ok() { return !!gl; } };
 })();

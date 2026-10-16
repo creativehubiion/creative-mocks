@@ -60,6 +60,21 @@
    "win"
   ]
  },
+ "runner-finish": {
+  "cell": 333,
+  "cols": 4,
+  "rows": 2,
+  "names": [
+   "slowing",
+   "brake",
+   "skid",
+   "one-leg stop",
+   "feet down",
+   "stand",
+   "arms up",
+   "victory fist"
+  ]
+ },
  "hazards": {
   "cell": 416,
   "cols": 2,
