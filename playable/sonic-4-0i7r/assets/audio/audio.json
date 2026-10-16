@@ -1,0 +1,10 @@
+{
+ "music": {
+  "loopStart": 0.0136,
+  "loopEnd": 51.2136,
+  "seamDb": 4.53,
+  "seamLimitDb": 6.93,
+  "introBars": 0,
+  "cutEndBars": 0
+ }
+}

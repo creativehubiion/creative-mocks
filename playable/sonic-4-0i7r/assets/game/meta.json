@@ -1,0 +1,115 @@
+{
+ "roadside": {
+  "cell": 582,
+  "cols": 3,
+  "rows": 3,
+  "names": [
+   "fern",
+   "mossy rock",
+   "jungle tree",
+   "palm tree",
+   "sunflower",
+   "checkered rock block",
+   "sandstone pillar",
+   "canyon spire",
+   "broken arch"
+  ]
+ },
+ "road": {
+  "w": 1082,
+  "h": 635,
+  "box": {
+   "w": 1.3,
+   "h": 0.5777777777777778,
+   "anchor": "top-left"
+  },
+  "foot": {
+   "cx": 0.49953789279112754,
+   "cy": 0.9181102362204724,
+   "rx": 0.49953789279112754,
+   "ry": 0.08031496062992126
+  }
+ },
+ "ground": {
+  "w": 966,
+  "h": 721,
+  "box": {
+   "w": 1.3,
+   "h": 0.5777777777777778,
+   "anchor": "top-left"
+  },
+  "foot": {
+   "cx": 0.4994824016563147,
+   "cy": 0.9181692094313454,
+   "rx": 0.4994824016563147,
+   "ry": 0.08044382801664356
+  }
+ },
+ "runner": {
+  "cell": 333,
+  "cols": 4,
+  "rows": 2,
+  "names": [
+   "run 1",
+   "run 2",
+   "run 3",
+   "run 4",
+   "run 5",
+   "run 6",
+   "hit / stumble",
+   "win"
+  ]
+ },
+ "hazards": {
+  "cell": 416,
+  "cols": 2,
+  "rows": 1,
+  "names": [
+   "spike strip",
+   "boulder"
+  ]
+ },
+ "spiked-roller": {
+  "w": 749,
+  "h": 374,
+  "box": {
+   "w": 0.9,
+   "h": 0.3,
+   "anchor": "bottom"
+  },
+  "foot": {
+   "cx": 0.5026702269692924,
+   "cy": 0.9171122994652406,
+   "rx": 0.4612817089452603,
+   "ry": 0.08021390374331551
+  }
+ },
+ "finish-gate": {
+  "w": 832,
+  "h": 832,
+  "box": {
+   "w": 1.0,
+   "h": 0.6666666666666666,
+   "anchor": "bottom"
+  },
+  "foot": {
+   "cx": 0.5,
+   "cy": 0.9182692307692307,
+   "rx": 0.47836538461538464,
+   "ry": 0.08052884615384616
+  }
+ },
+ "ring": {
+  "cell": 250,
+  "cols": 3,
+  "rows": 2,
+  "names": [
+   "face on",
+   "25",
+   "42",
+   "58",
+   "72",
+   "edge on"
+  ]
+ }
+}
