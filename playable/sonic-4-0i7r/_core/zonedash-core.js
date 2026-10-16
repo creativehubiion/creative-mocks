@@ -222,7 +222,7 @@
   ];
   // the colour grade (rule 36): mobile games are high-key and saturated. Baked into each zone's pictures ONCE at load, by pixel
   // maths (no per-frame filters, and canvas filters are missing on older iPhones): gamma lifts the shadows, then saturation, then contrast
-  const GRADE = [{ gamma: 1.3, sat: 1.32, con: 1.06 }, { gamma: 1.06, sat: 1.15, con: 1.04 }, { gamma: 1.06, sat: 1.12, con: 1.04 }];
+  const GRADE = [{ gamma: 1.08, sat: 1.06, con: 1.03 }, { gamma: 1.06, sat: 1.15, con: 1.04 }, { gamma: 1.06, sat: 1.12, con: 1.04 }];
   function grade(src, zi, sx = 0, sy = 0, sw = src.width, sh = src.height) {
     const c = document.createElement('canvas'); c.width = sw; c.height = sh; const x = c.getContext('2d'); x.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
     try { const Gd = GRADE[zi], im = x.getImageData(0, 0, sw, sh), d = im.data, lut = new Uint8ClampedArray(256);
@@ -234,7 +234,7 @@
     return c;
   }
   // per-zone texture calm for the GPU path: a mip bias softens fine detail (the jungle floor was busy enough to read as noise, owner 19:09)
-  const GLBIAS = { ground: [1.2, 0.3, 0.3], road: [0.6, 0, 0] };
+  const GLBIAS = { ground: [0.3, 0.3, 0.3], road: [0.6, 0, 0] };   // the jungle floor itself is calm now (regenerated 19:20); the jungle road keeps a little softening
   const GRADED = {};
   function gradePlates() { ['L1a', 'L1b', 'L1c'].forEach((id, zi) => { const im = LAYERS.ART[id]; if (im && !GRADED[id]) { GRADED[id] = 1; LAYERS.ART[id] = grade(im, zi); } }); }
   const SP = {};
