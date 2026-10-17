@@ -35,6 +35,7 @@
     hitHalf: 0.42,                 // lane overlap that counts as a hit (lane units)
     drawDist: 150, segLen: 2,
     curve: { a: 2.2, l: 70 }, hill: { a: 0.9, l: 55 },   // gentle sway and swell of the course (metres)
+    heroPps: 45,                   // the video hero's run in zone 1, poses per second; tied to distance, so faster zones run faster legs (owner 23:09 lag, 23:19 sliding, 23:21 "a little spastic": 60 -> 45, a steady 1-1-2 refresh pattern at 60 Hz)
     idleToAttract: 3, readySecs: 1.5, stopSecs: 0.9,   // stopSecs: from the line to standing still (owner 19:26: stop from momentum, then the win pose)   // READY · SET · GO! before the run starts (owner 16:25, 16:28: the expected countdown)
     humanLook: 0.8, humanReact: [0.36, 0.62],   // the first-timer bot: sees a row this far ahead (s), reacts this much later
     copy: {
@@ -141,17 +142,41 @@
   }
   // the finish sequence (L4b cells): run frames until the brake, then each pose at its time (s after the line); the last one holds
   const FINSEQ = [[.18, 0], [.3, 1], [.44, 2], [.62, 3], [.92, 4], [1.06, 5], [1.24, 6], [1.42, 7, 'L4']];   // the last pose is the run sheet's win cell (the new sheet's cell 8 carried the mark on his legs, rule 33)
+  // the video hero (D-036): when meta.json carries runner.anim (scripts/hero_slice.py), the run is that clip's stride (every frame,
+  // stepped by distance) and the finish is the clip's own frames on their own timeline; without it, the 8-cell sheets and FINSEQ
+  let HERO = null;
+  function heroFromMeta(VIEW) {
+    if (HERO !== null) return; const m = LAYERS.META.runner; if (!m) return; const a = m.anim; if (!a) { HERO = false; return; }
+    const L4 = VIEW.layers.find(l => l.id === 'L4'), L4b = VIEW.layers.find(l => l.id === 'L4b');
+    L4.frames = a.run.rects; L4.frameW = a.run.cellW; L4.frameH = a.run.cellH; L4b.frames = a.finish.rects; L4b.frameW = a.finish.cellW; L4b.frameH = a.finish.cellH;   // trimmed, packed frames
+    let t = 0; a.finish.at = a.finish.durations_ms.map(d => { const s0 = t; t += d / 1000; return s0; }); a.finish.total = t;
+    a.finish.fistAt = a.finish.at[a.finish.at.length - 1];   // the last frame is the held victory pose
+    a.stopSecs = a.finish.stop_s || 1.2; HERO = a;
+  }
+  // the stride is tied to the ground again (owner 23:19: "it feels like it's sliding"; 23:09's fixed 30 poses/s ignored his speed):
+  // one stride per heroStride metres, sized so zone 1 gives exactly 60 poses a second: a new pose on EVERY refresh at 60 Hz (never a
+  // held pose, the hitch the owner felt at 0.85 per refresh), two refreshes each at 120 Hz; faster zones skip a pose now and then,
+  // which reads as faster legs, not as a stall
+  const runFrame = Sx => HERO ? Math.floor(Sx.z / (HERO.run.frames * CONFIG.speeds[0] / CONFIG.heroPps) * HERO.run.frames) % HERO.run.frames : Math.floor(Sx.z / 1.1) % 6;
   function finish(result, why) {
     if (S.mode === 'attract') { reset('attract'); return; }   // the splash loop never ends on a card
     S.mode = result === 'win' ? 'reveal' : 'fail'; S.why = why || null; S.reveal = 0;
-    if (!SIM) { SFX.music(false); if (result === 'win') { SFX.win(); hideHud(true); setTimeout(() => showCard('win'), 2100);   /* after the fist is up */ } else { SFX.fail(); hideHud(true); setTimeout(() => showCard('fail'), 900); } }
+    if (!SIM) { SFX.music(false); if (result === 'win') { SFX.win(); hideHud(true); if (HERO) S.cardDue = true; else setTimeout(() => showCard('win'), 2100);   /* after the fist is up */ } else { SFX.fail(); hideHud(true); setTimeout(() => showCard('fail'), 900); } }
   }
   function update(dt) {
     S.clock = (S.clock || 0) + dt;
     if (S.mode === 'ready') { S.readyT = (S.readyT || 0) + dt; if (S.readyT >= CONFIG.readySecs) { S.mode = 'play'; if (!SIM) { SFX.boost(); SFX.music(true); SFX.duck(false); } S.boost = .6; S.dust = Array.from({ length: 14 }, () => ({ a: rand(-3.1, 0), v: rand(.4, 1), t: 0, life: rand(.4, .7), r: rand(.03, .07) })); } return; }
     const C = CONFIG;
     if (S.mode === 'reveal' || S.mode === 'win') { const d = S.lane - S.laneX, st = dt / CONFIG.laneSecs; S.laneX = Math.abs(d) <= st ? S.lane : S.laneX + Math.sign(d) * st; }   // a swipe in flight completes
-    if (S.mode === 'reveal') { S.reveal += dt; S.v0 = S.v0 || S.v; const k = Math.max(0, 1 - S.reveal / CONFIG.stopSecs); S.v = S.v0 * k * k; S.z += S.v * dt;   // momentum: eased to a stop
+    if (S.mode === 'reveal' && HERO) {   // the video finish: the stride runs on until the frame the clip's brake starts from, then the clip plays
+      S.reveal += dt; const N = HERO.run.frames;
+      if (S.finT0 == null) { S.z += S.v * dt; if (runFrame(S) === HERO.finish.joinPhase) S.finT0 = S.reveal; }
+      else { const t = S.reveal - S.finT0; S.v0 = S.v0 || S.v; const k = Math.max(0, 1 - t / HERO.stopSecs); S.v = S.v0 * k * k; S.z += S.v * dt;
+        if (!S.skidDust && t > .05) { S.skidDust = true; S.dust = Array.from({ length: 12 }, () => ({ a: rand(-3.1, 0), v: rand(.3, .8), t: 0, life: rand(.35, .6), r: rand(.025, .055) })); }   // the skid kicks dust (game code, never in the clip)
+        if (S.cardDue && t >= HERO.finish.fistAt + .35) { S.cardDue = false; if (!SIM) showCard('win'); }
+        if (t >= HERO.finish.total) S.mode = 'win'; }
+    }
+    else if (S.mode === 'reveal') { S.reveal += dt; S.v0 = S.v0 || S.v; const k = Math.max(0, 1 - S.reveal / CONFIG.stopSecs); S.v = S.v0 * k * k; S.z += S.v * dt;   // momentum: eased to a stop
       if (!S.skidDust && S.reveal > FINSEQ[2][0]) { S.skidDust = true; S.dust = Array.from({ length: 12 }, () => ({ a: rand(-3.1, 0), v: rand(.3, .8), t: 0, life: rand(.35, .6), r: rand(.025, .055) })); }   // the skid kicks dust
       if (S.reveal > 2.0) S.mode = 'win'; }
     if (S.mode === 'fail') { S.tumble += dt; S.v = Math.max(0, S.v - dt * 40); S.z += S.v * dt; }
@@ -316,11 +341,13 @@
   // and the next zone's light and sky landed exactly on the zone line.
   let WARM = false;
   function prewarm(ctx, W, H, VIEW) {
-    const A = LAYERS.ART; if (WARM || !A.L1a || !A.L1b || !A.L1c || !A.L3 || !A.L3b) return; WARM = true;
+    const A = LAYERS.ART; if (WARM || !A.L1a || !A.L1b || !A.L1c || !A.L3 || !A.L3b) return;
+    if (VIEW.build && !Object.keys(LAYERS.META).length) return; heroFromMeta(VIEW); WARM = true;
+    const gpu = !has('no-gl') && window.GLWORLD && GLWORLD.init(ctx.canvas);   // CPU mip copies are only for the 2D fallback
     gradePlates();
     VIEW.layers.forEach(L => { const im = A[L.id]; if (!im || !['sheet', 'sprite', 'particle'].includes(L.type)) return;
-      for (let n = 1; n <= 5; n++) LAYERS.mip(im, n);
-      const cells = L.cells ? L.cells.cols * L.cells.rows : 1; for (let c = 0; c < cells; c++) silhouette(L, c); });
+      if (!gpu) for (let n = 1; n <= 5; n++) LAYERS.mip(im, n);   // the GPU makes its own mipmaps
+      const cells = L.frames ? L.frames.length : L.cells ? L.cells.cols * L.cells.rows : 1; for (let c = 0; c < cells; c++) silhouette(L, c); });
     [0, 1, 2].forEach(z => { lightLayers(W, H, z); groundPattern(ctx, z); stripPattern(ctx, 'L3', z); });
     if (window.GLWORLD && GLWORLD.init(ctx.canvas)) { ['L1a', 'L1b', 'L1c'].forEach(id => GLWORLD.preload('plate:' + id, A[id], false));
       shadowAt(ctx, 0, 0, 1); GLWORLD.preloadSprite(SHADOW); [PUFF, DOT].forEach(c => c && GLWORLD.preloadSprite(c)); Object.values(SIL).forEach(s => GLWORLD.preloadSprite(s.c));
@@ -437,9 +464,10 @@
   const SIL = {};
   function silhouette(L, cell) {
     const im = LAYERS.ART[L.id], k = `${L.id}:${cell}`; if (!im) return null; if (SIL[k]) return SIL[k];
-    let sx = 0, sy = 0, sw = im.width, sh = im.height; if (L.cells) { sw = im.width / L.cells.cols; sh = im.height / L.cells.rows; sx = (cell % L.cells.cols) * sw; sy = Math.floor(cell / L.cells.cols) * sh; }
-    const P = 4, sc = Math.min(1, 160 / Math.max(sw, sh)), iw = Math.round(sw * sc), ih = Math.round(sh * sc), c = document.createElement('canvas'); c.width = iw + 2 * P; c.height = ih + 2 * P; const x = c.getContext('2d');
-    const sm = document.createElement('canvas'); sm.width = Math.max(1, Math.round(iw / 3)); sm.height = Math.max(1, Math.round(ih / 3)); sm.getContext('2d').drawImage(im, sx, sy, sw, sh, 0, 0, sm.width, sm.height);
+    let sx = 0, sy = 0, sw = im.width, sh = im.height, ox = 0, oy = 0, cw, ch; if (L.cells) { sw = im.width / L.cells.cols; sh = im.height / L.cells.rows; sx = (cell % L.cells.cols) * sw; sy = Math.floor(cell / L.cells.cols) * sh; }
+    if (L.frames) { [sx, sy, sw, sh, ox, oy] = L.frames[cell]; cw = L.frameW; ch = L.frameH; } else { cw = sw; ch = sh; }   // a trimmed frame sits at its offset in its logical cell
+    const P = 4, sc = Math.min(1, 160 / Math.max(cw, ch)), iw = Math.round(cw * sc), ih = Math.round(ch * sc), c = document.createElement('canvas'); c.width = iw + 2 * P; c.height = ih + 2 * P; const x = c.getContext('2d');
+    const sm = document.createElement('canvas'); sm.width = Math.max(1, Math.round(iw / 3)); sm.height = Math.max(1, Math.round(ih / 3)); const f3 = sm.width / cw; sm.getContext('2d').drawImage(im, sx, sy, sw, sh, ox * f3, oy * f3, sw * f3, sh * f3);
     x.imageSmoothingQuality = 'high'; x.drawImage(sm, P, P, iw, ih); x.globalCompositeOperation = 'source-in';   // soft edge by a small copy scaled up: works on every phone (ctx.filter does not)
     const g = x.createLinearGradient(0, P + ih, 0, P); g.addColorStop(0, 'rgba(12,10,24,1)'); g.addColorStop(.5, 'rgba(12,10,24,.6)'); g.addColorStop(1, 'rgba(12,10,24,.25)');   // darkest at the base, fading toward the far end
     x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
@@ -453,12 +481,12 @@
     if (rot) LAYERS.draw(ctx, L, Sx, W, H, { box: { x: x / W, y: (y + h * SINK) / H, w: w / W, h: h / H, anchor: 'bottom' }, cell, rot, pivot: [x, y + h * SINK - h / 2] });   // a rolling boulder: round, nothing to hide
     else LAYERS.draw(ctx, L, Sx, W, H, { box: { x: x / W, y: (y + h * SINK) / H, w: w / W, h: h / H, anchor: 'bottom' }, cell, cropB: SINK });   // the sunk base left off by its source rows (no clip region: clips are costly on phones)
   }
-  function castShadow(ctx, L, cell, x, y, w, h, lift = 0) {
+  function castShadow(ctx, L, cell, x, y, w, h, lift = 0, foot = 1) {   // foot: where the ground line sits in the cell (1 = its floor)
     const near = Math.min(1, Math.max(0, (w / FRAMEW - .015) / .08)); if (near <= 0) return;   // by on-screen size: gone when tiny, full from ~10% of the frame
     const sil = silhouette(L, cell); if (!sil || near < .45) { shadowAt(ctx, x, y, w * .6, .5 * Math.max(.3, near)); return; }   // far and small: a soft patch is all the eye reads (one cheap draw)
     const s = w / sil.iw;   // the same scale the picture is drawn at: the shadow's base edges are the object's base edges
     ctx.save(); ctx.globalAlpha = Math.max(.12, .5 - lift / h) * near; ctx.translate(x, y); ctx.transform(1, 0, -0.3 * near, -0.13 * near - .02, 0, 0);   // laid on the ground toward the camera, a little right; y = 0 is the base, so the base never moves
-    LAYERS.drawImg(ctx, sil.c, 0, 0, sil.c.width, sil.c.height, -w / 2 - sil.P * s, -h - sil.P * s, sil.c.width * s, sil.c.height * s); ctx.restore();
+    LAYERS.drawImg(ctx, sil.c, 0, 0, sil.c.width, sil.c.height, -w / 2 - sil.P * s, -h * foot - sil.P * s, sil.c.width * s, sil.c.height * s); ctx.restore();   // the picture's ground line on y = 0
     shadowAt(ctx, x, y, w * .3, .35 * near);   // a thin contact line where it touches the ground
   }
   const LIGHT = { key: '', zones: {} };
@@ -576,25 +604,38 @@
       ctx.save(); Sx.dust.forEach(p => { const k = p.t / p.life, r = p.r * W * .7 * (1 + k * 1.8), px = q.x + Math.cos(p.a) * p.v * W * .12 * k, py = q.y - Math.abs(Math.sin(p.a)) * p.v * W * .05 * k; ctx.globalAlpha = (1 - k) * .7; LAYERS.drawImg(ctx, PUFF, 0, 0, 64, 64, px - r, py - r * .7, r * 2, r * 1.4); }); ctx.restore(); }   // the dust kick on GO!: pale soft puffs
     // scattered rings fly out from the runner
     Sx.scatter.forEach(p => { const t = p.t, px = q.x + Math.cos(p.a) * p.sp * W * t * 0.9, py = q.y - G.runnerH * q.s * .5 + Math.sin(p.a) * p.sp * W * t * 0.9 + W * 1.2 * t * t; ctx.save(); ctx.globalAlpha = 1 - t / p.life; goldRing(ctx, px, py, W * .018, Math.abs(Math.cos(t * 9 + p.a)) * .8 + .2); ctx.restore(); });
-    let h = G.runnerH * q.s, frameI = Math.floor(Sx.z / 1.1) % 6, bob = Math.abs(Math.sin(Sx.z / 1.1 * Math.PI)) * h * 0.04, squat = 1;
+    let h = G.runnerH * q.s, frameI = runFrame(Sx), bob = HERO ? 0 : Math.abs(Math.sin(Sx.z / 1.1 * Math.PI)) * h * 0.04, squat = 1;   // the clip has its own bob
     if (Sx.mode === 'ready') { const t = Sx.readyT || 0, beat = CONFIG.readySecs / 3, c = Sx.clock || 0;
-      if (t < beat * 2 - .12) { const ph = c * 12; frameI = Math.floor(ph) % 6; bob = Math.abs(Math.sin(ph / 3 * Math.PI)) * h * .025; squat = 1 - .012 * Math.sin(c * 4.2); }   // jogging on the spot: all six run frames at 12 fps, two steps per cycle, a soft bob and breath
-      else { frameI = 2; squat = .9; bob = 0; } }   // SET: crouched to launch
-    let sheet = L4, cell = Sx.mode === 'fail' ? 6 : frameI;
-    if ((Sx.mode === 'reveal' || Sx.mode === 'win') && LAYERS.ART.L4b) { const t = Sx.mode === 'win' ? 9 : Sx.reveal, f = FINSEQ.filter(s => t >= s[0]).pop();
+      if (t < beat * 2 - .12 && HERO) { frameI = Math.floor(c * 20 + .25) % HERO.run.frames; squat = 1 - .012 * Math.sin(c * 4.2); }   // jogging on the spot: 20 poses a second (three refreshes each)
+      else if (t < beat * 2 - .12) { const ph = c * 12; frameI = Math.floor(ph) % 6; bob = Math.abs(Math.sin(ph / 3 * Math.PI)) * h * .025; squat = 1 - .012 * Math.sin(c * 4.2); }   // jogging on the spot: all six run frames at 12 fps, two steps per cycle, a soft bob and breath
+      else { frameI = HERO ? 0 : 2; squat = .9; bob = 0; } }   // SET: crouched to launch
+    let sheet = L4, cell = Sx.mode === 'fail' ? 6 : frameI, bw = h, sink = 0, foot = 1;
+    if (HERO) { bw = h * HERO.run.cellW / HERO.run.cellH;
+      if (Sx.mode === 'fail') { sheet = L4b; cell = Math.min(2, HERO.finish.frames - 1); }   // the stumble: the brake's arms-flung frame, tumbling
+      else if ((Sx.mode === 'reveal' && Sx.finT0 != null) || Sx.mode === 'win') { const t = Sx.mode === 'win' ? 1e9 : Sx.reveal - Sx.finT0; sheet = L4b; cell = 0; HERO.finish.at.forEach((a, i) => { if (t >= a) cell = i; }); }
+      if (sheet === L4b) { h *= HERO.finish.heightVsRun; bw = h * HERO.finish.cellW / HERO.finish.cellH; }
+      foot = sheet === L4b ? HERO.finish.footFrac : HERO.run.footFrac; sink = h * (1 - foot); }   // the measured foot line on the ground (owner 22:57: the shadow did not touch his feet)
+    if (HERO) {}
+    else if ((Sx.mode === 'reveal' || Sx.mode === 'win') && LAYERS.ART.L4b) { const t = Sx.mode === 'win' ? 9 : Sx.reveal, f = FINSEQ.filter(s => t >= s[0]).pop();
       if (f) { sheet = f[2] === 'L4' ? L4 : L4b; cell = f[1]; bob = 0; } }   // before the brake he is still mid-stride: the run cycle carries straight into frame 1
     else if (Sx.mode === 'reveal' || Sx.mode === 'win') cell = 7;
-    castShadow(ctx, sheet, cell, q.x, q.y, h, h, bob);   // his own shape on the ground; it stays down while he bobs
+    castShadow(ctx, sheet, cell, q.x, q.y, bw, h, bob, foot);   // the shadow starts at his feet on the ground, not at the cell floor (owner 23:06: off his base in the win pose)   // his own shape on the ground; it stays down while he bobs
     if (Sx.mercy > 0 && Math.floor(Sx.mercy * 14) % 2) return;   // flicker after a spill
     ctx.save(); if (Sx.mode === 'fail') { ctx.translate(q.x, q.y); ctx.rotate(Math.min(1.3, Sx.tumble * 3)); ctx.translate(-q.x, -q.y); }
-    const lean = Sx.mode === 'play' || Sx.mode === 'attract' ? (Sx.lane - Sx.laneX) * -0.25 : 0;   // no lean once the run is over (owner 20:05: he finished slanted) ctx.translate(q.x, q.y); ctx.rotate(lean); ctx.translate(-q.x, -q.y);
+    const lean = Sx.mode === 'play' || Sx.mode === 'attract' ? (Sx.lane - Sx.laneX) * -0.25 : 0;   // no lean once the run is over (owner 20:05: he finished slanted)
+    if (lean) { ctx.translate(q.x, q.y); ctx.rotate(lean); ctx.translate(-q.x, -q.y); }   // a comment had swallowed this line in 38ca794 (2026-10-17 22:54: restored)
     if (squat !== 1) { ctx.translate(q.x, q.y); ctx.scale(1 + (1 - squat) * .5, squat); ctx.translate(-q.x, -q.y); }
-    LAYERS.draw(ctx, sheet, Sx, W, H, { box: { x: q.x / W, y: (q.y - bob) / H, w: h / W, h: h / H, anchor: 'bottom' }, cell });
+    if (HERO) { const r = sheet.frames[cell], k = h / sheet.frameH, x0 = q.x - bw / 2, y0 = q.y + sink - bob - h;   // the trimmed frame at its offset in the logical cell
+      LAYERS.drawImg(ctx, LAYERS.ART[sheet.id], r[0], r[1], r[2], r[3], x0 + r[4] * k, y0 + r[5] * k, r[2] * k, r[3] * k); }
+    else LAYERS.draw(ctx, sheet, Sx, W, H, { box: { x: q.x / W, y: (q.y + sink - bob) / H, w: bw / W, h: h / H, anchor: 'bottom' }, cell });
     ctx.restore();
   }
 
   // ── layers (D-015): the same for every camera; their boxes are sized by the renderer from world metres ──
   function makeLayers(VIEW) {
+    // the hero's camera as a NUMBER from the game's own geometry (owner 2026-10-17 22:51: "have you made the reference frames with the
+    // camera angle of the game in mind?"; "slightly above" in words gave a slanted, level-looking runner)
+    const HEROCAM = `from directly behind and centred on him, never from the side: the camera is ${G.camH} m up and ${G.camBack} m behind, looking down at him about ${Math.round(Math.atan((G.camH - G.runnerH / 2) / G.camBack) * 180 / Math.PI)} degrees (his head and the top of his back are seen slightly from above; the soles show when a foot kicks back), the runner moving straight away from the camera`;
     const CAM = VIEW.camera, plateBox = { x: -0.1, y: 0, w: 1.2, h: 1.2 * 640 / 960 * 1920 / 1536, anchor: 'top-left' };
     G.boxes = { backdrop: plateBox };
     const backdrop = (id, zi, name, sees) => ({ id, name, type: 'plate', canvas: [1536, 1920], key: null, camera: CAM, box: plateBox,
@@ -627,7 +668,7 @@
       { id: 'L3b', name: 'ground', type: 'tile', canvas: [1536, 1024], key: null, camera: 'straight down (top-down), the texture tiles in both directions',
         notes: 'picture · three seamless top-down ground textures side by side (jungle forest floor, seaside grass, desert sand), each a strip that tiles in both directions; covers the ground on both sides of the road (rule 24: half the frame below the horizon is never a flat colour)',
         shape(ctx, x, y, w, h, S, cell, o) { for (let i = 0; i < 3; i++) { ctx.fillStyle = ZC[i].ground[0]; ctx.fillRect(x + w * i / 3, y, w / 3, h); ctx.fillStyle = ZC[i].ground[1]; for (let j = 0; j < 30; j++) { const px = x + w * i / 3 + ((j * 7919) % 100) / 100 * w / 3, py = y + ((j * 104729) % 100) / 100 * h; ctx.beginPath(); ctx.arc(px, py, w * .012, 0, 7); ctx.fill(); } if (o && o.explain) GB.bpLabel(ctx, x + w * i / 3 + 20, 50, ['jungle floor', 'grass', 'sand'][i], '#ffd23a', true); } } },
-      { id: 'L4', name: 'runner', type: 'sheet', canvas: [2048, 1024], key: '#FF00FF', camera: 'from behind and slightly above, the runner moving away from the camera', cells: { cols: 4, rows: 2, names: ['run 1', 'run 2', 'run 3', 'run 4', 'run 5', 'run 6', 'hit / stumble', 'win'] },
+      { id: 'L4', name: 'runner', type: 'sheet', canvas: [2048, 1024], key: '#FF00FF', camera: HEROCAM, cells: { cols: 4, rows: 2, names: ['run 1', 'run 2', 'run 3', 'run 4', 'run 5', 'run 6', 'hit / stumble', 'win'] },
         notes: 'picture FROM THE CLIENT’S OWN FOOTAGE (owner, 2026-10-16: the hero is the most important part) · the hero from BEHIND as the supplied video shows him: a six-frame run cycle, a stumble and a win pose, feet at the bottom centre of each cell; MAGENTA key (#FF00FF) because the hero is blue (rule 22); final art: the client’s own renders replace this sheet in place',
         shape(ctx, x, y, w, h, S, cell) { const cx = x + w / 2, by = y + h * .97, u = h, ph = (cell % 6) / 6 * 6.283, st = cell === 6, wn = cell === 7, G1 = '#77777f', G2 = '#a9a9b1', K = '#2a2a30'; ctx.lineCap = 'round';
           ctx.strokeStyle = G1; ctx.lineWidth = u * .09; const la = wn ? 0 : Math.sin(ph) * u * .08;
@@ -641,7 +682,7 @@
       { id: 'L10', name: 'ring', type: 'sheet', canvas: [1536, 1024], key: '#4A5A7A', camera: 'straight on, at eye level', cells: { cols: 3, rows: 2, names: ['face on', 'turned 25°', 'turned 42°', 'turned 58°', 'turned 72°', 'edge on'] },
         notes: 'picture ×6 · the gold ring at six angles of one spin, same ring, same light, centred in each cell, in the render of the world (owner 16:01: the code ring looked disconnected from the world art); the game plays the angles to spin it; the scatter and the boost glow stay code',
         shape(ctx, x, y, w, h, S, cell) { const sq = [1, .9, .74, .52, .3, .12][cell], cx = x + w / 2, cy = y + h / 2, r = Math.min(w, h) * .36; ctx.save(); ctx.translate(cx, cy); ctx.scale(sq, 1); ctx.lineWidth = r * .32; ctx.strokeStyle = '#f2c200'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.stroke(); ctx.restore(); } },
-      { id: 'L4b', name: 'runner-finish', type: 'sheet', canvas: [2048, 1024], key: '#FF00FF', camera: 'from behind and slightly above', cells: { cols: 4, rows: 2, names: ['slowing', 'brake', 'skid', 'one-leg stop', 'feet down', 'stand', 'arms up', 'victory fist'] },
+      { id: 'L4b', name: 'runner-finish', type: 'sheet', canvas: [2048, 1024], key: '#FF00FF', camera: HEROCAM, cells: { cols: 4, rows: 2, names: ['slowing', 'brake', 'skid', 'one-leg stop', 'feet down', 'stand', 'arms up', 'victory fist'] },
         notes: 'picture · the finish sequence in the run sheet’s exact format (same grid, scale, foot line, magenta key): he brakes, skids, stops on one leg from the momentum, settles and raises his fist (owner 19:26)',
         shape(ctx, x, y, w, h, S, cell) { GB.ell(ctx, x + w / 2, y + h * .6, w * .2, h * .35, '#a9a9b1', '#2a2a30'); } },
       { id: 'L5', name: 'hazards', type: 'sheet', canvas: [1024, 512], key: '#4A5A7A', camera: CAM, cells: { cols: 2, rows: 1, names: ['spike strip', 'boulder'] },
@@ -680,7 +721,8 @@
   // ── DOM: HUD, cards ─────────────────────────────────────
   const CSS = `
   html,body{margin:0;height:100%;background:#000;font-family:Inter,system-ui,sans-serif;-webkit-user-select:none;user-select:none}
-  .frame{--accent:#1E50D0;--ink:#13233d;--red:#e0202a;--gold:#ffd23a;position:relative;width:min(100vw,calc(100dvh*2/3));aspect-ratio:2/3;margin:0 auto;overflow:hidden;background:#2a2a2e;container-type:inline-size;touch-action:none}
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;overflow:hidden}   /* the frame centred both ways on a tall phone (owner 2026-10-17 23:09) */
+  .frame{--accent:#1E50D0;--ink:#13233d;--red:#e0202a;--gold:#ffd23a;position:relative;flex:none;width:min(100vw,calc(100dvh*2/3));aspect-ratio:2/3;margin:0 auto;overflow:hidden;background:#2a2a2e;container-type:inline-size;touch-action:none}
   canvas#game,canvas#world{position:absolute;inset:0;width:100%;height:100%;display:block}
   .hud{position:absolute;inset:0;pointer-events:none;color:#fff;font-weight:700}
   .brandmark{position:absolute;left:50%;top:2.6cqw;transform:translateX(-50%);height:6cqw;display:flex;align-items:center;justify-content:center;font-size:2.6cqw;font-weight:900;letter-spacing:.12em;color:var(--ink);border:1px dashed rgba(19,35,61,.45);border-radius:1.5cqw;padding:0 3cqw;background:rgba(255,255,255,.55);white-space:nowrap}
@@ -747,7 +789,7 @@
   @keyframes sgPress{0%,100%{scale:1}50%{scale:1.08}}   .card .stat[hidden]{display:none}
   .card.win.sg{background:linear-gradient(180deg,rgba(5,15,60,0) 0%,rgba(5,15,60,.55) 30%,rgba(5,15,60,.9) 100%)}
   .sg-results{position:absolute;left:5cqw;right:6cqw;top:33cqw;display:flex;align-items:flex-end;gap:4cqw}
-  .sg-hero{width:42cqw;height:42cqw;background:url(assets/game/runner.webp) 100% 100%/400% 200% no-repeat;animation:sgHero .6s .3s cubic-bezier(.2,1.4,.4,1) both;filter:drop-shadow(0 1cqw 0 rgba(0,0,0,.35))}
+  .sg-hero{width:42cqw;height:42cqw;animation:sgHero .6s .3s cubic-bezier(.2,1.4,.4,1) both;filter:drop-shadow(0 1cqw 0 rgba(0,0,0,.35))}
   @keyframes sgHero{0%{transform:translateX(-60cqw)}100%{transform:none}}
   .sg-tally{flex:1;display:flex;flex-direction:column;gap:2.2cqw;padding-bottom:2cqw}
   .sg-tally .row{display:flex;justify-content:space-between;align-items:baseline;color:#fff;font-size:6.4cqw;transform:skewX(-8deg);animation:sgR2 .4s both}
@@ -854,9 +896,23 @@
     let W = 640, H = 960; const dpr = Math.min(1.5, devicePixelRatio || 1);   // phone budget: 1.5x is sharp at slot size, 2x costs 78% more pixels per frame
     const resize = () => { const r = $('frame').getBoundingClientRect(); W = r.width; H = r.height; canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); };
     new ResizeObserver(resize).observe($('frame')); resize();
+    // the results card's hero: the video hero's own victory frame, drawn from its packed rect at the card's real pixel size. The CSS
+    // background below assumed the old 4x2 grid (cell 8 at 400%/200%); on the packed sheet it showed a stretched, cut-off piece
+    // (owner 2026-10-17 23:16: "the end screen is completely blurred and cut off")
+    function cardHero() {
+      const el = document.querySelector('.sg-hero'); if (!el || el.dataset.drawn) return;
+      let im = LAYERS.ART.L4b, r, fw, fh;
+      if (HERO && im) { const q = HERO.finish.rects[HERO.finish.rects.length - 1]; r = [q[0], q[1], q[2], q[3], 0, 0]; fw = q[2]; fh = q[3]; }   // the pose itself fills the card's box (it was the old cell's size)
+      else if ((im = LAYERS.ART.L4)) { fw = im.width / 4; fh = im.height / 2; r = [3 * fw, fh, fw, fh, 0, 0]; }   // the 8-cell sheet: its win cell
+      else return;
+      const px = Math.round(el.getBoundingClientRect().width * (window.devicePixelRatio || 1)) || 512, cv = document.createElement('canvas'); cv.width = cv.height = px;
+      const k = Math.min(px / fw, px / fh), x0 = (px - fw * k) / 2, y0 = px - fh * k, x = cv.getContext('2d'); x.imageSmoothingQuality = 'high';   // the whole logical frame, contained, feet on the floor
+      x.drawImage(im, r[0], r[1], r[2], r[3], x0 + r[4] * k, y0 + r[5] * k, r[2] * k, r[3] * k);
+      el.style.background = 'none'; el.appendChild(cv); cv.style.cssText = 'width:100%;height:100%;display:block'; el.dataset.drawn = 1;
+    }
     function showCard(which) {
       const t = S.elapsed.toFixed(1), stat = `${t} s · ${S.ringsTotal} ${C.rings}`;
-      if (which === 'win') { $('winStat').textContent = stat; $('winCard').hidden = false;
+      if (which === 'win') { $('winStat').textContent = stat; $('winCard').hidden = false; cardHero();
         const total = S.ringsTotal * 100 + Math.max(0, Math.round((CONFIG.zoneSecs.reduce((a, b) => a + b, 0) + CONFIG.leadIn + 10 - S.elapsed) * 500));
         const count = (id, to, ms, dec, done) => { const el = $(id), t0 = performance.now(); let lastTick = 0; const step = now => { const k = Math.min(1, (now - t0) / ms); el.textContent = (to * k).toFixed(dec); if (k < 1) { if (!SIM && now - lastTick > 55) { SFX.tick(); lastTick = now; } requestAnimationFrame(step); } else { if (!SIM) SFX.ring(); done && done(); } }; requestAnimationFrame(step); };   /* ticks WHILE the number climbs, the coin ding the moment it lands: sound and number move together */
         ['tTime', 'tRings', 'tTotal'].forEach(id => $(id).textContent = '0');
