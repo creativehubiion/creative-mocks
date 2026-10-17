@@ -151,7 +151,9 @@
     L4.frames = a.run.rects; L4.frameW = a.run.cellW; L4.frameH = a.run.cellH; L4b.frames = a.finish.rects; L4b.frameW = a.finish.cellW; L4b.frameH = a.finish.cellH;   // trimmed, packed frames
     let t = 0; a.finish.at = a.finish.durations_ms.map(d => { const s0 = t; t += d / 1000; return s0; }); a.finish.total = t;
     a.finish.fistAt = a.finish.at[a.finish.at.length - 1];   // the last frame is the held victory pose
-    a.stopSecs = a.finish.stop_s || 1.2; HERO = a;
+    a.stopSecs = a.finish.stop_s || 1.2;
+    a.run.bodyFrac = a.run.rects.reduce((s, r) => s + r[3], 0) / a.run.rects.length / a.run.cellH;   // how much of his cell he fills (the 8-cell sheet: all of it)
+    HERO = a;
   }
   // the stride is tied to the ground again (owner 23:19: "it feels like it's sliding"; 23:09's fixed 30 poses/s ignored his speed):
   // one stride per heroStride metres, sized so zone 1 gives exactly 60 poses a second: a new pose on EVERY refresh at 60 Hz (never a
@@ -342,7 +344,9 @@
   let WARM = false;
   function prewarm(ctx, W, H, VIEW) {
     const A = LAYERS.ART; if (WARM || !A.L1a || !A.L1b || !A.L1c || !A.L3 || !A.L3b) return;
-    if (VIEW.build && !Object.keys(LAYERS.META).length) return; heroFromMeta(VIEW); WARM = true;
+    if (VIEW.build && !Object.keys(LAYERS.META).length) return;
+    if (LAYERS.META.runner && LAYERS.META.runner.anim && (!A.L4 || !A.L4b)) return;   // the hero's sheets too: frames drawn before they load threw and stopped the loop (23:29)
+    heroFromMeta(VIEW); WARM = true;
     const gpu = !has('no-gl') && window.GLWORLD && GLWORLD.init(ctx.canvas);   // CPU mip copies are only for the 2D fallback
     gradePlates();
     VIEW.layers.forEach(L => { const im = A[L.id]; if (!im || !['sheet', 'sprite', 'particle'].includes(L.type)) return;
@@ -604,7 +608,8 @@
       ctx.save(); Sx.dust.forEach(p => { const k = p.t / p.life, r = p.r * W * .7 * (1 + k * 1.8), px = q.x + Math.cos(p.a) * p.v * W * .12 * k, py = q.y - Math.abs(Math.sin(p.a)) * p.v * W * .05 * k; ctx.globalAlpha = (1 - k) * .7; LAYERS.drawImg(ctx, PUFF, 0, 0, 64, 64, px - r, py - r * .7, r * 2, r * 1.4); }); ctx.restore(); }   // the dust kick on GO!: pale soft puffs
     // scattered rings fly out from the runner
     Sx.scatter.forEach(p => { const t = p.t, px = q.x + Math.cos(p.a) * p.sp * W * t * 0.9, py = q.y - G.runnerH * q.s * .5 + Math.sin(p.a) * p.sp * W * t * 0.9 + W * 1.2 * t * t; ctx.save(); ctx.globalAlpha = 1 - t / p.life; goldRing(ctx, px, py, W * .018, Math.abs(Math.cos(t * 9 + p.a)) * .8 + .2); ctx.restore(); });
-    let h = G.runnerH * q.s, frameI = runFrame(Sx), bob = HERO ? 0 : Math.abs(Math.sin(Sx.z / 1.1 * Math.PI)) * h * 0.04, squat = 1;   // the clip has its own bob
+    let h = G.runnerH * q.s / (HERO ? HERO.run.bodyFrac : 1), frameI = runFrame(Sx),   // the video hero's cell has room around him: drawn so HE is runnerH tall, as the old sheet drew him (owner 23:28: smaller than before)
+      bob = HERO ? 0 : Math.abs(Math.sin(Sx.z / 1.1 * Math.PI)) * h * 0.04, squat = 1;   // the clip has its own bob
     if (Sx.mode === 'ready') { const t = Sx.readyT || 0, beat = CONFIG.readySecs / 3, c = Sx.clock || 0;
       if (t < beat * 2 - .12 && HERO) { frameI = Math.floor(c * 20 + .25) % HERO.run.frames; squat = 1 - .012 * Math.sin(c * 4.2); }   // jogging on the spot: 20 poses a second (three refreshes each)
       else if (t < beat * 2 - .12) { const ph = c * 12; frameI = Math.floor(ph) % 6; bob = Math.abs(Math.sin(ph / 3 * Math.PI)) * h * .025; squat = 1 - .012 * Math.sin(c * 4.2); }   // jogging on the spot: all six run frames at 12 fps, two steps per cycle, a soft bob and breath
@@ -625,7 +630,8 @@
     const lean = Sx.mode === 'play' || Sx.mode === 'attract' ? (Sx.lane - Sx.laneX) * -0.25 : 0;   // no lean once the run is over (owner 20:05: he finished slanted)
     if (lean) { ctx.translate(q.x, q.y); ctx.rotate(lean); ctx.translate(-q.x, -q.y); }   // a comment had swallowed this line in 38ca794 (2026-10-17 22:54: restored)
     if (squat !== 1) { ctx.translate(q.x, q.y); ctx.scale(1 + (1 - squat) * .5, squat); ctx.translate(-q.x, -q.y); }
-    if (HERO) { const r = sheet.frames[cell], k = h / sheet.frameH, x0 = q.x - bw / 2, y0 = q.y + sink - bob - h;   // the trimmed frame at its offset in the logical cell
+    if (HERO && !LAYERS.ART[sheet.id]) {}   // not loaded yet: draw nothing this frame rather than throw
+    else if (HERO) { const r = sheet.frames[cell], k = h / sheet.frameH, x0 = q.x - bw / 2, y0 = q.y + sink - bob - h;   // the trimmed frame at its offset in the logical cell
       LAYERS.drawImg(ctx, LAYERS.ART[sheet.id], r[0], r[1], r[2], r[3], x0 + r[4] * k, y0 + r[5] * k, r[2] * k, r[3] * k); }
     else LAYERS.draw(ctx, sheet, Sx, W, H, { box: { x: q.x / W, y: (q.y + sink - bob) / H, w: bw / W, h: h / H, anchor: 'bottom' }, cell });
     ctx.restore();
@@ -942,6 +948,7 @@
     if (ATTRACT || BOT) $('startCard').hidden = true;
     let last = performance.now(), lastRings = -1; const HUD = {}; const FPS = { n: 0, acc: 0, v: 0 };
     function frame(now) {
+      requestAnimationFrame(frame);   // the next frame is booked FIRST: one frame that throws must never stop the game (23:29: a sheet still loading killed the loop)
       const dt = Math.min(0.05, (now - last) / 1000); last = now;   // the frame's own vsync time: smoothing it made uneven phone frames judder (20:05)   // phones report frame times with jitter; moving by the jittery time while the screen shows frames evenly reads as a stutter, so steady frames move by the running average
       if (S.mode === 'attract' || (BOT && !ATTRACT && S.mode === 'play')) autopilot(dt);
       update(dt);
@@ -956,7 +963,6 @@
       const zr = S.rings === 0 && S.mode === 'play' && S.elapsed > 2; if (zr !== HUD.zr) { HUD.zr = zr; $('rings').classList.toggle('zero', zr); }
       const hint = $('hint'), cueOn = !!(S.cue && S.elapsed < S.cue.until), ht = cueOn ? S.cue.text : S.elapsed < CONFIG.leadIn ? C.leadInHint : C.hint, ho = cueOn || S.mode === 'attract' || (S.mode === 'play' && !S.swiped) ? 1 : 0;
       if (ht !== HUD.ht) { HUD.ht = ht; hint.textContent = ht; } if (cueOn !== HUD.cue) { HUD.cue = cueOn; hint.classList.toggle('cue', cueOn); } if (ho !== HUD.ho) { HUD.ho = ho; hint.style.opacity = ho; }
-      requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   }

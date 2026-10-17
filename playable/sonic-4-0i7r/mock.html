@@ -4,7 +4,7 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Sonic 4 · Zone Dash</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet">
-<script src="_core/draw.js?v=5"></script><script src="_core/layers.js?v=5"></script><script src="_core/glworld.js?v=5"></script><script src="_core/zonedash-core.js?v=5"></script></head>
+<script src="_core/draw.js?v=6"></script><script src="_core/layers.js?v=6"></script><script src="_core/glworld.js?v=6"></script><script src="_core/zonedash-core.js?v=6"></script></head>
 <body><script>
 /* VIEW: chase cam, low behind the runner, as in the video: the horizon at 38%, the course rising to it, the runner at the
    bottom centre with the trail running out of the frame under him. The lanes read by perspective; the hazards come out of
@@ -12,7 +12,7 @@
    gates → the runner → effects. */
 const CAMERA = 'rear third-person chase cam, low: about 3 m up and 6 m behind the runner, looking down the course, horizon at 38% of the frame, lens ~28 mm';
 const VIEW = {
-  id: 'chase-low', build: true, brandLogo: 'assets/brand/logo.png', title: 'Chase cam · low', canvas: [640, 960], camera: CAMERA,
+  id: 'chase-low', build: true, brandLogo: 'assets/brand/logo.webp', title: 'Chase cam · low', canvas: [640, 960], camera: CAMERA,
   geometry: () => ({ canvas: [640, 960], camera: CAMERA, hz: 0.38, k: 1.25, camBack: 6.2, camH: 3.12, follow: 0.45, laneW: 1.6, roadHalf: 2.4, runnerH: 1.1, propH: 3.6, feet: 0.80, hudTop: 0.16, humanLook: 0.78 }),
 };
 ZoneDash.run(VIEW);
