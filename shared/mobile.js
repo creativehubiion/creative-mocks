@@ -1,6 +1,7 @@
 // Mobile previews (hybrid / playable): load in <head>, before the page paints.
 // · On a phone: skip the mock page and open the ad unit full screen (2:3 with black bars, as it serves in-app).
 //   The full-screen URL comes from .ad-slot[data-full] (fallback: the iframe src). Add ?desktop to keep the mock page.
+//   The page's ?v=N goes with it, so a new ?v on the shared link also fetches the unit fresh.
 // · On a desktop: a "Scan to play on your phone" QR card beside the phone, encoding this page's own URL (not on .phone[data-noqr]).
 // · On a desktop: the ad slot is pixel-snapped so no hairline shows along the creative's top edge (see below).
 (function () {
@@ -20,7 +21,9 @@
       const slot = document.querySelector('.ad-slot'), frame = slot && slot.querySelector('iframe');
       const target = (slot && slot.dataset.full) || (frame && frame.getAttribute('src'));
       if (!target) return false;
-      done = true; location.replace(new URL(target, location.href).href); return true;
+      const url = new URL(target, location.href);
+      if (q.has('v')) url.searchParams.set('v', q.get('v'));   // carry the page's cache-buster (?v=N) to the unit
+      done = true; location.replace(url.href); return true;
     };
     // jump as soon as the ad slot is parsed (well before DOMContentLoaded / images / fonts)
     const mo = new MutationObserver(() => { if (go()) mo.disconnect(); });
