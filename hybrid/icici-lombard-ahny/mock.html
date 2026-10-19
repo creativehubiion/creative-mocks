@@ -351,6 +351,113 @@
     .poll-option.correct::after { content: '✓'; color: var(--success); }
     .poll-option.wrong::after   { content: '✕'; color: var(--danger); }
 
+    /* ── results frame (after the last answer): your score + how everyone did, one bar per score ── */
+    .results {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      cursor: pointer;
+    }
+
+    .results.show { opacity: 1; }
+
+    .res-score {
+      margin-top: calc(var(--u) * 12);
+      font-size: calc(var(--u) * 21);
+      font-weight: 800;
+      line-height: 1.15;
+      text-align: center;
+      color: var(--navy);
+    }
+
+    .res-score .hl { color: var(--accent); }
+
+    .res-sub {
+      margin-top: calc(var(--u) * 4);
+      font-size: calc(var(--u) * 12.5);
+      font-weight: 700;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .res-list {
+      list-style: none;
+      margin-top: calc(var(--u) * 11);
+      display: flex;
+      flex-direction: column;
+      gap: calc(var(--u) * 6);
+    }
+
+    .res-row {
+      display: grid;
+      grid-template-columns: calc(var(--u) * 92) 1fr calc(var(--u) * 38);
+      align-items: center;
+      gap: calc(var(--u) * 8);
+      min-height: calc(var(--u) * 31);
+      padding: 0 calc(var(--u) * 12);
+      background: #fff;
+      border: calc(var(--u) * 1.2) solid #E3E8F1;
+      border-radius: calc(var(--u) * 11);
+    }
+
+    .res-row.you { border-color: var(--accent); background: #FFF6F0; }
+
+    .res-label {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--u) * 6);
+      font-size: calc(var(--u) * 13);
+      font-weight: 800;
+      color: var(--navy);
+      white-space: nowrap;
+    }
+
+    .res-label em {
+      font-style: normal;
+      font-size: calc(var(--u) * 9);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--accent);
+      padding: calc(var(--u) * 2) calc(var(--u) * 6);
+      border-radius: 999px;
+    }
+
+    .res-bar {
+      height: calc(var(--u) * 8);
+      border-radius: 999px;
+      background: #EEF1F6;
+      overflow: hidden;
+    }
+
+    .res-bar i {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: #9AA8C4;
+      transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .res-row.you .res-bar i { background: linear-gradient(90deg, var(--accent-light), var(--accent)); }
+
+    .res-pct {
+      text-align: right;
+      font-size: calc(var(--u) * 13);
+      font-weight: 800;
+      color: var(--navy);
+    }
+
+    /* the CTA under the results (the end frame when thanksFrame is off); sits at the bottom of the free space */
+    .results .visit { margin-top: auto; }
+    .results:not(.end) .visit { display: none; }
+    .results.end { cursor: default; }
+    .results.end .res-list { margin-bottom: calc(var(--u) * 12); }
+
     /* ── final screen: shield illustration, heading, Visit Website button; bigger swoosh ── */
     .poll-area.final {
       background:
@@ -443,6 +550,8 @@
 
     @media (prefers-reduced-motion: reduce) {
       .loader img { animation: none; }
+      .results,
+      .res-bar i,
       .poll-body,
       .thanks,
       .thanks .trophy,
@@ -488,8 +597,14 @@
         <div class="poll-body" id="pollBody">
           <h2 class="question" id="question"></h2>
           <div class="poll-options" id="pollOptions"></div>
+          <div class="results" id="results" role="status" hidden>
+            <div class="res-score" id="resScore"></div>
+            <div class="res-sub" id="resSub"></div>
+            <ol class="res-list" id="resList"></ol>
+            <a class="visit" id="resVisit" target="_blank" rel="noopener noreferrer"><b id="resVisitLabel"></b><span>›</span></a>
+          </div>
           <div class="thanks" id="thanks" role="status" hidden>
-            <img class="trophy" src="assets/shield.webp" alt="" width="960" height="666">
+            <img class="trophy" data-src="assets/shield.webp" alt="" width="960" height="666">
             <div class="thanks-text" id="thanksText"></div>
             <a class="visit" id="visit" target="_blank" rel="noopener noreferrer"><b id="visitLabel"></b><span>›</span></a>
           </div>
@@ -549,6 +664,14 @@
         },
       ],
       advanceDelayMs: 750,        // pause after an answer (green/red shown) before the next question
+
+      // Results frame after the last answer: your score, then how everyone did.
+      // crowd = % of players who got 3, 2, 1 and 0 right. Illustrative in this mock; live, these come from the ad server.
+      resultsSub: 'How everyone did',
+      crowd: [34, 41, 19, 6],
+      resultsMs: 4500,            // with thanksFrame: how long the results frame stays before the thank-you (a tap skips ahead)
+      thanksFrame: false,         // false = the results frame is the end frame, with the Visit Website button under the results;
+                                  // true = results, then the separate shield + "Thanks for playing!" frame with the button
       thanksLabel: 'Thanks for playing!',
       websiteLabel: 'Visit Website',                  // button on the final screen
       websiteUrl: 'https://www.icicilombard.com/',    // where it goes (opens in a new tab)
@@ -566,7 +689,8 @@
       const wait = (ms) => new Promise((r) => setTimeout(r, SLOW ? ms : 0));
       const img = (src) => new Promise((r) => { const im = new Image(); im.onload = im.onerror = r; im.src = src; });
       const font = () => (document.fonts ? Promise.all(['800 15px Mulish', '600 15px Mulish'].map((f) => document.fonts.load(f))).catch(() => {}) : null);
-      const jobs = [() => img('assets/logo.webp'), font, () => img('assets/shield.webp')];
+      const jobs = [() => img('assets/logo.webp'), font];
+      if (CONFIG.thanksFrame) jobs.push(() => img('assets/shield.webp'));   // the shield only exists on the thank-you frame
       let done = 0, ready = false;
       function reveal() {
         if (ready) return; ready = true;
@@ -633,6 +757,48 @@
     }
     renderQuestion();
 
+    // results frame: your score + one bar per score (3, 2, 1, 0 right), your row picked out; the stepper still shows ✓ / ✕
+    let resultsTimer = 0;
+    function showResults() {
+      const n = CONFIG.questions.length;
+      const right = results.filter((r) => r === 'right').length;
+      $('#question').hidden = true;
+      $('#pollOptions').hidden = true;
+      $('#resScore').replaceChildren(right === n
+        ? highlighted(`Perfect! ${n} of ${n} right`, `${n} of ${n}`)
+        : highlighted(`You got ${right} of ${n} right`, `${right} of ${n}`));
+      $('#resSub').textContent = CONFIG.resultsSub;
+      $('#resList').innerHTML = CONFIG.crowd.map((pct, i) => {
+        const score = n - i, you = score === right;
+        return `<li class="res-row${you ? ' you' : ''}">
+            <span class="res-label">${score} of ${n}${you ? '<em>You</em>' : ''}</span>
+            <span class="res-bar"><i data-w="${pct}"></i></span>
+            <span class="res-pct">${pct}%</span>
+          </li>`;
+      }).join('');
+      const r = $('#results');
+      if (!CONFIG.thanksFrame) {             // end frame: the CTA comes with the results
+        $('#resVisitLabel').textContent = CONFIG.websiteLabel;
+        $('#resVisit').href = CONFIG.websiteUrl;
+        r.classList.add('end');
+      }
+      r.hidden = false;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        r.classList.add('show');
+        r.querySelectorAll('.res-bar i').forEach((b) => { b.style.width = b.dataset.w + '%'; });
+      }));
+      if (CONFIG.thanksFrame) resultsTimer = setTimeout(leaveResults, CONFIG.resultsMs);
+    }
+
+    function leaveResults(e) {
+      if (e && e.target.closest && e.target.closest('.visit')) return;
+      if (!resultsTimer) return;
+      clearTimeout(resultsTimer); resultsTimer = 0;
+      body.classList.add('swap');
+      setTimeout(() => { $('#results').hidden = true; showThanks(); body.classList.remove('swap'); }, 130);
+    }
+    $('#results').addEventListener('click', leaveResults);
+
     // final screen: shield + heading + Visit Website replace the question, answers and progress stepper
     function showThanks() {
       $('#stepper').hidden = true;
@@ -642,6 +808,7 @@
       $('#thanksText').textContent = CONFIG.thanksLabel;
       $('#visitLabel').textContent = CONFIG.websiteLabel;
       $('#visit').href = CONFIG.websiteUrl;
+      const sh = $('#thanks .trophy'); if (!sh.getAttribute('src')) sh.src = sh.dataset.src;
       const t = $('#thanks');
       t.hidden = false;
       requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
@@ -652,7 +819,7 @@
       body.classList.add('swap');
       setTimeout(() => {
         if (qi < CONFIG.questions.length - 1) { qi++; renderQuestion(); }
-        else showThanks();
+        else showResults();
         body.classList.remove('swap');
       }, 130);
     }
