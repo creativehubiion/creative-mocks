@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="ad.size" content="width=320,height=480" />
+  <script type="text/javascript">
+    // DCM / Studio click tag, as in the Praxis DV360 build: DV360's click
+    // macro, filled in when DV360 serves this HTML, then the CM360 click
+    // tracker, which logs the click and redirects to the KFC landing page.
+    // Left unfilled (local preview, hosted copy behind the iframe tag), it's
+    // ignored: see landingPageUrl in the script at the end of <body>.
+    var clickTag = "${CLICK_URL}https://ad.doubleclick.net/ddm/trackclk/N1405.279382DBMXAXISSINGAPORE-3/B37053686.459597945;dc_trk_aid=653696160;dc_trk_cid=266426447;dc_lat=;dc_rdid=;tag_for_child_directed_treatment=;tfua=;gdpr=${GDPR};gdpr_consent=${GDPR_CONSENT_755};ltd=;dc_tdv=1";
+  </script>
+  <title>KFC | Keep the Hustle Going</title>
+  <meta name="description"
+    content="Run the KFC hustle: dodge the chaos, grab Risers and make your meeting on time to unlock a promo code for $2 off selected breakfast meals." />
+  <meta name="theme-color" content="#E4002B" />
+  <meta name="apple-mobile-web-app-title" content="KFC Hustle" />
+  <meta property="og:title" content="KFC | Keep the Hustle Going" />
+  <meta property="og:description" content="Play till the end to reveal a promo code." />
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon.png" />
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      /* White while loading, to match the loading screen. MainMenu switches
+         the page back to black when the game starts; the transition softens
+         the change behind the letterbox bars. */
+      background-color: #fff;
+      transition: background-color 300ms ease;
+      color: rgba(255, 255, 255, 0.87);
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #game-container {
+      position: relative;
+    }
+
+    #ctabtn {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      border: 0;
+      background: transparent;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    canvas {
+      background: transparent;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+      background: transparent;
+    }
+
+    #app #game-container {
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 2 / 3;
+      margin: 0 auto !important;
+    }
+
+    @media (min-aspect-ratio: 1/1) {
+      #app #game-container {
+        width: auto !important;
+        height: 100% !important;
+        aspect-ratio: 2 / 3;
+        margin: 0 auto !important;
+      }
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index.js"></script>
+</head>
+
+<body>
+  <button id="ctabtn"></button>
+
+  <div id="app">
+    <div id="game-container"></div>
+  </div>
+
+
+  <script>
+    // ============================================================
+    // DV360 ZIP BUILD - KFC "Keep the Hustle Going" playable
+    // Same layout as the Praxis DV360 build: index.html + favicon.png +
+    // assets/. Generated from dist/ by scripts/build-zip.mjs; make changes
+    // in the project's index.html, then rebuild.
+    // ------------------------------------------------------------
+    // Works with both ways DV360 can serve it:
+    //  1. HTML5 zip upload: DV360 serves this HTML and fills its click macro
+    //     in clickTag (<head>) and CLICK_MACRO (below), as in Praxis.
+    //  2. Third-party iframe tag (dv360/KFC_DV360_TAG.html) pointing at a
+    //     hosted copy of these files: the tag passes its macros in as query
+    //     params, read below:
+    //       clk                  DV360 click tracker
+    //       gdpr, gdpr_consent   filled into the CM360 tracker
+    //       line_item, insertion_order, creative_id, publisher_id,
+    //       app_id_bundle_id, page_url   optional, forwarded to the DMP
+    // A value that is missing, or still an unfilled macro (a preview or a
+    // local file), is treated as empty.
+    //
+    // CLICK CHAIN: tap ORDER NOW -> DV360 click (DV360 counts) -> CM360
+    // trackclk (agency counts) -> brand landing page (set agency-side).
+    // Opening uses window.open. If it's blocked, the page navigates instead.
+    // If the MRAID tag variant announces itself, the click goes to mraid.open.
+    // ============================================================
+    window.option = "";
+    window.bottomtext = "";
+    window.placeNumber = 0;
+    window.language = "";
+    window.country = "";
+    // Web version: true hides ORDER NOW on the end screen (no click-out) and
+    // moves PLAY AGAIN up into its place. The DV360 pages (DV360 zip and
+    // standalone backup) set it to false: there ORDER NOW is the ad's click.
+    window.WEB = false;
+    window.trackingPath = "./assets/";
+
+    // ---- Campaign values (edit these) ---------------------------------
+    // DMP tracker, without event_name (added below, always last).
+    var DMP_BASE = "https://staging-dmp-producer.iion.io/tracker/impressions?platform=DV360&campaign_id=2786939";
+    // Agency-provided destination: DoubleClick (CM360) click tracker. Keep its
+    // ${GDPR} / ${GDPR_CONSENT_xxx} macros as-is; they're filled in below.
+    // Phase 2 (Riser) placement, from 2026-10-19.
+    var brandClickTracker = "https://ad.doubleclick.net/ddm/trackclk/N1405.279382DBMXAXISSINGAPORE-3/B37053686.459597945;dc_trk_aid=653696160;dc_trk_cid=266426447;dc_lat=;dc_rdid=;tag_for_child_directed_treatment=;tfua=;gdpr=${GDPR};gdpr_consent=${GDPR_CONSENT_755};ltd=;dc_tdv=1";
+    // --------------------------------------------------------------------
+
+    var tagQuery = null;
+    try { tagQuery = new URLSearchParams(window.location.search); } catch (e) { }
+    function tagParam(name) {
+      var v = "";
+      try { v = (tagQuery && tagQuery.get(name)) || ""; } catch (e) { }
+      return /\$\{[^}]*\}/.test(v) ? "" : v;
+    }
+
+    // DMP tracker: base + whichever optional macros the tag passed.
+    var dmpUrl = DMP_BASE;
+    ["line_item", "insertion_order", "creative_id", "publisher_id",
+      "app_id_bundle_id", "page_url", "gdpr", "gdpr_consent"].forEach(function (k) {
+        var v = tagParam(k);
+        if (v) dmpUrl += "&" + k + "=" + encodeURIComponent(v);
+      });
+    window.trackingType = dmpUrl + "&event_name=";
+
+    // DV360 click URL, from whichever route served this page:
+    //  - iframe tag: ?clk= (URLSearchParams decodes it once);
+    //  - HTML5 zip: CLICK_MACRO, which DV360 fills when it serves this HTML.
+    // Only a real http(s) URL is used; anything else falls back to CM360.
+    var CLICK_MACRO = "${CLICK_URL}";
+    var clk = tagParam("clk"), clkFromTag = /^https?:\/\//i.test(clk);
+    if (!clkFromTag) clk = /^https?:\/\//i.test(CLICK_MACRO) ? CLICK_MACRO : "";
+    window.setTracker = clk;
+
+    // CM360 tracker with its GDPR macros filled from the tag (empty if
+    // absent; nothing to fill when DV360 has already filled them).
+    function fillGdpr(u) {
+      return u
+        .replace(/\$\{GDPR\}/g, encodeURIComponent(tagParam("gdpr")))
+        .replace(/\$\{GDPR_CONSENT_\d+\}/g, encodeURIComponent(tagParam("gdpr_consent")));
+    }
+    var cm360Tracker = fillGdpr(brandClickTracker);
+
+    // DV360 click + CM360 tracker: encoded after ?clk (the tested iframe-tag
+    // form), appended as-is after the macro (the Praxis form). Without a
+    // DV360 click: the CM360 tracker directly.
+    window.landingPageUrl = !clk ? cm360Tracker
+      : clk + (clkFromTag ? encodeURIComponent(cm360Tracker) : cm360Tracker);
+
+    // clickTag (<head>): DV360 fills it, or replaces it, when it serves this
+    // HTML. A filled one wins, as in Praxis (clickTag || landingPageUrl).
+    var filledClickTag = typeof window.clickTag === "string" ? fillGdpr(window.clickTag) : "";
+    if (/^https?:\/\//i.test(filledClickTag) && !/\$\{[^}]*\}/.test(filledClickTag)) {
+      window.landingPageUrl = filledClickTag;
+    }
+
+    // Open the landing page from the ORDER NOW tap (called by the game).
+    // MRAID bridge: the MRAID tag variant answers "iion:hello" with
+    // "iion:mraid-ready"; from then on clicks go to it as "iion:open".
+    window.__mraidBridge = false;
+    window.addEventListener("message", function (e) {
+      if (e.source === window.parent && e.source !== window && e.data && e.data.type === "iion:mraid-ready") {
+        window.__mraidBridge = true;
+      }
+    });
+    try { if (window.parent !== window) window.parent.postMessage({ type: "iion:hello" }, "*"); } catch (e) { }
+    window.openLanding = function (url) {
+      if (!url) return;
+      if (window.__mraidBridge) {
+        window.parent.postMessage({ type: "iion:open", url: url }, "*");
+        return;
+      }
+      var w = null;
+      try { w = window.open(url, "_blank"); } catch (e) { }
+      if (!w) {
+        // Popup blocked: navigate instead, so the click is never lost.
+        try { window.top.location.href = url; } catch (e) { window.location.href = url; }
+      }
+    };
+  </script>
+</body>
+
+</html>
