@@ -16,7 +16,12 @@
 .phone .ad-close{position:absolute;right:4.5cqw;top:7.4cqh;width:8cqw;height:8cqw;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;font:400 5.4cqw/1 "Inter",sans-serif;z-index:3;pointer-events:none}
 
 /* camera island + status bar sit over the ad, as on a real phone */
-.phone .island{position:absolute;top:1.25%;left:50%;width:31%;height:3.75%;transform:translateX(-50%);background:#000;border-radius:999px;z-index:6;pointer-events:none}
+.phone .island{position:absolute;top:1.25%;left:50%;width:31%;height:3.75%;transform:translateX(-50%);background:#000;border-radius:999px;z-index:6;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 0 0 .5px rgba(255,255,255,.06)}
+/* the island stays visible on black (the interstitial's bars, a dark site header): a faint rim and the camera lens at its right end,
+   as device renders show it */
+.phone .island::after{content:"";position:absolute;right:8%;top:50%;height:46%;aspect-ratio:1;transform:translateY(-50%);border-radius:50%;
+  background:radial-gradient(circle at 36% 34%,#2a2c31 0,#141518 38%,#08080a 70%)}
 .phone .statusbar{position:absolute;top:0;left:0;right:0;height:6.2%;display:flex;align-items:center;justify-content:space-between;padding:0 7.5% 0 9%;z-index:5;pointer-events:none;
   color:#fff;font:600 4.1cqw/1 "Inter",-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.01em;text-shadow:0 0 .6cqw rgba(0,0,0,.35)}
 .phone .statusbar .icons{display:flex;align-items:center;gap:1.4cqw}

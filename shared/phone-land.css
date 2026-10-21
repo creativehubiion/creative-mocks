@@ -12,6 +12,7 @@
 .phone.land .screen,.phone.land .ad-slot.fill,.phone.land .ad-slot.fill iframe{clip-path:inset(0 round 6.1% / 13.2%);-webkit-clip-path:inset(0 round 6.1% / 13.2%)}
 .phone.land .ad-slot.fill{inset:0;top:0;aspect-ratio:auto;transform:none}
 .phone.land .island{top:50%;left:1.25%;width:3.75%;height:31%;transform:translateY(-50%)}
+.phone.land .island::after{right:auto;left:50%;top:8%;width:46%;height:auto;transform:translateX(-50%)}   /* lens: the portrait right end, turned to the top */
 .phone.land .homebar{bottom:2%;width:25%;height:1.3%}
 .phone.land .hw{width:auto;height:1.1%;background:linear-gradient(0deg,#1b1b1d,#3b3b3f)}
 .phone.land .hw-action{left:15%;top:auto;bottom:-.9%;width:3.2%}
