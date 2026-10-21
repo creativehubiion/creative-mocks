@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><title>responsive check</title>
+<body style="margin:0;font:12px Inter,Arial;background:#ddd">
+<div id="out" style="padding:8px;white-space:pre"></div>
+<div id="frames"></div>
+<script>
+const SIZES=[[1920,1080],[1536,864],[1440,900],[1366,768],[1280,720],[1024,768],[900,700],[390,844]];
+const page=new URLSearchParams(location.search).get('p')||'/ctv/shrek-5-x7q2/';
+const out=[];
+Promise.all(SIZES.map(([w,h])=>new Promise(res=>{
+  const f=document.createElement('iframe'); f.style.cssText=`width:${w}px;height:${h}px;border:0;display:block`; f.src=page+'?resp='+w;
+  f.onload=()=>setTimeout(()=>{ const d=f.contentDocument, q=s=>d.querySelector(s)?.getBoundingClientRect();
+    const t=q('.tv, .phone'), c=q('.controls'), r=q('.remote'); const sh=Math.max(d.documentElement.scrollHeight, c?Math.ceil(c.bottom):0);
+    res(`${w}x${h}  tv ${t.width|0}x${t.height|0} (ratio ${(t.width/t.height).toFixed(3)}, ${(t.width/w*100)|0}% wide)  bottom ${t.bottom|0}  controls ${c?c.bottom|0:'-'}  remote ${r&&r.width?((r.right|0)+'/'+(r.bottom|0)):'hidden'}  scroll ${sh>h?'YES '+(sh-h)+'px':'no'}`); },1200);
+  document.getElementById('frames').appendChild(f); }))).then(r=>{ document.getElementById('out').textContent=r.join('\n'); window.__resp=r.join('\n'); });
+</script></body>
