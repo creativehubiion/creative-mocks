@@ -3,6 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="iion-mobile" content="">
+<script>/* one mock, two devices: a phone gets the mobile web version (iion-mobile, written by _work/new-afg-video-mock.py) instead of the
+   MacBook. Opened directly it plays full screen; inside the showcase (?desktop) it shows the phone mock. ?v= goes with it. */
+{const u=(document.querySelector('meta[name="iion-mobile"]')||{}).content,q=new URLSearchParams(location.search),ua=navigator.userAgent||'';
+ const phone=(navigator.userAgentData&&navigator.userAgentData.mobile)||/iPhone|iPod|Android.+Mobile|Windows Phone|Mobile Safari/i.test(ua)&&!/iPad|Tablet/i.test(ua);
+ if(u&&phone&&!q.has('laptop')){const v=q.get('v'),vv=v?'v='+encodeURIComponent(v):'';
+  location.replace(q.has('desktop')?u+'?desktop'+(vv?'&'+vv:''):u+'mock.html?full=1'+(vv?'&'+vv:''));}}</script>
 <meta name="robots" content="noindex,nofollow">
 <title>iion · Brand away from the game video</title>
 <link rel="icon" type="image/png" sizes="32x32" href="../../shared/favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="../../shared/favicon-64.png"><link rel="apple-touch-icon" href="../../shared/favicon-180.png">
