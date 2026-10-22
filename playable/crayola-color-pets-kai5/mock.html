@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Pinta mi Navidad · Crayola Color Pets</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="_core/draw.js"></script><script src="_core/layers.js"></script><script src="_core/scene.js"></script><script src="_core/colourpets-core.js"></script></head>
+<body><script>
+/* VIEW: under the tree, low and close. The camera sits on the floor beside the gifts; the bottom tier of the tree spans the top and the
+   ornaments drop from it; the pet is big in the foreground (~45% of the width), reading like the toy's own pack shot. Shorter
+   falls, so fewer drops and a wider catch. */
+const CAMERA = 'low and close, the lens at floor level beside the gifts, ~28 mm, the bottom tiers of a Christmas fir across the top of the frame, its trunk rising from the middle of the floor, warm light from the top-left';
+ColourPets.run(CPScene.view({
+  id: 'close-up', build: true, lang: 'es-MX', title: 'Under the tree · close', camera: CAMERA,
+  config: { roundSecs: 22, petSpeed: 1.45 },   // shorter falls: a quicker pet (sims 2026-10-22 n=150: perfect 99%, first-timer 85%)
+  geometry: {
+    canvas: [640, 960], camera: CAMERA, hudTop: 0.12, lightsY: 0.135,
+    floorY: 0.9, petH: 0.27, petW: 0.27 * 1.5 * 0.805, catchHalf: 0.19, edge: 0.2, ornR: 0.055,
+    tree: { x: 0.5, top: -0.05, base: 0.3, half: 0.6 }, treeX: 0.5,   // the wide view's tree, closer: its bottom tier spans the top (owner 22:50-22:51)
+    spawn: { y0: 0.25, y1: 0.31, half: 0.34 },
+    gifts: [[0.04, 0.16, 0.12], [0.8, 0.17, 0.09]], stageScale: 0.95, stageY: 0.48,
+  },
+  plateNotes: "picture · photoreal: under a Christmas tree, the camera on the floor of a warm Mexican living room; the fir's lowest boughs fill a band across 15-28% height, bare of baubles (they are the game's falling pickups), warm white lights; wrapped gifts at the far left and far right on the floor; a plain warm wall in the top 12% (HUD) and the lights line at 13-15%; a soft rug from the floor line at 90%; the middle is open space for the falling ornaments",
+}));
+</script></body></html>
