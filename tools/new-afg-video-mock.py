@@ -113,10 +113,19 @@ def snapshot(url, out_png, player_sel, dev):
         # a header the site pins to the top while scrolling (fixed/sticky, full width): keep its scrolled look as assets/head.png
         pin = pg.evaluate('''W => { const e = [...document.querySelectorAll('body *')].find(e => { const s = getComputedStyle(e), r = e.getBoundingClientRect();
             return (s.position === 'fixed' || s.position === 'sticky') && Math.abs(r.top) < 2 && r.width >= W * .8 && r.height >= 30 && r.height <= 160; });
+          if (e) e.setAttribute('data-iion-pin', '');
           return e ? Math.round(e.getBoundingClientRect().height) : 0; }''', W)
+        pin_at = 0
         if pin:
             pg.screenshot(path=out_png.replace('site.png', 'head.png'), clip={'x': 0, 'y': 0, 'width': W, 'height': pin})
-            print(f'  pinned header: {pin}px')
+            # from which scroll does the site show it? 0 = a header pinned from the top; more = a bar that slides in once the real
+            # header has scrolled away (TechRadar desktop's "Become a TechRadar Insider"): the mock shows it only from there
+            pin_at = pg.evaluate('''async () => { const e = document.querySelector('[data-iion-pin]'); if (!e) return 0;
+              const on = () => { const s = getComputedStyle(e), r = e.getBoundingClientRect();
+                return s.display !== 'none' && s.visibility !== 'hidden' && +s.opacity > .5 && Math.abs(r.top) < 4 && r.bottom > r.height * .8; };
+              for (let y = 0; y < document.documentElement.scrollHeight; y += 20) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 80)); if (on()) return y; }
+              return 0; }''')
+            print(f'  pinned header: {pin}px, shown from {pin_at}px of scroll')
         pg.mouse.wheel(0, -100000); pg.wait_for_timeout(2500)
         found = pg.evaluate(FIND_PLAYER, player_sel)   # again: removing the ads moved it
         page_h = pg.evaluate('document.documentElement.scrollHeight')
@@ -124,7 +133,7 @@ def snapshot(url, out_png, player_sel, dev):
         crop = min(page_h, y + h + H)
         pg.screenshot(path=out_png, full_page=True, clip={'x': 0, 'y': 0, 'width': W, 'height': crop})
         b.close()
-        return used, found['box'], crop, pin
+        return used, found['box'], crop, pin, pin_at
 
 def main():
     a = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -160,7 +169,7 @@ def build(o, device):
 
     tmp = os.path.join(tempfile.mkdtemp(), 'site.png')
     print(f'snapshot ({device})', o.url)
-    used, box, crop, pin = snapshot(o.url, tmp, o.player_selector, dev)
+    used, box, crop, pin, pin_at = snapshot(o.url, tmp, o.player_selector, dev)
     from PIL import Image
     im = Image.open(tmp).convert('RGB'); im.save(os.path.join(dst, 'assets', 'site.webp'), 'WEBP', quality=80, method=6)
     top = '#%02x%02x%02x' % im.getpixel((im.width // 2, 2))   # the page's colour under the phone's status bar
@@ -171,7 +180,7 @@ def build(o, device):
     transcode(o.ad, os.path.join(dst, 'assets', 'ad.mp4'))
 
     m = os.path.join(dst, 'mock.html'); s = rd(m)
-    s, n = re.subn(r"const SITE = \{.*?\};", f"const SITE = {{ pin: {pin}, img: 'assets/site.webp', w: {W}, h: {crop}, player: {json.dumps(box)}, top: '{top}', url: '{js(used)}' }};", s)
+    s, n = re.subn(r"const SITE = \{.*?\};", f"const SITE = {{ pin: {pin}, pinAt: {pin_at}, img: 'assets/site.webp', w: {W}, h: {crop}, player: {json.dumps(box)}, top: '{top}', url: '{js(used)}' }};", s)
     if n != 1: sys.exit('mock template changed: SITE line not found')
     wr(m, sub(s, '<title>Brand · ', f'<title>{html(o.brand)} · '))
     p = os.path.join(dst, 'index.html'); s = rd(p)

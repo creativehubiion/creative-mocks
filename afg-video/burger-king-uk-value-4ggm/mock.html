@@ -19,6 +19,8 @@
    and once it scrolls the article runs under the status bar (only the Dynamic Island over it); the clock and icons turn dark on a
    light page (postMessage {iionStatus}); Safari's address bar at the bottom. A header the site pins to the top while you scroll
    (SITE.pin: its height, image assets/head.webp; e.g. What to Watch on mobile) stays there, with its colour behind the status bar.
+   SITE.pinAt: the page scroll (site px) from which the site shows it; 0 = from the top (a header that is the pinned bar itself),
+   more = a bar that slides in once the real header has scrolled away (TechRadar desktop's "Become a TechRadar Insider").
    Mobile on a real phone (?full, from shared/mobile.js): only the site, full screen; a tap on the ad turns the sound on. */
 html,body{margin:0;height:100%;background:#000;overflow:hidden}
 html{clip-path:inset(0)}
@@ -41,8 +43,9 @@ html.full .ad-ui .mute{display:block}
 /* mobile in our phone: the page's colour above the page (scrolls away with it), Safari's bottom bar with the address */
 .band,.safari,.edge{display:none}
 /* a pinned site header stays at the top of the page area; then the status bar keeps the header's colour (no fade) */
-.pin{display:none;position:absolute;left:0;top:0;width:100cqw;z-index:2}
-html.pinned .pin{display:block}
+.pin{display:none;position:absolute;left:0;top:0;width:100cqw;z-index:2;opacity:0;transform:translateY(-35%);transition:opacity .25s ease,transform .25s ease}
+html.haspin .pin{display:block}
+html.pinned .pin{opacity:1;transform:none}
 html.embed.mobile .pin{top:6.2cqh}
 html.embed.mobile.pinned .top-fill{display:block;position:absolute;left:0;right:0;top:-2px;height:calc(6.2cqh + 3px);background:var(--top,#000);z-index:2}
 .top-fill{display:none}
@@ -77,13 +80,15 @@ html.embed.mobile .safari{display:block;position:absolute;left:0;right:0;bottom:
 </div>
 <script>
 // written by _work/new-afg-video-mock.py: the snapshot, its size in CSS px, the video player's box [x, y, w, h] on it, the top colour
-const SITE = { pin: 50, img: 'assets/site.webp', w: 1440, h: 2731, player: [259, 1492, 602, 339], top: '#090e21', url: 'https://www.techradar.com/tech/techradar-now-has-an-app-heres-what-you-need-to-know' };
+const SITE = { pin: 50, pinAt: 160, img: 'assets/site.webp', w: 1440, h: 2731, player: [259, 1492, 602, 339], top: '#090e21', url: 'https://www.techradar.com/tech/techradar-now-has-an-app-heres-what-you-need-to-know' };
 const AD_SRC = 'assets/ad.mp4';
 const T = { top: 1400, down: 1800, hold: 600, after: 1600, up: 1300 };   // ms: read the top · scroll to the player · ... · back up
 
 const root = document.documentElement, mobile = SITE.w < 800;
 root.classList.toggle('mobile', mobile);
-root.classList.toggle('pinned', !!SITE.pin);
+const pinAt = SITE.pinAt || 0;   // the scroll from which the site shows its pinned bar
+root.classList.toggle('haspin', !!SITE.pin);
+root.classList.toggle('pinned', !!SITE.pin && !pinAt);
 if (SITE.pin) document.getElementById('pin').src = 'assets/head.webp';
 const screen = document.getElementById('screen'), site = document.getElementById('site'), slot = document.getElementById('slot');
 const left = document.getElementById('left'), prog = document.getElementById('prog'), mute = document.getElementById('mute');
@@ -117,14 +122,14 @@ const target = () => {   // the player centred between the bars
 let shot = null, dark = null;
 function status() {
   if (!inPhone || !shot) return;
-  const sy = SITE.pin ? -1 : y + sitePx(.031) - band();   // the middle of the status bar, on the snapshot (a pinned header: its colour)
+  const sy = root.classList.contains('pinned') ? -1 : y + sitePx(.031) - band();   // the middle of the status bar, on the snapshot (a pinned header: its colour)
   let light = false;
   if (sy < 0) { const c = SITE.top.match(/\w\w/g).map(h => parseInt(h, 16)); light = .299 * c[0] + .587 * c[1] + .114 * c[2] > 150; }
   else { const d = shot.getImageData(Math.round(shot.canvas.width * .5), Math.min(shot.canvas.height - 1, Math.round(sy / SITE.h * shot.canvas.height)), 1, 1).data;
          light = .299 * d[0] + .587 * d[1] + .114 * d[2] > 150; }
   if (light !== dark) { dark = light; screen.style.setProperty('--edge', light ? 'rgba(255,255,255,.9)' : 'rgba(0,0,0,.55)'); try { parent.postMessage({ iionStatus: light ? 'dark' : 'light' }, '*'); } catch (e) {} }
 }
-function setY(n) { y = n; site.style.setProperty('--y', n); status(); }
+function setY(n) { y = n; site.style.setProperty('--y', n); if (SITE.pin) root.classList.toggle('pinned', y - band() >= pinAt); status(); }
 function scrollTo(to, ms, id) {
   const from = y, t0 = performance.now();
   return new Promise(res => { (function f(now) {
