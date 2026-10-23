@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Burger King UK · Display interstitial</title>
+<script>{const q=new URLSearchParams(location.search); if(q.has('embed'))document.documentElement.classList.add('embed'); if(q.has('full'))document.documentElement.classList.add('full');}</script>
+<style>
+/* Display interstitial: the brand's static 2:3 image (640×960) in the same full-screen in-app interstitial as a playable,
+   black bars above and below on a taller screen. A tap anywhere opens the click URL (window.clickTag wins if the tag sets one).
+   ?embed=1 (the phone page): the image fills the frame, which the page already sizes to 2:3.
+   ?full=1 (a real phone) or on its own: the 2:3 unit centred on black. */
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.unit{position:fixed;inset:0;margin:auto;width:min(100vw,calc(100dvh * 2 / 3));aspect-ratio:2/3;height:auto;background:#000;cursor:pointer}
+html.embed .unit{width:100vw;height:100vh;aspect-ratio:auto}
+html.full.embed .unit{width:min(100vw,calc(100dvh * 2 / 3));height:auto;aspect-ratio:2/3}
+.unit img{display:block;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .25s ease}
+.unit img.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="unit" id="unit"><img id="img" alt=""></div>
+<script>
+const CONFIG = {
+  image: 'assets/interstitial.webp',   // the static interstitial, 2:3 (640×960)
+  clickUrl: 'https://www.burgerking.co.uk/',  // tap target (window.clickTag wins if the tag sets one)
+};
+const unit = document.getElementById('unit'), img = document.getElementById('img');
+img.onload = () => img.classList.add('on');
+img.src = CONFIG.image;
+// a tap: the page draws its finger ripple there (shared/touch.js), then the click-through opens
+unit.addEventListener('pointerdown', e => { const r = unit.getBoundingClientRect(); try { parent.postMessage({ iionTap: { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height } }, '*'); } catch (_) {} });
+unit.addEventListener('click', () => { const u = window.clickTag || CONFIG.clickUrl; if (u) window.open(u, '_blank'); });
+// the page contract every mock speaks (a static unit has no timeline, autopilot or sound)
+window.DEMO = { start: () => {}, slotMs: 0, setAuto: () => {}, setSound: () => {} };
+</script>
+</body>
+</html>

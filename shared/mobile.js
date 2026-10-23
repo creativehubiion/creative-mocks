@@ -2,7 +2,8 @@
 // · On a phone: skip the mock page and open the ad unit full screen (2:3 with black bars, as it serves in-app).
 //   The full-screen URL comes from .ad-slot[data-full] (fallback: the iframe src). Add ?desktop to keep the mock page.
 //   The page's ?v=N goes with it, so a new ?v on the shared link also fetches the unit fresh.
-// · On a desktop: a "Scan to play on your phone" QR card beside the phone, encoding this page's own URL (not on .phone[data-noqr]).
+// · On a desktop: a "Scan to play on your phone" QR card beside the phone, encoding this page's own URL (not on .phone[data-noqr];
+//   .phone[data-qr="…"] changes the line, e.g. "Scan to see it on your phone" for a static display interstitial).
 // · On a desktop: the ad slot is pixel-snapped so no hairline shows along the creative's top edge (see below).
 (function () {
   const q = new URLSearchParams(location.search);
@@ -37,7 +38,8 @@
     if (!phone || phone.hasAttribute('data-noqr')) return;   // QR card is for playable formats only (not rewarded video)
     const card = document.createElement('aside');
     card.className = 'qr-card';
-    card.innerHTML = '<div class="qr" aria-hidden="true"></div><div class="txt"><b>Scan to play on your phone</b><span>Opens the ad full screen</span></div>';
+    const line = (phone.getAttribute('data-qr') || 'Scan to play on your phone').replace(/[<&]/g, '');
+    card.innerHTML = '<div class="qr" aria-hidden="true"></div><div class="txt"><b>' + line + '</b><span>Opens the ad full screen</span></div>';
     phone.appendChild(card);
     const url = location.origin + location.pathname;
     card.querySelector('.qr').setAttribute('title', url);

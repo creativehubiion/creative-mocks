@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Tray Tower · build · counter tower (fixed stage)</title>
+<link rel="icon" href="data:,"><link href="fonts/Inter-LilitaOne.css" rel="stylesheet">
+<script src="_core/draw.js"></script><script src="_core/layers.js"></script><script src="_core/engine.js"></script><script src="_core/tray-tower-game.js"></script></head>
+<body><script>
+/* VIEW: counter tower, a fixed stage straight on at counter height. The BK counter fills the frame; the tray rests on the
+   counter in the bottom fifth; the item slides on a rail under the top band and drops onto the pile; the goal flag marks
+   the band's lower edge. The view never moves: the game fits twelve items between the tray and the flag (G9 adapt).
+   Depth is draw order: counter → fallen items → tray → tower (bottom up) → sliding item → rail, tag, pops, steam.
+   Every picture is a fixed object; the sway, the topple, the crumbs, the ring, the steam and the light are code.
+   Sizes come from the game (CONFIG.play, fitted): this page gives only places. */
+const T = window.TrayTowerGame, P = T.CONFIG.play;
+const CAMERA = 'straight on at counter height, level, one lens, no tilt; the whole BK tray and a tower of twelve items in frame; items seen from the side, no view of their tops; warm overhead light from the upper left';
+const BK = { red: '#D62300', orange: '#FF8732', brown: '#502314', cream: '#F5EBDC' };
+const G = {
+  canvas: [640, 960], camera: CAMERA,
+  cx: 0.5,          // the tray's middle across the frame
+  trayY: 0.78,      // the tray's top (the tower's foot), frame height
+  counterY: 0.80,   // the counter top in the plate
+  railY: 0.165,     // the slider rail, just under the band
+  goalY: 0.185,     // the goal flag: the band's lower edge
+  bandH: 0.16,      // the plain top band for the lockup and the rail
+  keepOut: [{ x: 0, y: 0, w: 1, h: 0.16, why: 'top band: lockup and count pill' }],
+};
+const TRAY_H = P.trayH / 1.5;   // the tray's height in frame heights (world units are frame widths)
+const L = id => VIEW.layers.find(l => l.id === id);
+const ITEM = { melt: 'L3', wrap: 'L4', tenders: 'L5' };
+// item greybox shapes: tinted greys, the side view, no tops
+function meltShape(ctx, x, y, w, h) { GB.rr(ctx, x + w * .02, y + h * .52, w * .96, h * .44, h * .2, '#b9a68f', '#5a4a3a'); GB.rr(ctx, x, y + h * .36, w, h * .2, h * .08, '#e0c060', '#7a6020'); GB.rr(ctx, x + w * .02, y + h * .06, w * .96, h * .34, h * .16, '#c7ae8e', '#5a4a3a'); }
+function wrapShape(ctx, x, y, w, h) { GB.rr(ctx, x, y + h * .05, w, h * .9, h * .45, '#d4c7ae', '#6a5a44'); ctx.strokeStyle = '#8a7a60'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x + w * .82, y + h * .5, h * .3, h * .38, 0, 0, 7); ctx.stroke(); GB.rr(ctx, x + w * .1, y + h * .62, w * .62, h * .14, h * .06, '#9aa86a'); }
+function tendersShape(ctx, x, y, w, h) { for (let i = 0; i < 4; i++) GB.ell(ctx, x + w * (.2 + i * .2), y + h * .2, w * .1, h * .2, '#c99a5a', '#6a4a20');
+  ctx.beginPath(); ctx.moveTo(x, y + h * .25); ctx.lineTo(x + w, y + h * .25); ctx.lineTo(x + w * .94, y + h); ctx.lineTo(x + w * .06, y + h); ctx.closePath(); ctx.fillStyle = '#D62201'; ctx.fill(); ctx.strokeStyle = '#5a2a20'; ctx.lineWidth = 2; ctx.stroke();
+  GB.rr(ctx, x + w * .36, y + h * .48, w * .28, h * .3, h * .1, BK.cream); }
+const SHAPES = { melt: meltShape, wrap: wrapShape, tenders: tendersShape };
+
+// the counter plate with its light, shades and vignette, painted once into a cached canvas (phone budget, rule 27)
+function paintCounter(ctx, x, y, w, h) {
+  ctx.fillStyle = '#7A3E22'; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = '#5A2A16'; ctx.fillRect(x, y + h * .30, w, h * .22); ctx.fillStyle = '#FE8735'; ctx.fillRect(x, y + h * .30, w, h * .006); ctx.fillRect(x, y + h * .514, w, h * .006);
+  ctx.fillStyle = '#F4E9DB'; ctx.fillRect(x, y, w, h * G.bandH);
+  ctx.fillStyle = '#A4552C'; ctx.fillRect(x, y + h * G.counterY, w, h * (1 - G.counterY));
+  ctx.fillStyle = '#E08A4E'; ctx.fillRect(x, y + h * G.counterY, w, h * .02);
+  let g = ctx.createRadialGradient(x + w * .12, y + h * .08, 0, x + w * .12, y + h * .08, h * .85); g.addColorStop(0, 'rgba(255,236,200,.30)'); g.addColorStop(1, 'rgba(255,236,200,0)'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(.5, 'rgba(40,14,6,0)'); g.addColorStop(1, 'rgba(40,14,6,.30)'); ctx.fillStyle = g; ctx.fillRect(x, y + h * G.bandH, w, h * (1 - G.bandH));
+  g = ctx.createLinearGradient(0, y + h * (G.counterY + .02), 0, y + h); g.addColorStop(0, 'rgba(40,14,6,.25)'); g.addColorStop(1, 'rgba(40,14,6,.05)'); ctx.fillStyle = g; ctx.fillRect(x, y + h * (G.counterY + .02), w, h * (1 - G.counterY - .02));
+  g = ctx.createRadialGradient(x + w * .5, y + h * .5, h * .35, x + w * .5, y + h * .5, h * .8); g.addColorStop(0, 'rgba(30,10,4,0)'); g.addColorStop(1, 'rgba(30,10,4,.35)'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+}
+const PLATE = { key: '', c: null };
+function counterCached(ctx, x, y, w, h) {
+  const t = ctx.getTransform ? ctx.getTransform() : { a: 1 }, k = Math.max(1, Math.min(2, Math.abs(t.a) || 1));
+  const cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k)), key = cw + 'x' + ch;
+  if (PLATE.key !== key) { const c = document.createElement('canvas'); c.width = cw; c.height = ch; const o = c.getContext('2d'); o.scale(cw / w, ch / h); paintCounter(o, 0, 0, w, h); PLATE.c = c; PLATE.key = key; }
+  ctx.drawImage(PLATE.c, x, y, w, h);
+}
+
+const VIEW = {
+  id: 'counter-tower', build: true, brandLogo: 'assets/brand/logo.svg', title: 'Counter tower · fixed stage', canvas: G.canvas, camera: CAMERA, geometry: () => G,
+  light: { tier: 2, dir: [-0.6, -0.8], color: '255,236,200', strength: 0.3 },
+  layers: [
+    { id: 'L1', name: 'counter', type: 'plate', canvas: [1280, 1920], key: null, camera: CAMERA, box: { x: 0, y: 0, w: 1, h: 1, anchor: 'top-left' },
+      notes: 'picture · the BK counter straight on: its wall in the brand colours, a plain band across the top 16% for the lockup and the slider rail, the counter top at 80% of the frame height; no people, no readable prices on any board',
+      shape(ctx, x, y, w, h, S, cell, o) {
+        if (o) paintCounter(ctx, x, y, w, h); else counterCached(ctx, x, y, w, h);   // the game draws the cached plate; a blueprint paints it fresh
+        if (o && o.explain) { GB.bpZone(ctx, 0, 0, w, h * G.bandH, '#ffa500', 'TOP BAND 0-16%: plain; lockup, count pill, rail', true); GB.bpZone(ctx, w * .2, h * G.goalY, w * .6, h * (G.trayY - G.goalY), '#00e5ff', 'TOWER: tray to goal flag; keep plain', true); GB.bpLabel(ctx, 30, h * G.counterY + 40, 'COUNTER TOP at 80%', '#ffd23a', true); } } },
+    { id: 'L2', name: 'tray', type: 'sprite', canvas: [1024, Math.round(1024 * TRAY_H * 960 / (P.trayW * 640))], key: '#4A5A7A', camera: CAMERA,
+      box: { x: G.cx, y: G.trayY + TRAY_H, w: P.trayW, h: TRAY_H, anchor: 'bottom' },
+      notes: 'picture · the BK serving tray side-on, a little wider than the widest item; rests on the counter (drawn grounded)',
+      shape(ctx, x, y, w, h) { GB.rr(ctx, x, y + h * .1, w, h * .8, h * .3, '#9a6a5a', '#4a2a20'); } },
+    { id: 'L3', name: 'melt', type: 'sprite', canvas: [1024, 222], key: '#4A5A7A', camera: CAMERA, box: { w: P.items.melt.w, h: P.items.melt.h / 1.5, anchor: 'bottom' },
+      notes: 'picture · the Melt as on burgerking.co.uk, cut out, side-on; squat, flat top (holds the middle 80%); fallen = same picture turned in code', shape: meltShape },
+    { id: 'L4', name: 'wrap', type: 'sprite', canvas: [1024, 284], key: '#FF00FF', camera: CAMERA, box: { w: P.items.wrap.w, h: P.items.wrap.h / 1.5, anchor: 'bottom' },
+      notes: 'picture · the Wrap as on burgerking.co.uk, rolled and lying on its side, side-on; round top (holds the middle 55%); the roll is code', shape: wrapShape },
+    { id: 'L5', name: 'tenders', type: 'sprite', canvas: [1024, 272], key: '#4A5A7A', camera: CAMERA, box: { w: P.items.tenders.w, h: P.items.tenders.h / 1.5, anchor: 'bottom' },
+      notes: 'picture · the Chicken Tenders carton as BK serves it, tenders showing, side-on; wide flat top (holds 95%)', shape: tendersShape },
+    { id: 'L6', name: 'lockup', type: 'brand', canvas: [1024, 512], key: null, box: { x: 0.04, y: 0.02, w: 0.3, h: 0.1, anchor: 'top-left' },
+      notes: "SUPPLIED · the Burger King lockup from burgerking.co.uk, never drawn; the engine shows it in the band and on the cards", shape() {} },
+    { id: 'L7', name: 'crumb', type: 'particle', canvas: null /* exported copy: never painted, drawn as its greybox crumb, as in the studio */, key: '#4A5A7A', camera: CAMERA, box: { w: 0.012, h: 0.008, anchor: 'centre' },
+      notes: 'picture · one small breadcrumb; the puff on every landing is code (bigger on a clean landing)',
+      shape(ctx, x, y, w, h) { GB.ell(ctx, x + w / 2, y + h / 2, w * .4, h * .4, '#c9a060'); } },
+    { id: 'L8', name: 'rail-and-tag', type: 'hud-in-code', canvas: null, key: null, notes: 'code · the rail under the band and the name tag riding under the item, in BK cream and brown' },
+    { id: 'L9', name: 'sway-topple', type: 'hud-in-code', canvas: null, key: null, notes: 'code · the damped swing from the tray, the topple across the counter reusing L3-L5' },
+    { id: 'L10', name: 'light-shadow-steam', type: 'hud-in-code', canvas: null, key: null, notes: 'code · contact shadows on the item below, the tray shadow, the cached light and vignette, the steam on the win' },
+    { id: 'L11', name: 'hud-cards', type: 'hud-in-code', canvas: null, key: null, notes: 'code · count pill, goal flag, balance pops (STEADY / LEANING / TEETERING), cues, start card, win and fail sheets, Order now and Replay' },
+  ],
+  hud: {
+    html: '<div class="tt-cnt"><span class="n">0</span><span class="d">/12</span></div>',
+    css: `.tt-cnt{position:absolute;right:17cqw;top:4.5cqw;display:flex;align-items:baseline;gap:.4cqw;padding:2cqw 4.2cqw 1.6cqw;border-radius:999px;background:#FFF8EE;color:${BK.red};font:400 7cqw/1 'Lilita One','Arial Black',system-ui,sans-serif;border:.8cqw solid ${BK.red};box-shadow:0 .9cqw 0 ${BK.brown};transition:transform .12s}
+      .tt-cnt .d{color:${BK.brown};font-size:4.6cqw}.tt-cnt.bump{transform:scale(1.18)}`,
+    update(S, root) {
+      const el = root.querySelector('.tt-cnt'); if (!el || !S) return; const n = String(S.count), d = '/' + T.shape().toWin;
+      const nn = el.querySelector('.n'); if (nn.textContent !== n) { nn.textContent = n; el.classList.add('bump'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('bump'), 140); }
+      const dd = el.querySelector('.d'); if (dd.textContent !== d) dd.textContent = d;
+    },
+  },
+  drawFrame(ctx, S, W, H) {
+    if (!S) return;
+    const sh = S.shake > 0 ? Math.sin(S.elapsed * 60) * S.shake * W * 0.006 : 0;
+    ctx.save(); ctx.translate(sh, 0);
+    LAYERS.draw(ctx, L('L1'), S, W, H);
+    // the goal flag at the band's lower edge
+    ctx.save(); ctx.strokeStyle = BK.cream; ctx.globalAlpha = .75; ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(W * .12, H * G.goalY); ctx.lineTo(W * .88, H * G.goalY); ctx.stroke(); ctx.restore();
+    ctx.beginPath(); ctx.moveTo(W * .88, H * G.goalY); ctx.lineTo(W * .88, H * (G.goalY - .035)); ctx.lineTo(W * .93, H * (G.goalY - .025)); ctx.lineTo(W * .88, H * (G.goalY - .015)); ctx.fillStyle = BK.orange; ctx.fill();
+    const item = (kind, cxw, botY, w, h, rot, pivot, alpha, flash) => {   // w in frame widths, h in frame heights, botY frame fraction
+      const b = { x: cxw, y: botY, w, h, anchor: 'bottom' };
+      const o = { box: b, alpha }; if (rot) { o.rot = rot; o.pivot = pivot; }
+      LAYERS.draw(ctx, L(ITEM[kind]), S, W, H, o);
+      if (flash > 0) { ctx.save(); ctx.globalAlpha = flash * .35; ctx.fillStyle = '#fff'; ctx.fillRect(W * (cxw - w / 2), H * (botY - h), W * w, H * h); ctx.restore(); }
+    };
+    // fallen items lie on the counter (their own contact shadows), the same pictures turned
+    S.debris.forEach(d => { const f = T.toFrame(d.x, d.y), w = d.w * f.s, h = d.h * f.s / 1.5;
+      if (d.settled) LAYERS.contact(ctx, W * f.x, H * (f.y + h / 2), W * w * .8, .5);
+      item(d.kind, f.x, f.y + h / 2, w, h, d.rot, [W * f.x, H * f.y], 1, 0); });
+    LAYERS.grounded(ctx, L('L2'), S, W, H, { tier: 2, dir: VIEW.light.dir });
+    // the tower, bottom up, rocking from the tray; each item's contact shadow falls on the one below
+    const stacked = (it, shadow) => { const q = T.pose(it), f = T.toFrame(q.x, q.y), w = it.w * f.s, h = it.h * f.s / 1.5, sq = it.squash || 1;
+      if (shadow) LAYERS.contact(ctx, W * f.x, H * f.y, W * w * .95, .55);
+      item(it.kind, f.x, f.y, w, h * sq, q.rot, [W * f.x, H * f.y], 1, it.flash); };
+    S.tower.forEach(it => stacked(it, true));
+    (S.tips || []).forEach(t => t.items.forEach(it => stacked(it, false)));   // tipping over an edge (physics pass, 2026-10-23)
+    // the sliding item, in the air: its shadow on the pile top sharpens as it falls
+    const c = S.cur;
+    if (c) { const k = T.size(c.kind), f = T.toFrame(c.x, c.y), w = k.w * f.s, h = k.h * f.s / 1.5, pt = T.toFrame(c.x, T.pileTop()), gap = Math.max(0, pt.y - f.y);
+      LAYERS.contact(ctx, W * f.x, H * pt.y, W * w * (0.6 + .35 * (1 - Math.min(1, gap / .5))), .25 + .4 * (1 - Math.min(1, gap / .5)));
+      item(c.kind, f.x, f.y, w, h, 0, null, 1, 0);
+      if (c.state === 'slide') {   // the name tag rides under the item
+        const t = T.CONFIG.names[c.kind]; ctx.font = `800 ${Math.round(W * .032)}px Inter, system-ui, sans-serif`; const tw = ctx.measureText(t).width + W * .04;
+        GB.rr(ctx, W * f.x - tw / 2, H * f.y + H * .008, tw, H * .032, H * .016, BK.cream, BK.brown); GB.label(ctx, W * f.x, H * f.y + H * .024, t, Math.round(W * .032), BK.brown); } }
+    // the rail under the band
+    GB.rr(ctx, W * .06, H * G.railY - 3, W * .88, 6, 3, BK.orange, BK.brown);
+    // crumb puffs on landings (a handful of crumbs each)
+    S.lands.forEach(l => { const f = T.toFrame(l.x, l.y), n = l.clean ? 8 : 5, q = l.t / 0.8;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - q); for (let i = 0; i < n; i++) { const a = Math.PI + (i + .5) / n * Math.PI, r = W * (l.clean ? .09 : .06) * q;
+        LAYERS.draw(ctx, L('L7'), S, W, H, { box: { ...L('L7').box, x: f.x + Math.cos(a) * r / W, y: f.y + Math.sin(a) * r * .5 / H + q * q * .02 } }); } ctx.restore(); });
+    if (S.ring > 0 && S.ringAt) { const f = T.toFrame(S.ringAt.x, S.ringAt.y); ctx.save(); ctx.globalAlpha = S.ring; GB.glowRing(ctx, W * f.x, H * f.y, W * (.08 + (1 - S.ring) * .1), BK.orange, '#ffe36a', 4, 10, .8); ctx.restore(); }
+    // pops: SQUARE, STEADY, LEANING or TEETERING over the pile (the balance), SLIPPED where it went
+    S.pops.forEach(p => { const f = T.toFrame(p.x, p.y), life = p.big ? 1.1 : .7; ctx.save(); ctx.globalAlpha = Math.max(0, 1 - p.t / life);
+      GB.label(ctx, Math.min(W * .9, Math.max(W * .1, W * f.x)), H * f.y - H * .03 - p.t * H * .04, p.txt, Math.round(W * (p.big ? .07 : .05)), p.bad ? BK.cream : '#ffd23a'); ctx.restore(); });
+    // the win: the tower glows and steam rises off it
+    if ((S.mode === 'reveal' || S.mode === 'win') && S.tower.length) { const tp = T.toFrame(0, T.pileTop());
+      ctx.save(); ctx.globalAlpha = S.glow * .25; ctx.fillStyle = BK.orange; ctx.fillRect(W * .22, H * tp.y, W * .56, H * (G.trayY - tp.y)); ctx.globalAlpha = 1;
+      for (let i = 0; i < 5; i++) { const k = ((S.steam * .5 + i / 5) % 1); ctx.globalAlpha = .35 * (1 - k) * S.glow; GB.ell(ctx, W * (.44 + i * .03 + Math.sin(S.steam * 2 + i) * .02), H * (tp.y - k * .08), W * .025 * (1 + k), W * .02 * (1 + k), '#fff'); }
+      ctx.restore(); }
+    ctx.restore();
+  },
+};
+VIEW.art = ".frame{--accent:#D62201;--ink:#4F2414;--red:#D62201}.greylabel{display:none}.brandmark{border:0;background:none;color:#4F2414;font-family:'Lilita One','Arial Black',system-ui,sans-serif;font-weight:400;font-size:5.2cqw;letter-spacing:.04em;white-space:nowrap;width:auto;max-width:none}.hint{top:auto;bottom:9cqw;background:#F4E9DB;color:#4F2414;font-family:'Lilita One','Arial Black',system-ui,sans-serif;font-weight:400;font-size:4.6cqw;line-height:1;padding:2.2cqw 5.6cqw;box-shadow:0 .8cqw 0 #4F2414}.hint.cue{background:#D62201;color:#fff}.card{background:none}.card h1{font-family:'Lilita One','Arial Black',system-ui,sans-serif;font-weight:400;color:#F4E9DB;letter-spacing:.01em;text-wrap:balance}.card p{color:#F4E9DB;font-weight:600;text-wrap:balance}.card .btn{font-family:'Lilita One','Arial Black',system-ui,sans-serif;font-weight:400;font-size:6.4cqw;line-height:1;min-height:15cqw;padding:0 14cqw;margin-top:5cqw;background:#D62201;color:#fff;border:.7cqw solid #F4E9DB;box-shadow:0 1.2cqw 0 #2E140A}.card .btn.ghost{background:#4F2414;color:#F4E9DB;border:.5cqw solid rgba(244,233,219,.6);box-shadow:none;animation:none;font-family:Inter,system-ui,sans-serif;font-weight:800;font-size:4cqw;min-height:10.5cqw;padding:0 8cqw;margin-top:5cqw;text-decoration:none}#startCard{justify-content:flex-start;padding:50.5cqw 11cqw 8cqw}#startCard .lockup{position:absolute;left:4cqw;top:2.75cqw;height:9.5cqw;margin:0;padding:0 3cqw;display:flex;align-items:center;border:0;background:none;color:#4F2414;font-family:'Lilita One','Arial Black',system-ui,sans-serif;font-weight:400;font-size:5.2cqw;letter-spacing:.04em;white-space:nowrap}#startCard .lockup{left:0;right:0;margin:auto;width:max-content;top:2.2cqw;height:19cqw;padding:0;filter:drop-shadow(0 .6cqw .9cqw rgba(79,36,20,.22));animation:tt-up .45s cubic-bezier(.2,1.3,.4,1) .05s both}#startCard .lockup img{height:100%}#startCard h1{font-size:10cqw;line-height:1.02;animation:tt-up .45s cubic-bezier(.2,1.3,.4,1) .2s both}#startCard p{font-size:3.7cqw;margin-top:2.6cqw;animation:tt-up .4s ease-out .35s both}#startCard .hand{position:absolute;right:12cqw;bottom:30cqw;width:13cqw;height:13cqw;margin:0;filter:drop-shadow(0 0 .5cqw #F4E9DB) drop-shadow(0 0 .5cqw #F4E9DB);animation:tt-tap 1.1s ease-in-out infinite}#startCard .btn{margin-top:auto}#winCard,#failCard{padding:0 9cqw 7cqw}#winCard{background:linear-gradient(to bottom,rgba(79,36,20,0) 0,rgba(79,36,20,0) 57.5cqw,#4F2414 57.5cqw)}#failCard{background:linear-gradient(to bottom,rgba(79,36,20,0) 0,rgba(79,36,20,0) 77.5cqw,#4F2414 77.5cqw)}#winCard .lockup,#failCard .lockup{display:none}.card .stamp{position:absolute;left:0;right:0;top:37cqw;width:max-content;margin:0 auto;font-family:'Lilita One','Arial Black',system-ui,sans-serif;font-weight:400;font-size:9cqw;line-height:1;letter-spacing:.03em;padding:1.8cqw 4.6cqw;border-radius:2.4cqw;background:#F4E9DB;color:#D62201;border:.9cqw solid #D62201;box-shadow:0 1cqw 0 #2E140A;transform:rotate(-3deg)}#winCard .stamp{animation:tt-stamp .35s cubic-bezier(.2,1.4,.3,1) .15s both}.card .stamp.bad{top:60cqw;background:#D62201;color:#fff;border-color:#F4E9DB;transform:rotate(-4deg);animation:tt-slam .4s cubic-bezier(.3,1.5,.4,1) .1s both}#winCard .stat{order:-1;margin:0 0 3.5cqw;font-family:'Lilita One','Arial Black',system-ui,sans-serif;font-weight:400;font-size:4.4cqw;line-height:1.2;color:#FE8735;background:#4F2414;border:.5cqw solid #FE8735;border-radius:999px;padding:1.6cqw 4.5cqw;text-wrap:balance;animation:tt-up .4s ease-out .45s both}#winCard h1{font-size:9.5cqw;line-height:1.02;animation:tt-up .4s ease-out .65s both}#winCard p{font-size:4cqw;margin-top:2.4cqw;animation:tt-up .4s ease-out .8s both}#winCard .btn{animation:tt-up .4s ease-out .95s both,breathe 2.2s ease-in-out 1.8s infinite}#winCard .btn.ghost{animation:tt-up .4s ease-out 1.05s both}#failCard .stat{display:none}#failCard h1{font-size:9cqw;line-height:1.04;animation:tt-up .35s ease-out .4s both}#failCard p{font-size:4.2cqw;margin-top:2.4cqw;animation:tt-up .35s ease-out .52s both}#failCard .btn{animation:tt-up .35s ease-out .64s both,breathe 2.2s ease-in-out 1.4s infinite}#failCard .btn.ghost{animation:tt-up .35s ease-out .74s both}.tt-board{position:absolute;left:5cqw;right:5cqw;top:42cqw;height:34cqw;background:rgba(79,36,20,.94);border-radius:5cqw;box-shadow:0 1.2cqw 0 rgba(30,10,4,.45);animation:tt-drop .45s cubic-bezier(.2,1.2,.4,1) both}.tt-board i{position:absolute;left:8cqw;right:8cqw;top:0;height:1.2cqw;border-radius:0 0 1cqw 1cqw;background:#FE8735}.tt-ring{position:absolute;left:77cqw;top:105cqw;width:8cqw;height:8cqw;border-radius:50%;border:.6cqw solid #F4E9DB;opacity:0;animation:tt-ring 1.1s ease-out infinite}.tt-sheet{position:absolute;left:0;right:0;bottom:0;background:#4F2414;border-radius:50% 50% 0 0/7cqw 7cqw 0 0;animation:tt-rise .4s cubic-bezier(.2,.9,.3,1) both}.tt-win{top:50cqw;box-shadow:0 -1.2cqw 0 #FE8735}.tt-fail{top:70cqw;box-shadow:0 -1.2cqw 0 #D62201}@keyframes tt-up{from{opacity:0;transform:translateY(4cqw)}to{opacity:1;transform:none}}@keyframes tt-rise{from{opacity:0;transform:translateY(12cqw)}to{opacity:1;transform:none}}@keyframes tt-drop{from{opacity:0;transform:translateY(-6cqw)}to{opacity:1;transform:none}}@keyframes tt-stamp{0%{opacity:0;transform:rotate(-3deg) scale(1.8)}65%{opacity:1;transform:rotate(-3deg) scale(.95)}100%{opacity:1;transform:rotate(-3deg) scale(1)}}@keyframes tt-tap{0%,100%{transform:translate(0,0) scale(1)}40%,55%{transform:translate(-.6cqw,1.4cqw) scale(.9)}}@keyframes tt-ring{0%,35%{opacity:0;transform:scale(.4)}45%{opacity:.9;transform:scale(.6)}100%{opacity:0;transform:scale(1.5)}}@keyframes tt-slam{0%{opacity:0;transform:rotate(-4deg) scale(2.2)}60%{opacity:1;transform:rotate(-4deg) scale(.94)}100%{opacity:1;transform:rotate(-4deg) scale(1)}}";   // the art director's composition
+VIEW.artDecor = {"start":"<div class='tt-board'><i></i></div><div class='tt-ring'></div>","win":"<div class='tt-sheet tt-win'></div>","fail":"<div class='tt-sheet tt-fail'></div>"};
+VIEW.artFonts = [];   // exported copy: Lilita One loads from fonts/Inter-LilitaOne.css, not from Google
+T.run(VIEW);
+</script></body></html>

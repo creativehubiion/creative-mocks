@@ -20,8 +20,10 @@ page shell is in `shared/`, and each format has a `_template/` to start from.
 | CTV video | `ctv/` | `ctv/_template-video/` | TV | programme → the ad with "Your game will continue in N seconds" → programme |
 | Hybrid playable | `hybrid/` | `hybrid/_template/` | portrait phone | 320×480 in-app interstitial: video on top, game below |
 | Playable | `playable/` | `playable/_template/` | portrait phone | 320×480 in-app interstitial: game only, end card with CTA |
+| Display interstitial | `display-interstitial/` | `display-interstitial/_template/` | portrait phone | the playable's phone and 2:3 slot with a static image (640×960) instead of the game; a tap opens the click URL |
 | Rewarded video | `rewarded/` | `rewarded/_template/` | landscape phone | game pre-roll → the ad with the reward countdown |
 | Rewarded video + end card | `rewarded-endcard/` | `rewarded-endcard/_template/` | landscape phone | as above, then a clickable end card |
+| Rewarded video + playable end card | `rewarded-playable/` | `rewarded-playable/_template/` | portrait phone | a portrait game pre-roll full screen → the brand's vertical video (9:16, full width) with the reward countdown → the brand's playable, live, as the end card in the 2:3 slot with black bars and a close button |
 | Away from the game video | `afg-video/` (+ `afg-video-mobile/`) | `afg-video/_template/`, `afg-video-mobile/_template/` | MacBook (mobile web on a phone) | a publisher's article; the spot plays as the pre-roll in the site's own video player |
 | Several mocks, one link | `showcase/` | `showcase/_template/` | the mocks' own pages | one page with a tab (or menu) per mock |
 
@@ -62,6 +64,10 @@ Every page is the same shell (`shared/page.css` + `shared/theme.js`):
 **On phones:**
 - Playables and hybrids (`shared/mobile.js`) skip the mock page and open the unit full screen, as it serves in-app. `?desktop` keeps
   the mock page. On desktop, a "Scan to play on your phone" QR sits beside the phone (playable formats only).
+- Rewarded video + playable end card behaves like a playable on phones too (full screen, QR on desktop), with "Turn sound on" under the
+  phone; a landscape spot is centre-cropped to 9:16 when no vertical cut exists. Its end card is a copy of the playable's own files.
+- Display interstitials behave exactly like playables (same phone, 2:3 slot, full screen on a phone, QR on desktop); the QR card reads
+  "Scan to see it on your phone" (`.phone[data-qr]`).
 - CTV and rewarded pages keep the page, with "Turn sound on" and "Full screen" (`shared/fullscreen.js`).
 - Away from the game video: see §7.
 
@@ -108,22 +114,22 @@ It is never a static banner in a leaderboard.
 python tools/new-showcase.py --brand "<Brand>" --suffix <sfx>
 ```
 - Collects every mock with that suffix, whatever made it, in this order: Interactive CTV · CTV video · Rewarded · Rewarded + end card ·
-  Away from the game video · Hybrid · Playable.
+  Away from the game video · Hybrid · Playable · Display interstitial.
 - Tabs sit in the mock page's own header; the brand takes the format-label slot; only the chosen mock is loaded. With 4+ mocks (or
   when tabs don't fit) the header shows one pill that opens a menu. `#<id>` deep-links a tab.
 - **Every mock keeps its own folder and URL, even on a showcase.** The `MOCKS` list stays one object per line with single-quoted
   strings and at least `label` and `url`. Labels are written for people ("Option 1", "Rewarded video"): a weekly summary bot reads new
   folders and these labels.
 
-## 9. Video formats in one command
+## 9. Video and display formats in one command
 
 ```
 python tools/new-video-mocks.py --brand VOXI --headline "Unlimited social media." \
     --ctv-ad tv-spot.mp4 --ctv-headline "The fun never ends." \
     --rewarded-ad mobile-spot.mp4 --rewarded-preroll asphalt-legends \
-    --endcard banner.jpg --endcard-preroll geometry-dash --click-url https://example.com/
+    --endcard banner.jpg --endcard-preroll geometry-dash \n    --rp-ad spot.mp4 --rp-playable playable/<name> \n    --display interstitial-640x960.png --display-headline "Value menu." --click-url https://example.com/
 ```
-Builds only the formats you give inputs for, plus a showcase for 2+. Pre-roll game clips are in `tools/video-library/preroll/`.
+Builds only the formats you give inputs for, plus a showcase for 2+. Pre-roll game clips are in `tools/video-library/preroll/` (landscape) and `tools/video-library/preroll-portrait/` (portrait).
 
 ## 10. Assets and weight
 

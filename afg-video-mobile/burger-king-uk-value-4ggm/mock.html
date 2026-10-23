@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Burger King UK · Away from the game video</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&family=Inter:wght@500&display=swap">
+<script>{const q=new URLSearchParams(location.search);if(q.has('embed'))document.documentElement.classList.add('embed');if(q.has('full'))document.documentElement.classList.add('full');}</script>
+<style>
+/* Away from the game video: a publisher's article, our spot playing as the pre-roll in the site's own video player.
+   The site is a snapshot (assets/site.webp at 2x, other ads removed) made by _work/new-afg-video-mock.py, which also writes SITE
+   below: the snapshot's width in CSS px (1440 = desktop on the laptop, 390 = mobile on the phone), its height, the player's box
+   on it and the colour at the top of the page. Loop: the article top → scroll until the player is centred → the spot plays as the
+   pre-roll (IMA-style "Ad · 0:42" + yellow progress bar), full frame with black bars where it doesn't fit → the player's own
+   poster again → scroll back up. Sizes are in site px (--px = one CSS px of the site), so it scales to any device.
+   Mobile, inside our phone (?embed): as in iPhone Safari, the top of the page sits below the status bar on the site's own colour,
+   and once it scrolls the article runs under the status bar (only the Dynamic Island over it); the clock and icons turn dark on a
+   light page (postMessage {iionStatus}); Safari's address bar at the bottom. A header the site pins to the top while you scroll
+   (SITE.pin: its height, image assets/head.webp; e.g. What to Watch on mobile) stays there, with its colour behind the status bar.
+   Mobile on a real phone (?full, from shared/mobile.js): only the site, full screen; a tap on the ad turns the sound on. */
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+html{clip-path:inset(0)}
+.screen{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;overflow:hidden;container-type:size;
+  clip-path:inset(0)}
+html.embed .screen,html.full .screen{width:100vw;height:100vh}
+.site{--px:calc(100cqw / var(--w,1440));position:absolute;left:0;top:0;width:100cqw;transform:translateY(calc(var(--y,0) * -1 * var(--px)))}   /* no will-change: as its own layer Chrome drew it onto the phone rim above the frame */
+.site img{display:block;width:100%;height:auto}
+.slot{position:absolute;margin-top:var(--band,0px);background:#000;overflow:hidden;opacity:0;transition:opacity .25s}
+.slot.on{opacity:1}
+.slot video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+/* IMA's ad UI, at the size it has on the site */
+.ad-ui{position:absolute;left:0;right:0;bottom:0;height:calc(46 * var(--px));pointer-events:none;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0))}
+.ad-ui .lbl{position:absolute;left:calc(12 * var(--px));bottom:calc(11 * var(--px));color:#fff;font:500 calc(13 * var(--px))/1 Roboto,Arial,sans-serif;text-shadow:0 0 4px rgba(0,0,0,.6)}
+.ad-ui .bar{position:absolute;left:0;right:0;bottom:0;height:calc(4 * var(--px));background:rgba(255,255,255,.3)}
+.ad-ui .bar i{display:block;height:100%;width:0;background:#fc0}
+.ad-ui .mute{position:absolute;right:calc(10 * var(--px));bottom:calc(8 * var(--px));width:calc(22 * var(--px));height:calc(22 * var(--px));color:#fff;display:none}
+.ad-ui .mute svg{width:100%;height:100%;display:block;filter:drop-shadow(0 0 3px rgba(0,0,0,.5))}
+html.full .ad-ui .mute{display:block}
+/* mobile in our phone: the page's colour above the page (scrolls away with it), Safari's bottom bar with the address */
+.band,.safari,.edge{display:none}
+/* a pinned site header stays at the top of the page area; then the status bar keeps the header's colour (no fade) */
+.pin{display:none;position:absolute;left:0;top:0;width:100cqw;z-index:2}
+html.pinned .pin{display:block}
+html.embed.mobile .pin{top:6.2cqh}
+html.embed.mobile.pinned .top-fill{display:block;position:absolute;left:0;right:0;top:-2px;height:calc(6.2cqh + 3px);background:var(--top,#000);z-index:2}
+.top-fill{display:none}
+/* iOS's scroll edge: the page fades and blurs under the status bar, so the clock stays readable */
+html.embed.mobile:not(.pinned) .edge{display:block;position:absolute;left:0;right:0;top:0;height:8.5cqh;z-index:2;pointer-events:none;
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);background:linear-gradient(var(--edge,rgba(255,255,255,.9)) 45%,transparent);
+  -webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+html.embed.mobile .band{display:block;height:6.2cqh;background:var(--top,#000)}
+html.embed.mobile .site{--band:6.2cqh}
+html.embed.mobile .safari{display:block;position:absolute;left:0;right:0;bottom:0;height:10.2cqh;z-index:3;
+  background:rgba(246,246,248,.86);-webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);border-top:1px solid rgba(0,0,0,.08)}
+.safari .pill{position:absolute;left:4.5cqw;right:4.5cqw;top:1.2cqh;height:4.9cqh;border-radius:999px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12);
+  display:flex;align-items:center;justify-content:center;gap:1.4cqw;color:#1d1d1f;font:500 3.9cqw/1 Inter,-apple-system,sans-serif;letter-spacing:-.01em}
+.safari .pill svg{height:3.4cqw;width:auto}
+.safari .pill .aa{position:absolute;left:4.2cqw;font-size:3.6cqw;font-weight:600}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+  <div class="site" id="site">
+    <div class="band"></div>
+    <img id="page" alt="">
+    <div class="slot" id="slot">
+      <div class="ad-ui"><span class="lbl">Ad · <span id="left">0:00</span></span><div class="bar"><i id="prog"></i></div>
+        <span class="mute" id="mute"></span></div>
+    </div>
+  </div>
+  <img class="pin" id="pin" alt="">
+  <div class="top-fill"></div>
+  <div class="edge"></div>
+  <div class="safari"><div class="pill"><span class="aa">AA</span><svg viewBox="0 0 10 13" fill="#1d1d1f" aria-hidden="true"><path d="M2 5.5V4a3 3 0 0 1 6 0v1.5h.5A1.5 1.5 0 0 1 10 7v4.5A1.5 1.5 0 0 1 8.5 13h-7A1.5 1.5 0 0 1 0 11.5V7a1.5 1.5 0 0 1 1.5-1.5H2zm1.4 0h3.2V4a1.6 1.6 0 0 0-3.2 0v1.5z"/></svg><span id="host"></span></div></div>
+</div>
+<script>
+// written by _work/new-afg-video-mock.py: the snapshot, its size in CSS px, the video player's box [x, y, w, h] on it, the top colour
+const SITE = { pin: 60, img: 'assets/site.webp', w: 390, h: 2741, player: [20, 1700, 350, 197], top: '#090e21', url: 'https://www.techradar.com/tech/techradar-now-has-an-app-heres-what-you-need-to-know' };
+const AD_SRC = 'assets/ad.mp4';
+const T = { top: 1400, down: 1800, hold: 600, after: 1600, up: 1300 };   // ms: read the top · scroll to the player · ... · back up
+
+const root = document.documentElement, mobile = SITE.w < 800;
+root.classList.toggle('mobile', mobile);
+root.classList.toggle('pinned', !!SITE.pin);
+if (SITE.pin) document.getElementById('pin').src = 'assets/head.webp';
+const screen = document.getElementById('screen'), site = document.getElementById('site'), slot = document.getElementById('slot');
+const left = document.getElementById('left'), prog = document.getElementById('prog'), mute = document.getElementById('mute');
+site.style.setProperty('--w', SITE.w); screen.style.setProperty('--top', SITE.top);
+document.getElementById('host').textContent = new URL(SITE.url).hostname.replace(/^www\./, '');
+document.getElementById('page').src = SITE.img;
+// standalone (no ?embed / ?full): the device's screen, centred on black: 16:10 laptop, 393×852 phone
+if (!root.classList.contains('embed') && !root.classList.contains('full')) {
+  const r = mobile ? 393 / 852 : 16 / 10;
+  Object.assign(screen.style, { width: `min(100vw, ${100 * r}vh)`, height: `min(100vh, ${100 / r}vw)` });
+}
+const [px, py, pw, ph] = SITE.player, sp = v => `calc(${v} * var(--px))`;
+Object.assign(slot.style, { left: sp(px), top: sp(py), width: sp(pw), height: sp(ph) });
+
+const v = document.createElement('video');
+v.muted = true; v.defaultMuted = true; v.setAttribute('muted', ''); v.playsInline = true; v.setAttribute('playsinline', '');
+v.preload = 'auto'; v.src = AD_SRC; slot.prepend(v);
+
+let sound = false, run = 0, raf = 0, y = 0;
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+// in our phone: the band above the page and the bars over it, in site px (status bar 6.2%, Safari's bar 10.2% of the screen)
+const inPhone = root.classList.contains('embed') && mobile;
+const sitePx = f => screen.clientHeight * f / screen.clientWidth * SITE.w;
+const band = () => inPhone ? sitePx(.062) : 0;
+const target = () => {   // the player centred between the bars
+  const top = (inPhone ? sitePx(.062) : 0) + (SITE.pin || 0), view = sitePx(1) - top - (inPhone ? sitePx(.102) : 0);
+  return Math.max(0, Math.min(band() + SITE.h - sitePx(1), band() + py + ph / 2 - (top + view / 2)));
+};
+// the status bar's text follows what is under it (light page → dark text), like iOS
+let shot = null, dark = null;
+function status() {
+  if (!inPhone || !shot) return;
+  const sy = SITE.pin ? -1 : y + sitePx(.031) - band();   // the middle of the status bar, on the snapshot (a pinned header: its colour)
+  let light = false;
+  if (sy < 0) { const c = SITE.top.match(/\w\w/g).map(h => parseInt(h, 16)); light = .299 * c[0] + .587 * c[1] + .114 * c[2] > 150; }
+  else { const d = shot.getImageData(Math.round(shot.canvas.width * .5), Math.min(shot.canvas.height - 1, Math.round(sy / SITE.h * shot.canvas.height)), 1, 1).data;
+         light = .299 * d[0] + .587 * d[1] + .114 * d[2] > 150; }
+  if (light !== dark) { dark = light; screen.style.setProperty('--edge', light ? 'rgba(255,255,255,.9)' : 'rgba(0,0,0,.55)'); try { parent.postMessage({ iionStatus: light ? 'dark' : 'light' }, '*'); } catch (e) {} }
+}
+function setY(n) { y = n; site.style.setProperty('--y', n); status(); }
+function scrollTo(to, ms, id) {
+  const from = y, t0 = performance.now();
+  return new Promise(res => { (function f(now) {
+    if (id !== run) return res();
+    const k = Math.min(1, (now - t0) / ms); setY(from + (to - from) * ease(k));
+    k < 1 ? requestAnimationFrame(f) : res();
+  })(t0); });
+}
+// the player box rarely lands on whole screen pixels (a 1.25x display, a scaled phone): trim it inward to them, so the video never
+// shows a blended pixel outside the site's own player frame
+function snapSlot() {
+  slot.style.clipPath = 'none';
+  const r = slot.getBoundingClientRect(), k = devicePixelRatio || 1; let ox = 0, oy = 0;
+  try { const fr = window.frameElement && frameElement.getBoundingClientRect(); if (fr) { ox = fr.left; oy = fr.top; } } catch (e) {}
+  const L = r.left + ox, T = r.top + oy, R = r.right + ox, B = r.bottom + oy;
+  const t = Math.ceil(T * k - .01) / k - T, l = Math.ceil(L * k - .01) / k - L, b = B - Math.floor(B * k + .01) / k, rt = R - Math.floor(R * k + .01) / k;
+  slot.style.clipPath = `inset(${t}px ${rt}px ${b}px ${l}px)`;
+}
+addEventListener('resize', () => { if (slot.classList.contains('on')) snapSlot(); });
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+function tick() {
+  const d = isFinite(v.duration) ? v.duration : 0;
+  left.textContent = fmt(Math.max(0, Math.ceil(d - v.currentTime)));
+  prog.style.width = (d ? v.currentTime / d * 100 : 0) + '%';
+  raf = requestAnimationFrame(tick);
+}
+async function start() {
+  const id = ++run;
+  v.pause(); slot.classList.remove('on'); setY(0);
+  await wait(T.top); if (id !== run) return;
+  await scrollTo(target(), T.down, id); if (id !== run) return;
+  try { v.currentTime = 0; } catch (e) {}
+  v.muted = !sound;
+  const p = v.play(); if (p && p.catch) p.catch(() => { v.muted = true; v.play().catch(() => {}); });
+  snapSlot(); slot.classList.add('on'); cancelAnimationFrame(raf); tick();
+  await new Promise(r => v.addEventListener('ended', r, { once: true })); if (id !== run) return;
+  await wait(T.hold); slot.classList.remove('on'); cancelAnimationFrame(raf);
+  await wait(T.after); if (id !== run) return;
+  await scrollTo(0, T.up, id); if (id !== run) return;
+  start();
+}
+const ICON = on => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z" fill="currentColor"/>' +
+  (on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>' : '<line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>') + '</svg>';
+function setSound(on) { sound = !!on; v.muted = !sound; mute.innerHTML = ICON(sound); }
+setSound(false);
+// on a real phone (?full) a tap anywhere turns the sound on, then the speaker toggles it (as IMA's own button)
+if (root.classList.contains('full')) addEventListener('pointerup', () => setSound(!sound));
+const slotMs = () => T.top + T.down + (isFinite(v.duration) ? v.duration * 1000 : 0) + T.hold + T.after + T.up;
+window.DEMO = { start, get slotMs() { return slotMs(); }, setAuto: () => {}, setSound };
+// start once the page snapshot is in, so the first frame is never blank
+const img = document.getElementById('page');
+(img.complete ? Promise.resolve() : new Promise(r => { img.onload = img.onerror = r; })).then(() => {
+  if (inPhone && img.naturalWidth) try {   // a small copy of the snapshot to read the colour under the status bar
+    const c = document.createElement('canvas'); c.width = 60; c.height = Math.round(60 * img.naturalHeight / img.naturalWidth);
+    shot = c.getContext('2d', { willReadFrequently: true }); shot.drawImage(img, 0, 0, c.width, c.height);
+  } catch (e) {}
+  start();
+});
+</script>
+</body>
+</html>

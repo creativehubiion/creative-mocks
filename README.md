@@ -10,8 +10,10 @@ served by GitHub Pages:
 | Interactive CTV (L-band playables in a 30 s TV break), or a CTV video ad with the break countdown | `ctv/` | TV (+ animated remote when interactive) |
 | Hybrid playable (video on top + game below, 320×480) | `hybrid/` | phone, in-app interstitial |
 | Playable (game only, 320×480) | `playable/` | phone, in-app interstitial |
+| Display interstitial (a static 2:3 image, 640×960) | `display-interstitial/` | phone, in-app interstitial |
 | Rewarded video (landscape, reward countdown) | `rewarded/` | phone, landscape |
 | Rewarded video + end card | `rewarded-endcard/` | phone, landscape |
+| Rewarded video + playable end card (vertical video, then the brand's playable live as the end card) | `rewarded-playable/` | phone, portrait |
 | Away from the game video (the spot as the pre-roll in a publisher article's own video player) | `afg-video/` (+ `afg-video-mobile/`) | MacBook; mobile web on phones |
 | Several mocks for one brand on one link | `showcase/` | the mocks' own pages, switched from the header |
 

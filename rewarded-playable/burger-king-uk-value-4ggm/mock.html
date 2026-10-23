@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Burger King UK · Rewarded video + playable end card</title>
+<style>
+/* Portrait rewarded video with a playable end card (from the ad-banner-screenshot-generator's "Rewarded + Playable", portrait):
+   the game the viewer was playing fills the screen, a 0.3 s fade to black, then the brand's vertical video in a 9:16 box the full
+   width of the screen (centred, black above and below) with the "N Seconds remaining" pill and the blue progress bar, both read
+   from the video's own duration; then the end card, which is the brand's playable itself, live, in our 2:3 interstitial slot with
+   black bars and the white close button. A tap on the video turns its sound on (like the live units). The end card plays its own
+   demo for CONFIG.endcardMs, then the loop starts again; once a viewer touches the playable it stays until they close it.
+   Generator geometry, in % of the 9:16 box's width (portrait sizes everything from the width): pill 12% high, 3% from the top and
+   right; progress bar 1.5%; close button 9% across, 3% from the corner. */
+html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}
+.unit{position:fixed;inset:0;background:#000;container-type:size;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif}
+.pre{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.box{position:absolute;left:50%;top:50%;width:min(100cqw,100cqh * 9 / 16);aspect-ratio:9/16;transform:translate(-50%,-50%);container-type:size;overflow:hidden}
+.box video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:block}
+.ec{position:absolute;left:50%;top:50%;width:min(100cqw,100cqh * 2 / 3);aspect-ratio:2/3;transform:translate(-50%,-50%);border:0;display:block;background:#000}
+.fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:5}
+.phase-pre .box,.phase-pre .ec,.phase-ad .ec{visibility:hidden}
+.phase-ad .pre,.phase-end .pre,.phase-end .ad{visibility:hidden}
+.pill{position:absolute;top:3cqw;right:3cqw;height:12cqw;align-items:center;gap:1.8cqw;padding:0 2.4cqw 0 1.8cqw;border-radius:6cqw;
+  background:rgba(100,100,100,.85);color:#fff;font-weight:500;font-size:3.36cqw;white-space:nowrap;z-index:3}
+.pill b{flex:none;width:8.4cqw;height:8.4cqw;border-radius:50%;background:rgba(255,255,255,.9);color:#333;display:grid;place-items:center;font-weight:700;font-size:4.2cqw}
+.bar{position:absolute;left:0;right:0;bottom:0;height:1.5cqw;background:rgba(0,0,0,.3);z-index:3}
+.bar i{display:block;height:100%;width:0;background:#4285f4}
+.mute{position:absolute;top:3cqw;left:3cqw;width:9cqw;height:9cqw;border-radius:50%;border:0;padding:0;background:rgba(100,100,100,.85);color:#fff;place-items:center;cursor:pointer;z-index:3}
+.mute svg{width:55%;height:55%}
+.close{position:absolute;top:3cqw;right:3cqw;width:9cqw;height:9cqw;border-radius:50%;border:0;padding:0;background:rgba(255,255,255,.9);color:#333;place-items:center;cursor:pointer;z-index:6}
+.close svg{width:50%;height:50%}
+.pill,.bar,.mute,.close{display:none}
+.phase-ad .pill{display:flex}
+.phase-ad .bar{display:block}
+.phase-ad .mute{display:grid}
+.phase-end .close{display:grid}
+</style>
+<script>{const q=new URLSearchParams(location.search); if(q.has('round')){const r=document.documentElement; r.classList.add('round');
+  try{const ph=parent.document.documentElement, sync=()=>r.classList.toggle('round',!ph.classList.contains('fs')); new MutationObserver(sync).observe(ph,{attributes:true,attributeFilter:['class']}); sync();}catch(e){}}}</script>
+<style>
+/* ?round (set by the phone page): the unit rounds its own corners to the portrait phone screen's radius, because Safari ignores the
+   parent page's clip on video inside an iframe (same trick as the landscape rewarded unit). */
+html.round,html.round body{background:transparent}
+html.round .unit{border-radius:13.2% / 6.1%;overflow:hidden;isolation:isolate;transform:translateZ(0);
+  -webkit-mask-image:-webkit-radial-gradient(white,black);mask-image:radial-gradient(white,black)}
+</style>
+</head>
+<body>
+<div class="unit phase-pre" id="unit">
+  <video class="pre" id="pre"></video>
+  <div class="box" id="box">
+    <video class="ad" id="ad"></video>
+    <div class="pill" id="pill"><b id="secs">&nbsp;</b>Seconds remaining</div>
+    <div class="bar"><i id="prog"></i></div>
+    <button class="mute" id="mute" type="button" aria-label="Sound"></button>
+    <button class="close" id="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <iframe class="ec" id="ec" title="playable end card" allow="autoplay"></iframe>
+  <div class="fade" id="fade"></div>
+</div>
+<script>
+const CONFIG = {
+  preroll: 'assets/game-preroll.mp4',   // the portrait game the viewer was playing (tools/video-library/preroll-portrait/)
+  ad: 'assets/ad.mp4',                  // the brand's vertical video (9:16)
+  endcard: 'endcard/mock.html',         // the brand's playable (a copy of its mock.html + files), shown live as the end card
+  endcardMs: 20000,                     // how long the end card plays its own demo before the loop starts again
+  fadeMs: 300,                          // generator: 0.3 s fade to black between the game and the ad
+};
+const $ = id => document.getElementById(id);
+const unit = $('unit'), pre = $('pre'), ad = $('ad'), ec = $('ec'), fade = $('fade'), box = $('box');
+const ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
+const OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M23 9l-6 6M17 9l6 6"/></svg>';
+let phase = 'pre', sound = false, unlocked = false, endTimer = 0, fading = false, held = false;
+[pre, ad].forEach(v => { v.muted = true; v.defaultMuted = true; v.setAttribute('muted', ''); v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; });
+pre.src = CONFIG.preroll; ad.src = CONFIG.ad;
+const ecSrc = CONFIG.endcard + '?embed=1';
+ec.src = ecSrc;   // loaded up front (hidden) so it is ready the moment the video ends
+
+function setPhase(p) { phase = p; unit.className = 'unit phase-' + p; }
+function go(v) { try { v.currentTime = 0; } catch (e) {} const r = v.play(); if (r && r.catch) r.catch(() => { v.muted = true; v.play().catch(() => {}); }); }
+function start() {
+  clearTimeout(endTimer); ad.pause(); fading = false; held = false; fade.style.transition = 'none'; fade.style.opacity = 0;
+  setPhase('pre'); go(pre);
+}
+function toAd() {
+  pre.pause(); setPhase('ad'); ad.muted = !sound; go(ad);
+  fade.style.transition = 'opacity 120ms linear'; fade.style.opacity = 0; fading = false;
+}
+function toEnd() {
+  ad.pause(); setPhase('end');
+  // a fresh round of the playable each time (its start card, then its own demo)
+  try { const w = ec.contentWindow; if (w.DEMO && w.DEMO.start) w.DEMO.start(); else ec.src = ecSrc; } catch (e) { ec.src = ecSrc; }
+  try { const w = ec.contentWindow; if (w.DEMO && w.DEMO.setSound) w.DEMO.setSound(sound); } catch (e) {}
+  endTimer = setTimeout(() => { if (!held) start(); }, CONFIG.endcardMs);
+}
+pre.addEventListener('timeupdate', () => {
+  if (phase !== 'pre' || fading || !isFinite(pre.duration)) return;
+  if (pre.duration - pre.currentTime <= CONFIG.fadeMs / 1000) {
+    fading = true; fade.style.transition = 'opacity ' + CONFIG.fadeMs + 'ms linear'; fade.style.opacity = 1;
+  }
+});
+pre.addEventListener('ended', () => { if (phase === 'pre') toAd(); });
+ad.addEventListener('ended', () => { if (phase === 'ad') toEnd(); });
+
+// countdown + progress: straight from the video's duration, as in the generator
+(function tick() {
+  if (phase === 'ad' && isFinite(ad.duration) && ad.duration > 0) {
+    $('secs').textContent = Math.max(0, Math.ceil(ad.duration - ad.currentTime));
+    $('prog').style.width = Math.min(100, ad.currentTime / ad.duration * 100) + '%';
+  }
+  requestAnimationFrame(tick);
+})();
+
+function paintMute() { $('mute').innerHTML = sound ? ON : OFF; $('mute').setAttribute('aria-pressed', sound ? 'true' : 'false'); }
+function setSound(on) {
+  sound = !!on; ad.muted = !sound; paintMute();
+  try { const w = ec.contentWindow; if (w.DEMO && w.DEMO.setSound) w.DEMO.setSound(sound); } catch (e) {}
+  try { if (parent !== window) parent.postMessage({ iionSound: sound }, '*'); } catch (e) {}
+}
+const tapAt = (x, y) => { try { if (parent !== window) parent.postMessage({ iionTap: { x, y } }, '*'); } catch (e) {} };
+// the first tap anywhere unlocks the sound; the speaker button handles its own toggle
+document.addEventListener('pointerdown', e => {
+  tapAt(e.clientX / innerWidth, e.clientY / innerHeight);
+  if (!unlocked && !e.target.closest('.mute')) { unlocked = true; setSound(true); }
+}, true);
+// the playable's own taps (its demo or a viewer) come up in its frame's units: pass them on in the unit's, for the page's ripple;
+// a viewer's touch inside it (no demo running) keeps the end card up until they close it
+addEventListener('message', e => {
+  const t = e.data && e.data.iionTap;
+  if (!t || e.source !== ec.contentWindow) return;
+  const r = ec.getBoundingClientRect();
+  tapAt((r.left + t.x * r.width) / innerWidth, (r.top + t.y * r.height) / innerHeight);
+});
+ec.addEventListener('load', () => { try { ec.contentDocument.addEventListener('pointerdown', () => { held = true; if (!unlocked) { unlocked = true; setSound(true); } }, true); } catch (e) {} });
+$('mute').addEventListener('click', e => { e.stopPropagation(); unlocked = true; setSound(!sound); });
+$('close').addEventListener('click', e => { e.stopPropagation(); start(); });
+paintMute();
+
+const slotMs = () => ((isFinite(pre.duration) ? pre.duration : 0) + (isFinite(ad.duration) ? ad.duration : 0)) * 1000 + CONFIG.endcardMs;
+window.DEMO = { start, get slotMs() { return slotMs(); }, setAuto: () => {}, setSound };
+start();
+</script>
+</body>
+</html>

@@ -6,9 +6,9 @@ Build (or rebuild) a brand's one-link showcase from every mock that carries its 
 
 It looks in every format folder for <anything>-<suffix>/index.html and lists them in this order, with people-friendly labels
 (the weekly Creative Hub bot uses them as link text, CLAUDE.md §8d):
-  Interactive CTV · CTV video · Rewarded video · Rewarded video + end card · Away from the game video (one tab: the MacBook on a
+  Interactive CTV · CTV video · Rewarded video · Rewarded video + end card · Rewarded video + playable end card · Away from the game video (one tab: the MacBook on a
   computer, the mobile web version on a phone; afg-video-mobile/ is never a tab of its own)
-  · Hybrid playable · Playable
+  · Hybrid playable · Playable · Display interstitial
 Writes showcase/<name>/index.html from showcase/_template/ (name defaults to the slug of the first mock found).
 """
 import argparse, io, os, re, sys
@@ -20,9 +20,11 @@ KINDS = [
     ('ctv', 'video', 'CTV video', 'CTV', 'tv', 'ctv'),
     ('rewarded', None, 'Rewarded video', 'Rewarded', 'land', 'rewarded'),
     ('rewarded-endcard', None, 'Rewarded video + end card', 'Rewarded + end card', 'landEnd', 'endcard'),
+    ('rewarded-playable', None, 'Rewarded video + playable end card', 'Rewarded + playable', 'phonePlay', 'rewarded-playable'),
     ('afg-video', None, 'Away from the game video', 'AFG video', 'laptop', 'afg'),
     ('hybrid', None, 'Hybrid playable', 'Hybrid', 'phone', 'hybrid'),
     ('playable', None, 'Playable', 'Playable', 'phone', 'playable'),
+    ('display-interstitial', None, 'Display interstitial', 'Display', 'phoneImg', 'display'),
 ]
 
 def rd(p): return io.open(p, encoding='utf-8').read()

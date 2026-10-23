@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tray Tower · Burger King · interactive CTV</title>
+<link rel="icon" href="data:,"><link href="game/fonts/Inter-LilitaOne.css" rel="stylesheet">
+<style>
+/* Tray Tower, interactive CTV (burgerking-01). A squeeze-back L-band: the spot plays full screen, then the player scales it uniformly to a
+   flush rectangle in the top right (62.5%; the slot is standard, owner 16:20: nothing is drawn on it, no corners, no frame, no shadow).
+   Under it, the game's world fills the whole TV: the game (2:3, full height) at the left, and its wall and counter carried on to the
+   right edge by the game page itself (game/tv-extend.js: a second canvas on the same pixel rows, one light over both, toppled items
+   carried across). On a TV the stage is composed 6% lower (the counter top at 81%) so the banner has room.
+   The banner, in three tiers on one grid (owner 16:32: the first layout had no composition):
+     1. the brand moment, on the wall above the counter: the mark and the campaign line at the left, the hero meal standing on the
+        counter at the right (Burger King's own photography, cut from the spot's end card: a placeholder like the spot);
+     2. the counter itself, which the hero stands on at the game's tray height;
+     3. a key hint on the counter front, the way TV interfaces show one: the D-pad and what OK does now, small, aligned to the mark.
+   Margins: 5cqh in from the game's edge, the action-safe 5cqw at the right; text never leaves the safe area.
+   The creative-mocks page contract, spoken natively (their notes: "the pipeline's cores don't speak our page contract yet"):
+   ?embed=1 fills the frame (it already does: 16:9 on black) · ?attract the game plays itself and the slot loops ·
+   window.DEMO = { start, slotMs, setAuto, setSound } · every OK (the bot's or a viewer's) posts {iionKey:'ok'} to the parent, throttled
+   260 ms, so their remote lights · the 30 s slot: full frame 0-2 s, squeezed, back to full frame at 27 s for the end card, then again.
+   Hooks: ?t=<s> start the spot at s seconds · ?squeezed start squeezed · ?attract the game plays itself · ?safe show the safe area */
+:root{--brown:#502314;--red:#D62300;--orange:#FF8732;--cream:#F5EBDC;--display:'Lilita One','Arial Black',system-ui,sans-serif;--sans:Inter,system-ui,sans-serif;
+  --ease:cubic-bezier(.6,0,.2,1);--gl:calc(37.5cqw + 5cqh);--gr:5cqw}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center}
+.tv{position:relative;width:min(100vw,calc(100vh*16/9));aspect-ratio:16/9;background:#4a2414;overflow:hidden;container-type:size}
+/* the game's world, the whole TV (the spot covers it until the squeeze) */
+.world{position:absolute;inset:0;z-index:1}
+.world iframe{display:block;width:100%;height:100%;border:0;background:#4a2414}
+/* the spot: full screen, then scaled uniformly to 62.5% and anchored top right, a plain rectangle (the TV player owns this slot) */
+.spot{position:absolute;z-index:3;left:0;top:0;width:100cqw;height:100cqh;object-fit:cover;background:#000;
+  transition:left .9s var(--ease),width .9s var(--ease),height .9s var(--ease)}
+.tv.squeezed .spot{left:37.5cqw;width:62.5cqw;height:62.5cqh}
+.brand,.hero,.keys{position:absolute;z-index:4;opacity:0;transform:translateY(2.4cqh);transition:opacity .5s .55s,transform .65s .55s var(--ease)}
+.tv.squeezed .brand,.tv.squeezed .hero,.tv.squeezed .keys{opacity:1;transform:none}
+/* 1. the brand moment: the mark and the line, centred in the wall between the spot (62.5%) and the counter top (81.4%) */
+.brand{left:var(--gl);top:62.5cqh;height:18.9cqh;display:flex;align-items:center;gap:3cqh}
+.brand img{height:13.6cqh;filter:drop-shadow(0 .6cqh .9cqh rgba(0,0,0,.4))}
+.brand h2{margin:0;font:400 5.8cqh/1.02 var(--display);color:var(--cream);letter-spacing:.005em;white-space:nowrap;text-shadow:0 .45cqh 0 rgba(0,0,0,.32)}
+.brand h2 em{font-style:normal;color:var(--orange)}
+/* the hero stands on the counter at the game's tray height (84%), its top clear of the spot */
+.hero{right:var(--gr);bottom:16cqh;height:20.4cqh;transition-delay:.75s}
+.hero::before{content:'';position:absolute;left:-30%;right:-30%;top:-10%;bottom:-6%;background:radial-gradient(closest-side,rgba(255,196,130,.30),rgba(255,196,130,.10) 55%,transparent);z-index:-1}   /* the product's own light on the wall: the focal point */
+.hero img{display:block;height:100%;width:auto;filter:drop-shadow(0 .8cqh 1cqh rgba(25,8,2,.45))}
+.hero::after{content:'';position:absolute;left:3%;right:3%;bottom:-.9cqh;height:2.2cqh;border-radius:50%;background:radial-gradient(closest-side,rgba(25,8,2,.55),transparent);z-index:-1}
+.tv.won .hero img{animation:heroglow 1.4s ease-in-out 2}
+@keyframes heroglow{50%{filter:drop-shadow(0 .8cqh 1cqh rgba(25,8,2,.45)) drop-shadow(0 0 3cqh rgba(255,170,60,.8))}}
+/* 3. the key hint on the counter front: small, functional, aligned to the mark */
+.keys{left:var(--gl);top:88.4cqh;height:6.6cqh;display:flex;align-items:center;gap:1.8cqh;color:var(--cream);transition-delay:.9s}
+.keys .dpad{height:6.6cqh;width:6.6cqh;flex:none;filter:drop-shadow(0 .4cqh .5cqh rgba(0,0,0,.45))}
+.dpad .okb{transform-box:fill-box;transform-origin:center;animation:okb 1.6s ease-in-out infinite}
+.dpad .ring{transform-box:fill-box;transform-origin:center;animation:okring 1.6s ease-out infinite;opacity:0}
+@keyframes okb{0%,62%,100%{transform:none}72%{transform:scale(.86)}}
+@keyframes okring{0%,64%{opacity:0;transform:scale(1)}72%{opacity:1}100%{opacity:0;transform:scale(1.55)}}
+.keys b{font:400 3.6cqh/1 var(--display);letter-spacing:.01em;white-space:nowrap}
+.keys span{font:600 2.5cqh/1 var(--sans);opacity:.72;white-space:nowrap}
+.safe{position:absolute;inset:5cqh 5cqw;z-index:9;outline:.2cqh dashed #0f0;pointer-events:none}
+/* preview only: the browser's sound rule (on a TV the ad plays with sound) */
+.sound{position:absolute;right:1.2cqw;top:3.4cqh;z-index:6;font:600 1.9cqh var(--sans);color:#eee;background:rgba(0,0,0,.6);border:.12cqh solid #555;padding:.7cqh 1.4cqh;border-radius:99px;transition:opacity .4s}
+</style></head><body>
+<div class="tv" id="tv">
+  <div class="world"><iframe id="game" title="Tray Tower" src="game/index.html?embed&mute&tv"></iframe></div>
+  <video class="spot" id="spot" src="assets/spot.mp4" muted autoplay playsinline preload="auto"></video>
+  <div class="brand"><img src="game/assets/brand/logo.svg" alt="Burger King"><h2>That much,<br><em>for that price?</em></h2></div>
+  <div class="hero"><img src="assets/hero-meal.webp" alt="A Double Melt burger, a Burger King drink and cheese bites"></div>
+  <div class="keys">
+    <svg class="dpad" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" fill="#2b2b2e"/><circle cx="50" cy="50" r="45.5" fill="none" stroke="#505056" stroke-width="1.6"/><g fill="none" stroke="#8d8d94" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M42 19 L50 11 L58 19"/><path d="M42 81 L50 89 L58 81"/><path d="M19 42 L11 50 L19 58"/><path d="M81 42 L89 50 L81 58"/></g><circle class="ring" cx="50" cy="50" r="25" fill="none" stroke="#FF8732" stroke-width="3"/><g class="okb"><circle cx="50" cy="50" r="24" fill="#D62300"/><circle cx="50" cy="50" r="24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2"/><text x="50" y="56.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="17" fill="#fff">OK</text></g></svg>
+    <b id="keyH">Press OK to play</b><span id="keySub">Use your TV remote</span>
+  </div>
+  <div class="safe" id="safe" hidden></div>
+  <div class="sound" id="sound">🔇 Preview: press any key or click for sound</div>
+</div>
+<script>
+(function () {
+  const Q = new URLSearchParams(location.search), $ = id => document.getElementById(id);
+  const tv = $('tv'), spot = $('spot'), frame = $('game');
+  const SQUEEZE_AT = 2.0, RESTORE_AT = 27.0, SLOT_MS = 30000;   // full frame, squeezed, back to full frame for the end card; one slot
+  const T0 = +(Q.get('t') || 0);
+  let auto = Q.has('attract');
+  if (Q.has('safe')) $('safe').hidden = false;
+  const gameSrc = () => 'game/index.html?embed&mute&tv' + (auto ? '&attract' : '');
+  if (auto) frame.src = gameSrc();
+  // the spot: muted autoplay in an iframe needs the property and the attribute (the mocks contract)
+  spot.muted = true; spot.defaultMuted = true; spot.setAttribute('muted', '');
+  spot.currentTime = T0; spot.play().catch(() => {});
+  // the slot: back to full frame for the end card, then (playing itself, or once the spot has ended) the slot again
+  function start() { tv.classList.remove('squeezed'); spot.currentTime = 0; spot.play().catch(() => {}); }
+  spot.addEventListener('ended', () => start());
+  // iionKey: the parent's remote lights on every OK (throttled 260 ms)
+  let lastKey = 0;
+  const emitKey = k => { const now = performance.now(); if (now - lastKey < 260) return; lastKey = now; try { parent.postMessage({ iionKey: k }, '*'); } catch (e) {} };
+  window.DEMO = {
+    start, slotMs: SLOT_MS,
+    setAuto: on => { if (!!on === auto) return; auto = !!on; frame.src = gameSrc(); },
+    setSound: on => { spot.muted = !on; if (on) { heard = true; const c = $('sound'); if (c) c.remove(); } },
+  };
+  let heard = false;
+  if (Q.has('embed')) { const c = $('sound'); if (c) c.remove(); }   // inside a review page its own sound button does this
+  const hear = () => { if (heard) return; heard = true; spot.muted = false; const c = $('sound'); if (c) { c.style.opacity = 0; setTimeout(() => c.remove(), 400); } };
+  const squeeze = () => tv.classList.add('squeezed');
+  if (Q.has('squeezed') || T0 >= SQUEEZE_AT) squeeze();
+  spot.addEventListener('timeupdate', () => { const t = spot.currentTime; if (t >= RESTORE_AT) tv.classList.remove('squeezed'); else if (t >= SQUEEZE_AT) squeeze(); });
+  if (Q.has('embed')) document.documentElement.classList.add('embed');
+  // the remote's OK (Enter / Space / the TV's Select): before the squeeze it squeezes; then it plays the game's one control.
+  // A card on screen takes OK as its button (start: play; end: play again); otherwise OK drops the item.
+  const gdoc = () => frame.contentDocument, shown = id => { const e = gdoc() && gdoc().getElementById(id); return !!e && !e.hidden; };
+  function ok() {
+    hear(); emitKey('ok');
+    if (!tv.classList.contains('squeezed')) { squeeze(); return; }
+    const d = gdoc(); if (!d) return;
+    if (shown('startCard')) d.getElementById('playBtn').click();
+    else if (shown('winCard')) d.getElementById('again1').click();
+    else if (shown('failCard')) d.getElementById('again2').click();
+    else frame.contentWindow.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ' }));
+  }
+  const isOK = e => e.key === 'Enter' || e.key === ' ' || e.code === 'Space' || e.code === 'NumpadEnter' || e.key === 'Select' || e.key === 'Accept';
+  window.addEventListener('keydown', e => { if (isOK(e)) { e.preventDefault(); ok(); } else hear(); });
+  tv.addEventListener('pointerdown', hear);
+  // inside the game too (a click moves the focus there): real OK presses go through ok(); the synthetic Space ok() sends is left to the game
+  frame.addEventListener('load', () => {
+    const w = frame.contentWindow;
+    w.addEventListener('keydown', e => { if (!e.isTrusted) return; if (isOK(e)) { e.preventDefault(); e.stopImmediatePropagation(); ok(); } else hear(); }, true);
+    w.addEventListener('pointerdown', hear, true);
+  });
+  // the key hint follows the round: what OK does now
+  const SAY = { start: ['Press OK to play', 'Use your TV remote'], play: ['Press OK to drop', 'Keep the pile balanced'],
+                won: ['Press OK to play again', 'Twelve high. Order up!'], lost: ['Press OK to play again', 'Keep the weight over the middle'] };
+  let said = '';
+  let drops = 0;
+  const tick = () => {
+    const G = frame.contentWindow && frame.contentWindow.TrayTowerGame, S = G && G.S;
+    if (S) {
+      if (S.drops > drops && auto) emitKey('ok'); drops = S.drops;
+      const won = S.mode === 'reveal' || S.mode === 'win', lost = S.mode === 'fail';
+      tv.classList.toggle('won', won); tv.classList.toggle('lost', lost);
+      const k = won ? 'won' : lost ? 'lost' : shown('startCard') ? 'start' : 'play';
+      if (k !== said) { said = k; $('keyH').textContent = SAY[k][0]; $('keySub').textContent = SAY[k][1]; }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+})();
+</script>
+</body></html>
