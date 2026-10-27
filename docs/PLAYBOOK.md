@@ -65,7 +65,7 @@ Every page is the same shell (`shared/page.css` + `shared/theme.js`):
 - Playables and hybrids (`shared/mobile.js`) skip the mock page and open the unit full screen, as it serves in-app. `?desktop` keeps
   the mock page. On desktop, a "Scan to play on your phone" QR sits beside the phone (playable formats only).
 - Rewarded video + playable end card behaves like a playable on phones too (full screen, QR on desktop), with "Turn sound on" under the
-  phone; a landscape spot is centre-cropped to 9:16 when no vertical cut exists. Its end card is a copy of the playable's own files.
+  phone; the video shows whole: anything that is not 9:16 gets black bars (never cropped). Its end card is a copy of the playable's own files.
 - Display interstitials behave exactly like playables (same phone, 2:3 slot, full screen on a phone, QR on desktop); the QR card reads
   "Scan to see it on your phone" (`.phone[data-qr]`).
 - CTV and rewarded pages keep the page, with "Turn sound on" and "Full screen" (`shared/fullscreen.js`).

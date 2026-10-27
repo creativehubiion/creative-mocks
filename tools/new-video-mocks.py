@@ -14,7 +14,7 @@ Example (the VOXI set):
 
   Only the formats you give inputs for are built:  --ctv-ad -> CTV,  --rewarded-ad -> rewarded,
   --endcard -> rewarded + end card (its ad is --endcard-ad, or --rewarded-ad if not given),
-  --rp-ad + --rp-playable -> rewarded video + playable end card (portrait: the video is centre-cropped to 9:16 if it isn't vertical;
+  --rp-ad + --rp-playable -> rewarded video + playable end card (portrait: a video that is not vertical is letterboxed in the 9:16 box, never cropped;
   the playable folder is copied in as the end card: a mock folder's files without its index.html page, or a build whose index.html
   is the unit; pre-roll --rp-preroll from tools/video-library/preroll-portrait/: subway-surfer (default; trimmed to the run, 3.5 s, before its Dutch continue screen) or we-are-warriors (Italian on screen)),
   --display -> display interstitial (the static 2:3 image, 640x960, in the playable's phone; a tap opens --click-url).
@@ -66,11 +66,11 @@ def page(dst, brand, headline, desc):
     wr(m, sub(t, '<title>Brand · ', f'<title>{html(brand)} · '))
 
 def vertical(src, dst):
-    # the brand video at 9:16: a landscape spot is centre-cropped (no vertical cut exists yet), height at most 1280, CLAUDE.md §6 settings
+    # the brand video in its own shape (the unit letterboxes anything that isn't 9:16 in its 9:16 box; never cropped), at most 720x1280
     out = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', src], capture_output=True, text=True)
     w, h = (int(x) for x in out.stdout.strip().split(',')[:2])
-    vf = "crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=-2:'min(1280,ih)'"
-    if w / h > 9 / 16 + .01: print(f'note: {os.path.basename(src)} is {w}x{h}; centre-cropped to 9:16')
+    vf = "scale='min(720,iw)':'min(1280,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2"
+    if w / h > 9 / 16 + .01: print(f'note: {os.path.basename(src)} is {w}x{h}, not vertical; shown letterboxed (black bars) in the 9:16 box')
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', src, '-vf', vf, '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-pix_fmt', 'yuv420p',
                     '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '96k', dst], check=True)
 
@@ -109,7 +109,7 @@ def main():
     a.add_argument('--rewarded-ad'); a.add_argument('--rewarded-headline'); a.add_argument('--rewarded-preroll', default='asphalt-legends')
     a.add_argument('--endcard', help='end card image (jpg/png)'); a.add_argument('--endcard-ad'); a.add_argument('--endcard-headline')
     a.add_argument('--endcard-preroll', default='geometry-dash')
-    a.add_argument('--rp-ad', help='rewarded + playable end card: the brand video (vertical, or cropped to 9:16)')
+    a.add_argument('--rp-ad', help='rewarded + playable end card: the brand video (vertical; anything else is letterboxed)')
     a.add_argument('--rp-playable', help='rewarded + playable end card: the playable folder to show as the end card')
     a.add_argument('--rp-preroll', default='subway-surfer'); a.add_argument('--rp-headline')
     a.add_argument('--display', help='display interstitial image, 2:3 (640x960)'); a.add_argument('--display-headline')
