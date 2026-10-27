@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>LEGO Friends — Favourite Toy Poll</title>
+  <!--
+    HYBRID POLL — LEGO Friends.  Video on top (37%) + one-question poll (63%).
+    Edit only the ▸ EDIT ME ◂ blocks: THEME (colours) and CONFIG (copy + data).
+    Drop the clip in as  video.mp4  next to this file.
+  -->
+  <style>
+    /* LEGO Typewell — the font kids.lego.com uses, self-hosted from assets.lego.com */
+    @font-face { font-family: 'LEGO Typewell'; font-weight: 400; font-display: swap; src: url('fonts/LEGOTypewell-Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'LEGO Typewell'; font-weight: 500; font-display: swap; src: url('fonts/LEGOTypewell-Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'LEGO Typewell'; font-weight: 700; font-display: swap; src: url('fonts/LEGOTypewell-Bold.woff2') format('woff2'); }
+    @font-face { font-family: 'LEGO Typewell'; font-weight: 900; font-display: swap; src: url('fonts/LEGOTypewell-Black.woff2') format('woff2'); }
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    [hidden] { display: none !important; }
+
+    /* ══════════════════════════════════════════════════════════════
+       ▸ EDIT ME ◂  THEME
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+      --cream: #FFF7DC;          /* poll background (top) — also the wave that cuts into the video */
+      --cream-2: #FFEFB8;        /* poll background (bottom) */
+      --ink: #2A1260;            /* deep purple: headline + labels */
+      --pink: #E0197D;           /* headline highlight */
+      --yellow: #FFC61A;         /* sparkle strokes, bricks */
+      --video-bg: #000;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      font-family: 'LEGO Typewell', system-ui, sans-serif;
+      background: #000;
+      color: var(--ink);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Proportional scale: 1u = 1px on a 360px-wide canvas, growing with the canvas. */
+    :root {
+      --cw: min(100vw, calc(100vh * 2 / 3));
+      --u: calc(var(--cw) / 360);
+    }
+
+    @supports (height: 100dvh) {
+      :root { --cw: min(100vw, calc(100dvh * 2 / 3)); }
+    }
+
+    .container {
+      aspect-ratio: 2 / 3;
+      width: min(100vw, calc(100vh * 2 / 3));
+      width: min(100vw, calc(100dvh * 2 / 3));
+      height: auto;
+      max-height: 100vh;
+      max-height: 100dvh;
+      margin: auto;
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── VIDEO AREA (37%) ── */
+    .video-area {
+      height: 37%;
+      position: relative;
+      background: var(--video-bg);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .video-area video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* the cream poll background rolls up into the video as a gentle wave (it sits INSIDE the video box, so the
+       poll still starts exactly at the video's bottom edge) */
+    .wave-edge {
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      width: 100%;
+      height: calc(var(--u) * 22);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .mute-btn {
+      position: absolute;
+      top: clamp(8px, 2vw, 14px);
+      right: clamp(8px, 2vw, 14px);
+      width: clamp(28px, 7vw, 40px);
+      height: clamp(28px, 7vw, 40px);
+      border-radius: 50%;
+      border: none;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      color: #fff;
+      cursor: pointer;
+      z-index: 3;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.2s;
+    }
+
+    .mute-btn:hover { background: rgba(0, 0, 0, 0.7); }
+
+    .mute-btn svg {
+      width: clamp(14px, 3.5vw, 20px);
+      height: clamp(14px, 3.5vw, 20px);
+      fill: #fff;
+    }
+
+    /* ── POLL AREA (63%, starts exactly where the video ends) ──
+       All sizes are u(N) = N px on a 360px-wide canvas. */
+    .poll-area {
+      height: 63%;
+      padding: calc(var(--u) * 4) calc(var(--u) * 16) 0;
+      background: url('bg-assets/waves-bg.jpg') 0 calc(var(--u) * -18) / 100% auto no-repeat, #FDE26A;   /* supplied wave artwork */
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .deco {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* the toy pieces sit IN FRONT of the cards, overlapping their edges, for depth */
+    .deco { z-index: 3; }
+
+    /* the supplied 3D brick / heart / star / arch cutouts, tucked behind the cards at the edges */
+    .deco img {
+      position: absolute;
+      height: auto;
+      transform: rotate(var(--r, 0deg));
+      filter: blur(calc(var(--u) * 0.9)) drop-shadow(0 calc(var(--u) * 4) calc(var(--u) * 4) rgba(60, 20, 90, 0.22));   /* soft focus: attention stays on the cards */
+    }
+
+    .poll-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding-bottom: calc(var(--u) * 6);
+    }
+
+    .brand {
+      position: absolute;               /* pinned to the poll's top-left corner, out of the flow */
+      top: calc(var(--u) * -2);
+      left: calc(var(--u) * -4);        /* 12u from the frame edge; the wordmark is ~51u wide so it ends before the heading's left strokes */
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      height: calc(var(--u) * 24);
+    }
+
+    .brand img { height: 100%; width: auto; display: block; }
+
+    .poll-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .question {
+      position: relative;
+      margin-top: calc(var(--u) * 14);       /* was 10u under a 30u logo row — now the logo is in the corner */
+      min-height: calc(var(--u) * 40);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(var(--u) * 18);
+      font-weight: 900;
+      line-height: 1.1;
+      text-align: center;
+      text-wrap: balance;
+      color: var(--ink);
+      flex-shrink: 0;
+    }
+
+    .question .hl { color: var(--pink); }
+
+    /* the supplied yellow 'pop' strokes hug the heading text (rays fan OUTWARD: right as drawn, left mirrored) */
+    .question > span { position: relative; display: block; width: max-content; max-width: 100%; }
+    .question > span > i { display: block; font-style: normal; }   /* one block per line, so the box shrink-wraps the heading and the strokes can hug it */
+
+    .question > span::before,
+    .question > span::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: calc(var(--u) * 22);
+      height: calc(var(--u) * 20);
+      margin-top: calc(var(--u) * -10);
+      background: url('bg-assets/strokes-yellow.png') center / contain no-repeat;
+    }
+
+    /* rays fan sideways like the reference: left group mirrored then turned 30° anticlockwise, right group turned 30° clockwise */
+    .question > span::before { right: 100%; margin-right: calc(var(--u) * 4); transform: rotate(-30deg) scaleX(-1); }
+    .question > span::after { left: 100%; margin-left: calc(var(--u) * 4); transform: rotate(30deg); }
+
+    /* 2×2 product cards — each set on its own pastel with a soft raised bottom edge */
+    .poll-options {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-auto-rows: calc(var(--u) * 72);            /* short label panel; the toy stands out of its top edge */
+      align-content: start;                           /* deterministic spacing — no centring that could push the cards up */
+      gap: calc(var(--u) * 52) calc(var(--u) * 14);   /* row gap + top margin leave room for the ~30u the toys rise above their cards */
+      margin-top: calc(var(--u) * 46);       /* cards start 16u higher than before; that 16u went into the row gap below, so the bottom row stays put */
+      padding: 0 calc(var(--u) * 8) calc(var(--u) * 4);
+    }
+
+    .poll-option { grid-column: span 3; }
+
+    .poll-option {
+      --edge: calc(var(--u) * 3.5);
+      --img-b: calc(var(--u) * 40);     /* toy's base sits this far above the card's bottom edge */
+      --img-h: calc(var(--u) * 60);     /* toy box height → rises (--img-b + --img-h − card height) above the card */
+      position: relative;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: calc(var(--u) * 5) calc(var(--u) * 7) calc(var(--u) * 7);
+      background: var(--c);
+      border-radius: calc(var(--u) * 16);
+      box-shadow: 0 var(--edge) 0 var(--c-dark);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.15s ease;
+    }
+
+    @media (hover: hover) {
+      .poll-option:hover { transform: translateY(calc(var(--u) * -1.5)); }
+    }
+
+    .poll-option:active { transform: translateY(calc(var(--u) * 2)); box-shadow: 0 calc(var(--u) * 1.5) 0 var(--c-dark); }
+
+    .poll-option .shot {
+      position: absolute;
+      left: calc(var(--u) * -3);
+      width: calc(100% + var(--u) * 6);
+      bottom: var(--img-b);
+      height: var(--img-h);
+      object-fit: contain;
+      object-position: 50% 100%;
+      pointer-events: none;
+      z-index: 2;
+      filter: drop-shadow(0 calc(var(--u) * 4) calc(var(--u) * 3) rgba(50, 15, 80, 0.3));
+    }
+
+    .poll-option .meta {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--u) * 5);
+      margin-top: calc(var(--u) * 3);
+      flex-shrink: 0;
+    }
+
+    .poll-option .letter {
+      width: calc(var(--u) * 19);
+      height: calc(var(--u) * 19);
+      border-radius: 50%;
+      background: var(--b);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: 900;
+      font-size: calc(var(--u) * 11);
+      flex-shrink: 0;
+    }
+
+    .poll-option .label {
+      font-size: calc(var(--u) * 13.5);
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--ink);
+      flex: 1;
+    }
+
+    /* result: a white percentage pill pops in on every card */
+    .poll-option .pct {
+      position: absolute;
+      top: calc(var(--u) * 6);
+      right: calc(var(--u) * 6);
+      padding: calc(var(--u) * 2) calc(var(--u) * 8);
+      background: #fff;
+      border-radius: 999px;
+      font-size: calc(var(--u) * 12.5);
+      font-weight: 900;
+      color: var(--ink);
+      z-index: 4;                                  /* stays in front of the pop-out product image */
+      opacity: 0;
+      transform: scale(0.6);
+      transition: opacity 0.3s ease 0.25s, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s;
+    }
+
+    /* RESULTS SCREEN: 'Poll results' heading on top, then four horizontal result rows (toy · name · share · bar), then the CTA.
+       Selection-screen sizes above are overridden here. */
+    .poll-body.done .question { display: none; }
+    .poll-body.done { justify-content: center; padding-top: 0; padding-bottom: calc(var(--u) * 4); }
+
+    .poll-options.voted {
+      grid-template-columns: 1fr;
+      grid-template-rows: none;
+      grid-auto-rows: calc(var(--u) * 50);
+      gap: calc(var(--u) * 6);
+      padding: 0 calc(var(--u) * 16);
+      margin: 0;
+      flex: 0 0 auto;
+      order: 0;
+    }
+
+    .poll-options.voted .poll-option {
+      display: block;
+      cursor: default;
+      pointer-events: none;
+      grid-column: 1 / -1;
+      padding: 0;
+      border-radius: calc(var(--u) * 13);
+      box-shadow: 0 calc(var(--u) * 2) 0 var(--c-dark);
+      animation: settle 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .poll-options.voted .poll-option:nth-child(2) { animation-delay: 0.06s; }
+    .poll-options.voted .poll-option:nth-child(3) { animation-delay: 0.12s; }
+    .poll-options.voted .poll-option:nth-child(4) { animation-delay: 0.18s; }
+
+    @keyframes settle {
+      from { opacity: 0; transform: translateY(calc(var(--u) * 8)) scale(0.96); }
+      to { opacity: 1; transform: none; }
+    }
+
+    /* toy sits inside the row, on the left */
+    .poll-options.voted .poll-option .shot {
+      left: calc(var(--u) * 6);
+      width: calc(var(--u) * 70);
+      bottom: calc(var(--u) * 4);
+      height: calc(var(--u) * 42);
+      object-position: 50% 50%;
+    }
+
+    .poll-options.voted .poll-option .letter { display: none; }
+    .poll-options.voted .poll-option .meta {
+      position: absolute;
+      left: calc(var(--u) * 86);
+      right: calc(var(--u) * 62);
+      top: calc(var(--u) * 6);
+      margin: 0;
+      display: block;
+      text-align: left;
+    }
+    .poll-options.voted .poll-option .label { font-size: calc(var(--u) * 11.5); line-height: 1.12; }
+
+    /* share: big coloured % with 'of votes' under it */
+    .poll-option .pct { background: none; padding: 0; transform: none; text-align: center; }
+    .poll-options.voted .poll-option .pct {
+      opacity: 1;
+      top: calc(var(--u) * 5);
+      right: calc(var(--u) * 10);
+      width: calc(var(--u) * 48);
+      font-size: calc(var(--u) * 17);
+      line-height: 1;
+      color: var(--b);
+    }
+    .poll-options.voted .poll-option .pct::after {
+      content: attr(data-note);
+      display: block;
+      margin-top: calc(var(--u) * 2);
+      font-size: calc(var(--u) * 8.5);
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    /* result bar: share of votes, filled in the card's colour */
+    .poll-option .bar { display: none; }
+    .poll-options.voted .poll-option .bar {
+      display: block;
+      position: absolute;
+      left: calc(var(--u) * 86);
+      right: calc(var(--u) * 10);
+      bottom: calc(var(--u) * 6);
+      height: calc(var(--u) * 6);
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.7);
+      overflow: hidden;
+    }
+    .poll-options.voted .poll-option .bar i {
+      display: block;
+      height: 100%;
+      width: 0;
+      border-radius: 99px;
+      background: var(--b);
+      animation: fillbar 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards;
+    }
+    @keyframes fillbar { to { width: var(--w); } }
+
+    /* the leader gets a ring in its own colour; your own pick gets a tick */
+    .poll-options.voted .poll-option.leader { box-shadow: 0 0 0 calc(var(--u) * 1.5) var(--b), 0 calc(var(--u) * 3) 0 var(--c-dark); }
+    .poll-option.picked::before {
+      content: '✓';
+      position: absolute;
+      top: calc(var(--u) * 3);
+      left: calc(var(--u) * 3);
+      width: calc(var(--u) * 14);
+      height: calc(var(--u) * 14);
+      border-radius: 50%;
+      background: var(--b);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: calc(var(--u) * 8.5);
+      font-weight: 900;
+      z-index: 4;
+    }
+
+    /* 'Poll results' heading sits ABOVE the rows; its space is always reserved so nothing shifts when it appears */
+    .thanks {
+      order: -1;
+      flex-shrink: 0;
+      margin-bottom: calc(var(--u) * 8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0;
+      transform: translateY(calc(var(--u) * 6));
+      transition: opacity 0.4s ease 0.1s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+    }
+    .thanks.show { opacity: 1; transform: none; }
+    .thanks .t-title { position: relative; font-size: calc(var(--u) * 25); line-height: 1.05; font-weight: 900; color: var(--ink); text-transform: uppercase; }
+    .thanks .t-sub { margin-top: calc(var(--u) * 2); font-size: calc(var(--u) * 11.5); font-weight: 700; color: var(--ink); }
+    .thanks .hl { color: var(--pink); }
+
+    /* yellow expression strokes frame the heading */
+    .thanks .t-title::before,
+    .thanks .t-title::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: calc(var(--u) * 19);
+      height: calc(var(--u) * 17);
+      margin-top: calc(var(--u) * -8.5);
+      background: url('bg-assets/strokes-yellow.png') center / contain no-repeat;
+    }
+    .thanks .t-title::before { right: 100%; margin-right: calc(var(--u) * 5); transform: rotate(-30deg) scaleX(-1); }
+    .thanks .t-title::after { left: 100%; margin-left: calc(var(--u) * 5); transform: rotate(30deg); }
+
+    /* CTA under the rows */
+    .cta {
+      display: none;
+      align-self: center;
+      flex-shrink: 0;
+      margin-top: calc(var(--u) * 9);
+      width: calc(var(--u) * 230);
+      padding: calc(var(--u) * 9) 0;
+      border-radius: 999px;
+      background: var(--pink);
+      box-shadow: 0 calc(var(--u) * 4) 0 #A80F5E;
+      color: #fff;
+      text-align: center;
+      font-size: calc(var(--u) * 15);
+      font-weight: 900;
+      text-decoration: none;
+      opacity: 0;
+      transform: translateY(calc(var(--u) * 6));
+      transition: opacity 0.4s ease 0.7s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.7s;
+    }
+    .cta::after { content: '›'; margin-left: calc(var(--u) * 8); font-size: calc(var(--u) * 20); line-height: 0; position: relative; top: calc(var(--u) * 1); }
+    .poll-body.done .cta { display: block; }
+    .cta.show { opacity: 1; transform: none; }
+    .cta:active { transform: translateY(calc(var(--u) * 3)); box-shadow: 0 calc(var(--u) * 1) 0 #A80F5E; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .poll-option, .poll-option .pct, .thanks { transition: none; animation: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- VIDEO — autoplays muted, loops -->
+    <div class="video-area">
+      <video id="video" autoplay muted loop playsinline preload="auto"></video>
+      <svg class="wave-edge" viewBox="0 0 360 22" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="waveFill" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#FDEA91"/><stop offset="0.15" stop-color="#FDEB98"/><stop offset="0.3" stop-color="#FEDD4B"/><stop offset="0.5" stop-color="#FEDF58"/><stop offset="0.75" stop-color="#FEE26C"/><stop offset="1" stop-color="#FDE370"/></linearGradient></defs>
+        <path d="M0 16 C55 2 115 3 175 13 S300 24 360 8 L360 22 L0 22 Z" fill="url(#waveFill)" />
+      </svg>
+      <button class="mute-btn" id="muteBtn" onclick="toggleMute()" aria-label="Toggle sound">
+        <svg id="muteIcon" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+        <svg id="unmuteIcon" viewBox="0 0 24 24" style="display:none"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      </button>
+    </div>
+
+    <!-- POLL — shown immediately -->
+    <div class="poll-area">
+      
+      <div class="deco" aria-hidden="true"><img src="bg-assets/star-yellow.png" alt="" style="left:calc(var(--u)*-4);top:calc(var(--u)*92);width:calc(var(--u)*27);--r:-10deg"><img src="bg-assets/brick-pink.png" alt="" style="left:calc(var(--u)*-8);top:calc(var(--u)*223);width:calc(var(--u)*38);--r:-16deg"><img src="bg-assets/heart-pink.png" alt="" style="left:calc(var(--u)*318);top:calc(var(--u)*1);width:calc(var(--u)*30);--r:12deg"><img src="bg-assets/brick-teal.png" alt="" style="left:calc(var(--u)*334);top:calc(var(--u)*284);width:calc(var(--u)*39);--r:8deg"></div>
+      <div class="poll-content">
+        <div class="brand"><img src="logo-wordmark.svg" alt="LEGO"></div>
+
+        <div class="poll-body">
+          <h2 class="question" id="question"></h2>
+          <div class="poll-options" id="pollOptions"></div>
+          <div class="thanks" id="thanks" role="status"></div>
+          <a class="cta" id="cta" target="_blank" rel="noopener"></a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════════════════════════
+       ▸ EDIT ME ◂  COPY & DATA
+       result = MOCK share shown after voting (should add up to 100).
+       img = product cutout (lego.com); c / cDark = card colour + its raised edge; b = letter-badge / ring colour.
+       ══════════════════════════════════════════════════════════════ */
+    const CONFIG = {
+      videoSrc: 'video.mp4',
+
+      // ⚠ use "double quotes" for any label containing an apostrophe
+      prompt: 'Which is your favorite\nLEGO Friends toy?',   // \n = line break
+      highlight: 'LEGO Friends toy?',
+      options: [
+        { label: 'Creative Flower Shop',        img: 'products/flower-shop.png',       c: '#FFD6E7', cDark: '#F0A5C5', b: '#E0197D', result: 31 },
+        { label: 'Heartlake City Grand Hotel',  img: 'products/grand-hotel.png',       c: '#E6D8FB', cDark: '#BBA3E8', b: '#6B35C8', result: 29 },
+        { label: 'Garden Restaurant',           img: 'products/garden-restaurant.png', c: '#CDF2DA', cDark: '#8FD4A8', b: '#1E9A4F', result: 18 },
+        { label: 'Koala Habitat & Care Center', img: 'products/koala-habitat.png',     c: '#CBEEFB', cDark: '#8CCDE8', b: '#1478C9', result: 22 },
+      ],
+      resultsTitle: 'Poll Results',
+      resultsHighlight: 'Poll',
+      resultsSub: 'Here\u2019s how everyone voted',
+      resultsNote: 'of votes',            // under each % so it reads as a poll result
+      cta: { label: 'Shop LEGO® Friends', url: 'https://www.lego.com/en-in/themes/friends' },   // button under the results
+    };
+
+    /* ── Wiring ── */
+    const $ = (s) => document.querySelector(s);
+    const video = document.getElementById('video');
+    video.src = CONFIG.videoSrc;
+
+    // text with one part picked out in pink
+    function highlighted(text, part) {
+      const frag = document.createDocumentFragment();
+      const at = part ? text.indexOf(part) : -1;
+      if (at < 0) { frag.append(text); return frag; }
+      const hl = document.createElement('span');
+      hl.className = 'hl';
+      hl.textContent = part;
+      frag.append(text.slice(0, at), hl, text.slice(at + part.length));
+      return frag;
+    }
+
+    // wrapped in one block so the flex-centred heading doesn't split it into separate items
+    const qText = document.createElement('span');
+    CONFIG.prompt.split('\n').forEach((line) => {
+      const row = document.createElement('i');
+      row.append(highlighted(line, CONFIG.highlight));
+      qText.append(row);
+    });
+    $('#question').replaceChildren(qText);
+
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    $('#pollOptions').innerHTML = CONFIG.options.map((o, i) => `
+      <div class="poll-option" data-value="${i}" role="button" tabindex="0" style="--c:${o.c};--c-dark:${o.cDark};--b:${o.b}"
+           onclick="vote(this)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); vote(this); }">
+        <img class="shot" src="${o.img}" alt="">
+        <div class="meta"><div class="letter"><span>${String.fromCharCode(65 + i)}</span></div><div class="label">${esc(o.label)}</div></div>
+        <div class="pct">${o.result}%</div>
+        <div class="bar" aria-hidden="true"><i style="--w:${o.result}%"></i></div>
+      </div>`).join('');
+
+    // Mute toggle
+    const muteIcon = document.getElementById('muteIcon');
+    const unmuteIcon = document.getElementById('unmuteIcon');
+    function toggleMute() {
+      video.muted = !video.muted;
+      muteIcon.style.display = video.muted ? 'block' : 'none';
+      unmuteIcon.style.display = video.muted ? 'none' : 'block';
+    }
+
+    // Tap a card → your pick is ringed + ticked, every card pops its share, and a thank-you appears below the cards
+    let voted = false;
+    function vote(el) {
+      if (voted) return;
+      voted = true;
+      const picked = Number(el.dataset.value);
+      const wrap = $('#pollOptions');
+      wrap.classList.add('voted');
+      const best = CONFIG.options.reduce((m, o, i, arr) => (o.result > arr[m].result ? i : m), 0);   // most voted
+      wrap.querySelectorAll('.poll-option').forEach((opt, i) => {
+        opt.querySelector('.pct').dataset.note = CONFIG.resultsNote;
+        if (i === picked) opt.classList.add('picked');
+        if (i === best) opt.classList.add('leader');
+      });
+      $('.poll-body').classList.add('done');   // heading disappears; only the results + thank-you remain
+      const t = $('#thanks');
+      const tt = document.createElement('div');
+      tt.className = 't-title';
+      tt.append(highlighted(CONFIG.resultsTitle, CONFIG.resultsHighlight));
+      const ts = document.createElement('div');
+      ts.className = 't-sub';
+      ts.textContent = CONFIG.resultsSub;
+      t.replaceChildren(tt, ts);
+      const cta = $('#cta');
+      cta.textContent = CONFIG.cta.label;
+      cta.href = CONFIG.cta.url;
+      requestAnimationFrame(() => requestAnimationFrame(() => { t.classList.add('show'); cta.classList.add('show'); }));
+    }
+  </script>
+</body>
+
+</html>
