@@ -31,12 +31,13 @@ const CLIPS = [
   { id:'ad',   src:'assets/ad.mp4' },      // the brand spot
   { id:'post', src:'assets/game-second.mp4' },  // programme after the break
 ];
+const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
 const screen = document.getElementById('screen'), band = document.getElementById('band'), secs = document.getElementById('secs');
 let sound = false, cur = -1, raf = 0;
 const vids = CLIPS.map(c => {
   const v = document.createElement('video');
   v.muted = true; v.defaultMuted = true; v.setAttribute('muted',''); v.playsInline = true; v.setAttribute('playsinline','');
-  v.preload = 'auto'; v.src = c.src;
+  v.preload = 'auto'; v.src = bust(c.src);
   v.addEventListener('ended', () => { if (vids.indexOf(v) === cur) play((cur + 1) % vids.length); });
   screen.insertBefore(v, band); return v;
 });

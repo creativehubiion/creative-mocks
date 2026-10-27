@@ -73,7 +73,7 @@ Every page is the same shell (`shared/page.css` + `shared/theme.js`):
 
 **Cache busting:** shared files are referenced with `?v=N`; bump N whenever a shared file changes, because GitHub Pages caches for 10
 minutes. To refresh a mock on phones after an update, share its link with a new `?v=` (e.g. `…/showcase/<name>/?v=3`). It is passed to
-the mock page and on to the unit.
+the mock page, on to the unit, and from the unit to its video files and snapshots (`bust()` in each mock.html; keep it in new formats).
 
 ## 6. Interactive CTV
 

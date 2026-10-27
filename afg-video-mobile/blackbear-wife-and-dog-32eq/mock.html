@@ -82,6 +82,7 @@ html.embed.mobile .safari{display:block;position:absolute;left:0;right:0;bottom:
 // written by _work/new-afg-video-mock.py: the snapshot, its size in CSS px, the video player's box [x, y, w, h] on it, the top colour
 const SITE = { pin: 60, img: 'assets/site.webp', w: 390, h: 2582, player: [20, 1541, 350, 197], top: '#000000', url: 'https://www.whattowatch.com/channels-streaming-services/apple-tv-plus/the-morning-show-season-4-release-date-cast-plot-first-look-images-and-everything-we-know' };
 const AD_SRC = 'assets/ad.mp4';
+const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
 const T = { top: 1400, down: 1800, hold: 600, after: 1600, up: 1300 };   // ms: read the top · scroll to the player · ... · back up
 
 const root = document.documentElement, mobile = SITE.w < 800;
@@ -89,12 +90,12 @@ root.classList.toggle('mobile', mobile);
 const pinAt = SITE.pinAt || 0;   // the scroll from which the site shows its pinned bar
 root.classList.toggle('haspin', !!SITE.pin);
 root.classList.toggle('pinned', !!SITE.pin && !pinAt);
-if (SITE.pin) document.getElementById('pin').src = 'assets/head.webp';
+if (SITE.pin) document.getElementById('pin').src = bust('assets/head.webp');
 const screen = document.getElementById('screen'), site = document.getElementById('site'), slot = document.getElementById('slot');
 const left = document.getElementById('left'), prog = document.getElementById('prog'), mute = document.getElementById('mute');
 site.style.setProperty('--w', SITE.w); screen.style.setProperty('--top', SITE.top);
 document.getElementById('host').textContent = new URL(SITE.url).hostname.replace(/^www\./, '');
-document.getElementById('page').src = SITE.img;
+document.getElementById('page').src = bust(SITE.img);
 // standalone (no ?embed / ?full): the device's screen, centred on black: 16:10 laptop, 393×852 phone
 if (!root.classList.contains('embed') && !root.classList.contains('full')) {
   const r = mobile ? 393 / 852 : 16 / 10;
@@ -105,7 +106,7 @@ Object.assign(slot.style, { left: sp(px), top: sp(py), width: sp(pw), height: sp
 
 const v = document.createElement('video');
 v.muted = true; v.defaultMuted = true; v.setAttribute('muted', ''); v.playsInline = true; v.setAttribute('playsinline', '');
-v.preload = 'auto'; v.src = AD_SRC; slot.prepend(v);
+v.preload = 'auto'; v.src = bust(AD_SRC); slot.prepend(v);
 
 let sound = false, run = 0, raf = 0, y = 0;
 const wait = ms => new Promise(r => setTimeout(r, ms));

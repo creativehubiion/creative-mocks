@@ -156,8 +156,9 @@ function tapEl(el){ const s=screenEl.getBoundingClientRect(), r=el.getBoundingCl
 function tapEvent(e){ const s=screenEl.getBoundingClientRect(); emitTap((e.clientX-s.left)/s.width,(e.clientY-s.top)/s.height); }
 
 /* ══ video (always on top) ══ */
+const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
 let vid=null;
-if(CONFIG.videoSrc){ vid=document.createElement('video'); vid.src=CONFIG.videoSrc; vid.muted=true; vid.defaultMuted=true; vid.setAttribute('muted',''); vid.playsInline=true; vid.setAttribute('playsinline',''); vid.autoplay=true; vid.loop=true; vid.preload='auto'; $('video').prepend(vid); }
+if(CONFIG.videoSrc){ vid=document.createElement('video'); vid.src=bust(CONFIG.videoSrc); vid.muted=true; vid.defaultMuted=true; vid.setAttribute('muted',''); vid.playsInline=true; vid.setAttribute('playsinline',''); vid.autoplay=true; vid.loop=true; vid.preload='auto'; $('video').prepend(vid); }
 function paintMute(){ const m=!vid||vid.muted; $('muteIcon').hidden=!m; $('unmuteIcon').hidden=m; }
 function setSound(on){ if(!vid) return; vid.muted=!on; vid.volume=CONFIG.videoVolume; if(on){ const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); } paintMute(); }
 $('muteBtn').addEventListener('click',e=>{ tapEvent(e); takeOver(); soundUnlocked=true; setSound(!vid||vid.muted); });

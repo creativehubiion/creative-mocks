@@ -691,13 +691,14 @@
       const font = () => (document.fonts ? Promise.all(['800 15px Mulish', '600 15px Mulish'].map((f) => document.fonts.load(f))).catch(() => {}) : null);
       const jobs = [() => img('assets/logo.webp'), font];
       if (CONFIG.thanksFrame) jobs.push(() => img('assets/shield.webp'));   // the shield only exists on the thank-you frame
+      const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
       let done = 0, ready = false;
       function reveal() {
         if (ready) return; ready = true;
         setTimeout(() => {                                   // let the bar visibly reach 100%
           const l = document.getElementById('loader'); l.classList.add('done');
           setTimeout(() => { l.hidden = true; }, 500);
-          video.preload = 'auto'; video.src = CONFIG.videoSrc;
+          video.preload = 'auto'; video.src = bust(CONFIG.videoSrc);
           video.load(); video.play().catch(() => {});
         }, 250);
       }

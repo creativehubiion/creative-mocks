@@ -164,6 +164,7 @@ let _lastKey='', _lastKeyAt=0;
 function emitKey(k){ const now=performance.now(); if(k===_lastKey && now-_lastKeyAt<260) return; _lastKey=k; _lastKeyAt=now; try{ parent.postMessage({iionKey:k},'*'); }catch(e){} }
 
 const AD_VIDEO_SRC = "assets/shrek5-30s.mp4";   // 30 s cut of the official teaser (1080p source → 720p)
+const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
 
 /* ===================== slot timeline ===================== */
 const SLOT_MS=30000, T_SQUEEZE=3000, T_GAME_START=4200, T_RESTORE=27000;
@@ -202,7 +203,7 @@ const autoBox={checked:true};
 
 /* ===================== video ===================== */
 if (AD_VIDEO_SRC){
-  const v=document.createElement('video'); v.src=AD_VIDEO_SRC; v.muted=true; v.defaultMuted=true; v.setAttribute("muted",""); v.playsInline=true; v.autoplay=true; v.preload='auto'; v.id='vid';
+  const v=document.createElement('video'); v.src=bust(AD_VIDEO_SRC); v.muted=true; v.defaultMuted=true; v.setAttribute("muted",""); v.playsInline=true; v.autoplay=true; v.preload='auto'; v.id='vid';
   $('video').innerHTML=''; $('video').appendChild(v);
 }
 

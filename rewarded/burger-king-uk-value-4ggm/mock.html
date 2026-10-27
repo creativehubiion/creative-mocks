@@ -83,13 +83,14 @@ const CONFIG = {
   clickUrl: 'https://www.burgerking.co.uk/',  // end card tap (window.clickTag wins if the tag sets one)
 };
 const $ = id => document.getElementById(id);
+const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
 const unit = $('unit'), pre = $('pre'), ad = $('ad'), ec = $('ec'), fade = $('fade');
 const ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
 const OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M23 9l-6 6M17 9l6 6"/></svg>';
 let phase = 'pre', sound = false, unlocked = false, endTimer = 0, fading = false;
 [pre, ad].forEach(v => { v.muted = true; v.defaultMuted = true; v.setAttribute('muted', ''); v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; });
-pre.src = CONFIG.preroll; ad.src = CONFIG.ad;
-if (CONFIG.endcard) ec.src = CONFIG.endcard;
+pre.src = bust(CONFIG.preroll); ad.src = bust(CONFIG.ad);
+if (CONFIG.endcard) ec.src = bust(CONFIG.endcard);
 
 function setPhase(p) { phase = p; unit.className = 'unit phase-' + p; }
 function go(v) { try { v.currentTime = 0; } catch (e) {} const r = v.play(); if (r && r.catch) r.catch(() => { v.muted = true; v.play().catch(() => {}); }); }
