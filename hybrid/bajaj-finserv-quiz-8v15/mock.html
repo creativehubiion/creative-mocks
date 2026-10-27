@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Bajaj Finserv Quiz</title>
+  <!--
+    ════════════════════════════════════════════════════════════════════
+    HYBRID POLL — ready-to-use starter.  Video on top (37%) + poll (63%).
+    You only need to touch TWO blocks, both marked  ▸ EDIT ME ◂  below:
+      1. :root  (THEME)  — brand colours
+      2. CONFIG (bottom) — questions, options, copy
+    …then drop your clip in as  video.mp4  next to this file.
+    Everything else (2:3 frame, mute button, poll logic) is already wired —
+    leave it alone.  Full instructions: see START-HERE.md.
+    ════════════════════════════════════════════════════════════════════
+  -->
+  <style>
+    /* Bajaj Finserv's site font is Rubik (self-hosted, variable 300–900) */
+    @font-face { font-family: 'Rubik'; font-weight: 300 900; /* the site itself loads only Regular 400 + Medium 500 */ font-style: normal; font-display: swap; src: url('fonts/Rubik-variable.woff2') format('woff2'); }
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    [hidden] { display: none !important; }   /* so `hidden` still wins over display:flex rules */
+
+    /* ══════════════════════════════════════════════════════════════
+       ▸ EDIT ME ◂  THEME
+       Change --accent + the surface/text colours to the brand.
+       Every tint/border below --success follows --accent automatically
+       (via color-mix) — you do NOT need to touch them.
+       NOTE: --accent must be dark enough that WHITE text on it is legible
+       (it's used behind white numbers and the active button).
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+      --accent: #0071BB;         /* Bajaj Finserv blue (from the official logo) */
+      --accent-light: #2B90D9;   /* lighter blue — top of the CTA gradient */
+      --navy: #002A5E;           /* header band + footer (the site's dark navy) */
+      --orange: #FF6700;         /* Bajaj's action orange (site links / highlights) */
+      --ink: #1A1A1A;            /* body text on the site */
+
+      --bg: #EAF1FA;             /* poll background — the site's pale blue-grey */
+      --bg-card: #FFFFFF;
+      --bg-option: #FFFFFF;      /* option tile */
+      --bg-option-hover: #F2F7FD;
+
+      --text: #1A1A1A;
+      --text-muted: #5B6B80;
+
+      --video-bg: #000;          /* letterbox behind the video */
+      --success: #1E8E5A;        /* correct-answer colour after voting */
+      --danger: #D8392B;         /* wrong-answer colour after voting */
+
+      /* ── Derived tints (leave as-is; they follow --accent) ── */
+      --accent-glow: color-mix(in srgb, var(--accent) 30%, transparent);
+      --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
+      --accent-softer: color-mix(in srgb, var(--accent) 12%, transparent);
+      --accent-cta: color-mix(in srgb, var(--accent) 20%, transparent);
+      --border: color-mix(in srgb, var(--accent) 15%, transparent);
+      --border-hover: color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      font-family: 'Rubik', system-ui, sans-serif;
+      background: #000;
+      color: var(--text);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* ── Proportional scale: 1 unit = 1px on a 360px-wide canvas, growing with the canvas width.
+       Everything in the poll is sized from --u so the layout is identical at every size
+       (phone or desktop) and the last answer row can never be pushed out of the frame. ── */
+    :root {
+      --cw: min(100vw, calc(100vh * 2 / 3));
+      --u: calc(var(--cw) / 360);
+    }
+
+    @supports (height: 100dvh) {
+      :root { --cw: min(100vw, calc(100dvh * 2 / 3)); }
+    }
+
+    .container {
+      /* 2:3 ad frame — fills the viewport by whichever dimension is limiting,
+         keeping ratio. Black letterbox (body bg) fills the rest.
+         DO NOT CHANGE — this is the house framing. */
+      aspect-ratio: 2 / 3;
+      width: min(100vw, calc(100vh * 2 / 3));     /* fallback for browsers without dvh */
+      width: min(100vw, calc(100dvh * 2 / 3));
+      height: auto;
+      max-height: 100vh;
+      max-height: 100dvh;
+      margin: auto;                                /* always centred, even if the flex centring is overridden */
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── VIDEO AREA (37%) — autoplays muted on load ── */
+    .video-area {
+      height: 37%;
+      position: relative;
+      background: var(--video-bg);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .video-label {
+      position: absolute;
+      top: clamp(6px, 1.5vw, 14px);
+      left: clamp(6px, 1.5vw, 14px);
+      background: var(--accent);
+      color: #fff;
+      font-size: clamp(8px, 2vw, 14px);
+      font-weight: 600;
+      padding: clamp(2px, 0.5vw, 5px) clamp(6px, 1.5vw, 12px);
+      border-radius: clamp(3px, 0.8vw, 6px);
+      z-index: 2;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      opacity: 0;
+    }
+
+    .video-area video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .mute-btn {
+      position: absolute;
+      top: clamp(8px, 2vw, 14px);
+      right: clamp(8px, 2vw, 14px);
+      width: clamp(28px, 7vw, 40px);
+      height: clamp(28px, 7vw, 40px);
+      border-radius: 50%;
+      border: none;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      color: #fff;
+      cursor: pointer;
+      z-index: 3;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.2s;
+    }
+
+    .mute-btn:hover {
+      background: rgba(0, 0, 0, 0.7);
+    }
+
+    .mute-btn svg {
+      width: clamp(14px, 3.5vw, 20px);
+      height: clamp(14px, 3.5vw, 20px);
+      fill: #fff;
+    }
+
+    /* ── POLL AREA (63%, starts exactly where the video ends — no overlap) — visible immediately ──
+       All sizes are u(N) = N px on a 360px-wide canvas, scaling with the canvas. */
+    .poll-area {
+      height: 63%;
+      background: linear-gradient(180deg, #FFFFFF 0%, #F4F8FE 100%);   /* plain and light — a faint blue wave sits at the bottom */
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .poll-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: calc(var(--u) * 16) calc(var(--u) * 16) calc(var(--u) * 50);
+    }
+
+    /* logo (left) + 1 — 2 — 3 progress (right) */
+    .poll-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .brand-logo {
+      height: calc(var(--u) * 24);
+      width: auto;
+      display: block;
+    }
+
+    .step-count { display: none; }
+    .steps { display: flex; align-items: center; flex-shrink: 0; }
+
+    /* blue = current, green ✓ = answered right, red ✕ = answered wrong */
+    .stepper { list-style: none; display: flex; justify-content: flex-end; align-items: center; isolation: isolate; }
+    .stepper li {
+      width: calc(var(--u) * 17);
+      height: calc(var(--u) * 17);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: calc(var(--u) * 9.5);
+      font-weight: 500;
+      color: #7A879C;
+      background: #fff;
+      border: calc(var(--u) * 1.2) solid #D3DCEA;
+      transition: background 0.25s, border-color 0.25s;
+    }
+    .stepper li + li { margin-left: calc(var(--u) * 14); position: relative; }
+    .stepper li + li::before {
+      content: '';
+      position: absolute;
+      z-index: -1;
+      right: calc(100% + var(--u) * 3.7);
+      top: 50%;
+      width: calc(var(--u) * 9);
+      height: calc(var(--u) * 1.5);
+      margin-top: calc(var(--u) * -0.75);
+      background: #D3DCEA;
+    }
+    .stepper li.active, .stepper li.right, .stepper li.wrong { color: #fff; border-color: transparent; }
+    .stepper li.active { background: #1A5FD0; }
+    .stepper li.right  { background: var(--success); }
+    .stepper li.wrong  { background: var(--danger); }
+
+    /* the swappable part (question + answers, or the final thank-you) — fades between screens */
+    .poll-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.22s ease;
+    }
+
+    .poll-body.swap { opacity: 0; }
+
+    /* min-height = 3 lines, text centred in it, so 2-line and 3-line questions share the same layout */
+    .question {
+      margin-top: calc(var(--u) * 14);
+      min-height: calc(var(--u) * 54);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(var(--u) * 15);
+      font-weight: 500;
+      line-height: 1.2;
+      text-align: center;
+      color: #0F1E4A;
+      flex-shrink: 0;
+    }
+
+    .question .q-text { display: block; }
+    .question .hl { color: #1A6FE0; font-weight: 500; }
+
+    .poll-options {
+      display: flex;
+      flex-direction: column;
+      gap: calc(var(--u) * 6);
+      margin-top: calc(var(--u) * 8);
+    }
+
+    /* answer tiles: white, with the dotted blue frame Bajaj uses on its product tiles */
+    .poll-option {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: calc(var(--u) * 14);
+      padding: calc(var(--u) * 3) calc(var(--u) * 14) calc(var(--u) * 3) calc(var(--u) * 7);
+      min-height: calc(var(--u) * 34);
+      background: var(--bg-option);
+      border: calc(var(--u) * 1.4) solid #E0E9F5;
+      border-radius: calc(var(--u) * 12);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    /* hover tint only where a real pointer exists — on touch screens it would stick after a tap */
+    @media (hover: hover) {
+      .poll-option:hover { background: var(--bg-option-hover); }
+    }
+
+    .poll-option:active { background: #EEF4FD; border-color: #1A6FE0; }
+
+    .poll-option .letter {
+      width: calc(var(--u) * 27);
+      height: calc(var(--u) * 27);
+      border-radius: 50%;
+      background: #E6EFFD;
+      color: #1A5FD0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: 500;
+      font-size: calc(var(--u) * 14);
+      flex-shrink: 0;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .poll-option .label {
+      font-size: calc(var(--u) * 15);
+      font-weight: 500;
+      color: #0F1E4A;
+      flex: 1;
+    }
+
+
+    .poll-option.voted { cursor: default; pointer-events: none; }
+
+    /* the moment you tap: the right answer is green; your pick is red if it was wrong.
+       A ✓ / ✕ is shown too, so it isn't colour-only. */
+    .poll-option.correct { background: #E8F6EE; border-color: var(--success); }
+    .poll-option.wrong   { background: #FDEDEB; border-color: var(--danger); }
+    .poll-option.correct .letter { background: var(--success); color: #fff; }
+    .poll-option.wrong   .letter { background: var(--danger);  color: #fff; }
+
+    .poll-option.correct::after,
+    .poll-option.wrong::after {
+      font-size: calc(var(--u) * 15);
+      font-weight: 500;
+      line-height: 1;
+    }
+    .poll-option.correct::after { content: '✓'; color: var(--success); }
+    .poll-option.wrong::after   { content: '✕'; color: var(--danger); }
+
+    /* ── final screen: "You got N of 3 right" + how everyone did (distribution rows) + Visit Website ── */
+    .poll-area.final .poll-content { padding-bottom: calc(var(--u) * 48); }
+
+    .thanks {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      padding-top: calc(var(--u) * 6);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .thanks.show { opacity: 1; }
+
+    .res-title { text-align: center; font-size: calc(var(--u) * 21); font-weight: 500; line-height: 1.1; color: var(--navy); }
+    .res-title .hl { color: var(--orange); }
+    .res-sub { margin-top: calc(var(--u) * 3); text-align: center; font-size: calc(var(--u) * 12.5); font-weight: 400; color: #5B6B80; }
+
+    .dist { margin-top: calc(var(--u) * 9); display: flex; flex-direction: column; gap: calc(var(--u) * 5); }
+    .dist-row {
+      display: grid;
+      grid-template-columns: calc(var(--u) * 86) 1fr calc(var(--u) * 34);
+      align-items: center;
+      gap: calc(var(--u) * 8);
+      height: calc(var(--u) * 28);
+      padding: 0 calc(var(--u) * 12);
+      background: #fff;
+      border: calc(var(--u) * 1.4) solid #DCE6F5;
+      border-radius: calc(var(--u) * 10);
+      font-size: calc(var(--u) * 13);
+      font-weight: 500;
+      color: var(--navy);
+    }
+    .dist-label { display: flex; align-items: center; gap: calc(var(--u) * 6); white-space: nowrap; }
+    .dist-you { padding: calc(var(--u) * 1.5) calc(var(--u) * 6); border-radius: 99px; background: #1A6FE0; color: #fff; font-size: calc(var(--u) * 9.5); font-weight: 500; letter-spacing: 0.04em; }
+    .dist-bar { height: calc(var(--u) * 7); border-radius: 99px; background: #E8EEF8; overflow: hidden; }
+    .dist-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: #9FB0CC; transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.35s; }
+    .dist-pct { text-align: right; }
+    .dist-row.you { border-color: #1A6FE0; background: #F1F7FF; }
+    .dist-row.you .dist-bar i { background: #1A6FE0; }
+
+    .visit {
+      margin-top: calc(var(--u) * 10);
+      align-self: stretch;
+      height: calc(var(--u) * 38);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #2F7FE6 0%, #1450BE 100%);
+      color: #fff;
+      font-size: calc(var(--u) * 16);
+      font-weight: 500;
+      text-decoration: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: calc(var(--u) * 8);
+      flex-shrink: 0;
+    }
+    .visit span { font-size: 1.4em; line-height: 0.6; font-weight: 500; }
+
+    /* blue / orange / navy wave along the bottom, like the ICICI swoosh — the only decoration */
+    .wave { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: calc(var(--u) * 54); z-index: 0; pointer-events: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .poll-body,
+      .thanks,
+      .dist-bar i,
+      .swoosh,
+      .poll-option,
+      .stepper li { transition: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- VIDEO — autoplays muted, loops -->
+    <div class="video-area">
+      <div class="video-label"></div>
+      <video id="video" autoplay muted loop playsinline preload="auto"></video>
+      <button class="mute-btn" id="muteBtn" onclick="toggleMute()">
+        <svg id="muteIcon" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+        <svg id="unmuteIcon" viewBox="0 0 24 24" style="display:none"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      </button>
+    </div>
+
+    <!-- POLL — shown immediately -->
+    <div class="poll-area">
+      <svg class="wave" viewBox="0 0 360 64" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="wBlue" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#2F6FE8"/><stop offset="0.45" stop-color="#8DBCF7"/><stop offset="1" stop-color="#2F6FE8"/></linearGradient>
+          <linearGradient id="wNavy" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#2155B8"/><stop offset="0.6" stop-color="#1B4797"/><stop offset="1" stop-color="#1A4396"/></linearGradient>
+          <linearGradient id="wOrange" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#F08A3C"/><stop offset="1" stop-color="#E8662A"/></linearGradient>
+        </defs>
+        <path d="M0 14 C70 8 140 30 230 34 C290 36 330 22 360 8 L360 64 L0 64 Z" fill="url(#wBlue)"/>
+        <path d="M0 24 C70 22 150 42 230 44 C295 46 335 32 360 22 L360 64 L0 64 Z" fill="url(#wNavy)"/>
+        <path d="M150 38 C215 46 300 32 360 3 L360 15 C300 38 225 52 150 38 Z" fill="url(#wOrange)"/>
+      </svg>
+      <div class="poll-content">
+        <div class="poll-top">
+          <img class="brand-logo" src="logo-blue.svg" alt="Bajaj Finserv" width="810" height="224">
+          <div class="steps" id="steps">
+            <span class="step-count" id="stepCount"></span>
+            <ol class="stepper" id="stepper" aria-label="Question progress"></ol>
+          </div>
+        </div>
+
+        <div class="poll-body" id="pollBody">
+          <h2 class="question" id="question"></h2>
+          <div class="poll-options" id="pollOptions"></div>
+          <div class="thanks" id="thanks" role="status" hidden>
+            <div class="res-title" id="resTitle"></div>
+            <div class="res-sub" id="resSub"></div>
+            <div class="dist" id="dist"></div>
+            <a class="visit" id="visit" target="_blank" rel="noopener noreferrer"><b id="visitLabel"></b><span>›</span></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════════════════════════
+       ▸ EDIT ME ◂  COPY & DATA
+       This is the whole poll. Change the text and the options, and mark
+       the right answer of each question with  correct: true.
+       ══════════════════════════════════════════════════════════════ */
+    const CONFIG = {
+      videoSrc: 'video.mp4',       // your clip — put the file in THIS folder, named video.mp4
+      videoLabel: 'Live Clip',     // small pill top-left (hidden by default; set opacity in CSS to show)
+
+      // ⚠ TIP: use "double quotes" for any label containing an apostrophe (e.g. "I'm")
+      // highlight = the part of the question shown in blue.
+      // correct: true marks the right answer (green after voting; a wrong pick turns red).
+      questions: [
+        {
+          prompt: 'Bajaj Finserv primarily operates in which of the following industries?',
+          highlight: 'industries?',
+          options: [
+            { label: 'Automobile Manufacturing' },
+            { label: 'Financial Services', correct: true },
+            { label: 'Telecommunications' },
+            { label: 'FMCG' },
+          ],
+        },
+        {
+          prompt: 'Which of the following is NOT a competitor/peer of Bajaj Finserv in the financial services category?',
+          highlight: 'financial services category?',
+          options: [
+            { label: 'Aditya Birla Capital' },
+            { label: 'Jio Financial Services' },
+            { label: 'Tata Capital' },
+            { label: 'Asian Paints', correct: true },
+          ],
+        },
+        {
+          prompt: 'Which of the following is a key competitor/peer of Bajaj Finserv in the diversified financial services space?',
+          highlight: 'diversified financial services space?',
+          options: [
+            { label: 'Tata Capital', correct: true },
+            { label: 'Maruti Suzuki' },
+            { label: 'Bharti Airtel' },
+            { label: 'Hindustan Unilever' },
+          ],
+        },
+      ],
+      advanceDelayMs: 400,        // pause after an answer (green/red shown) before the next question (iion mock: 2500 → 400, 2026-10-27)
+      // final screen: "You got {n} of {total} right" (the n-of-total part is highlighted), then how everyone did
+      resultTitle: 'You got {n} of {total} right',
+      resultSub: 'How everyone did',
+      youLabel: 'YOU',
+      // MOCK share of players by number of right answers (index = score 0…total; should add up to 100)
+      distribution: [7, 21, 38, 34],
+      websiteLabel: 'Visit Website',                  // button on the final screen
+      websiteUrl: 'https://www.bajajfinserv.in/',    // where it goes (opens in a new tab)
+    };
+
+    /* ── Wiring (you shouldn't need to edit below) ── */
+    const $ = (s) => document.querySelector(s);
+    const video = document.getElementById('video');
+    video.src = CONFIG.videoSrc;
+    $('.video-label').textContent = CONFIG.videoLabel;
+
+    const body = document.getElementById('pollBody');
+    let qi = 0, answered = false;
+    const results = [];                    // per question: 'right' | 'wrong' once answered
+
+    // Q1 / 3 + three segments: current = orange, answered = green (right) / red (wrong)
+    function renderStepper() {
+      $('#stepCount').replaceChildren(Object.assign(document.createElement('b'), { textContent: 'Q' + (qi + 1) }), document.createTextNode(' / ' + CONFIG.questions.length));
+      $('#stepper').innerHTML = CONFIG.questions.map((_, i) => {
+        const state = results[i] || (i === qi ? 'active' : '');
+        const glyph = state === 'right' ? '✓' : state === 'wrong' ? '✕' : i + 1;
+        return `<li class="${state}"${i === qi ? ' aria-current="step"' : ''}>${glyph}</li>`;
+      }).join('');
+    }
+
+    // text with one part picked out in blue (used by the question and the thank-you message)
+    function highlighted(text, part) {
+      const frag = document.createDocumentFragment();
+      const at = part ? text.indexOf(part) : -1;
+      if (at < 0) { frag.append(text); return frag; }
+      const hl = document.createElement('span');
+      hl.className = 'hl';
+      hl.textContent = part;
+      frag.append(text.slice(0, at), hl, text.slice(at + part.length));
+      return frag;
+    }
+
+    function renderQuestion() {
+      const q = CONFIG.questions[qi];
+      answered = false;
+
+      const text = document.createElement('span');
+      text.className = 'q-text';
+      text.append(highlighted(q.prompt, q.highlight));
+      $('#question').replaceChildren(text);
+
+      renderStepper();
+
+      document.getElementById('pollOptions').innerHTML = q.options.map((o, i) => `
+        <div class="poll-option" data-value="${i + 1}" role="button" tabindex="0"
+             onclick="answer(this)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); answer(this); }">
+          <div class="letter">${String.fromCharCode(65 + i)}</div>
+          <div class="label">${o.label}</div>
+        </div>`).join('');
+    }
+    renderQuestion();
+
+    // final screen: shield + heading + Visit Website replace the question, answers and progress stepper
+    function showThanks() {
+      $('#question').hidden = true;
+      $('#pollOptions').hidden = true;
+      $('.poll-area').classList.add('final');
+      const right = results.filter((r) => r === 'right').length;
+      const total = CONFIG.questions.length;
+      const nOfTotal = `${right} of ${total}`;
+      $('#resTitle').replaceChildren(highlighted(CONFIG.resultTitle.replace('{n} of {total}', nOfTotal), nOfTotal));
+      $('#resSub').textContent = CONFIG.resultSub;
+      $('#dist').innerHTML = [...CONFIG.distribution.keys()].reverse().map((sc) => `
+        <div class="dist-row${sc === right ? ' you' : ''}">
+          <div class="dist-label">${sc} of ${total}${sc === right ? `<span class="dist-you">${CONFIG.youLabel}</span>` : ''}</div>
+          <div class="dist-bar"><i data-w="${CONFIG.distribution[sc]}"></i></div>
+          <div class="dist-pct">${CONFIG.distribution[sc]}%</div>
+        </div>`).join('');
+      requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll('.dist-bar i').forEach((b) => { b.style.width = b.dataset.w + '%'; })));
+      $('#visitLabel').textContent = CONFIG.websiteLabel;
+      $('#visit').href = CONFIG.websiteUrl;
+      const t = $('#thanks');
+      t.hidden = false;
+      requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+    }
+
+    // fade out → swap to the next question (or the thank-you) → fade in
+    function advance() {
+      body.classList.add('swap');
+      setTimeout(() => {
+        if (qi < CONFIG.questions.length - 1) { qi++; renderQuestion(); }
+        else showThanks();
+        body.classList.remove('swap');
+      }, 230);
+    }
+
+    // Mute toggle
+    const muteIcon = document.getElementById('muteIcon');
+    const unmuteIcon = document.getElementById('unmuteIcon');
+    function toggleMute() {
+      video.muted = !video.muted;
+      muteIcon.style.display = video.muted ? 'block' : 'none';
+      unmuteIcon.style.display = video.muted ? 'none' : 'block';
+    }
+
+    // Tapping an answer reveals right/wrong at once, then moves on by itself after a short pause
+    function answer(el) {
+      if (answered) return;
+      answered = true;
+
+      const opts = CONFIG.questions[qi].options;
+      const picked = Number(el.dataset.value) - 1;
+      results[qi] = opts[picked].correct ? 'right' : 'wrong';
+      document.querySelectorAll('.poll-option').forEach((opt, i) => {
+        opt.classList.add('voted');
+        if (opts[i].correct) opt.classList.add('correct');       // right answer → green
+        else if (i === picked) opt.classList.add('wrong');       // your wrong pick → red
+      });
+      renderStepper();
+
+      setTimeout(advance, CONFIG.advanceDelayMs);
+    }
+  </script>
+</body>
+
+</html>
