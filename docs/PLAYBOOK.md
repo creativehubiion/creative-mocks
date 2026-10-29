@@ -115,8 +115,9 @@ python tools/new-showcase.py --brand "<Brand>" --suffix <sfx>
 ```
 - Collects every mock with that suffix, whatever made it, in this order: Interactive CTV · CTV video · Rewarded · Rewarded + end card ·
   Away from the game video · Hybrid · Playable · Display interstitial.
-- Tabs sit in the mock page's own header; the brand takes the format-label slot; only the chosen mock is loaded. With 4+ mocks (or
-  when tabs don't fit) the header shows one pill that opens a menu. `#<id>` deep-links a tab.
+- The picker sits in the mock page's own header; the brand takes the format-label slot; only the chosen mock is loaded. On desktop and
+  laptop the header always shows one pill that opens a menu (no row of tabs); on phones a tab bar for up to 3 mocks, the pill for 4+.
+  `#<id>` deep-links a mock.
 - **Every mock keeps its own folder and URL, even on a showcase.** The `MOCKS` list stays one object per line with single-quoted
   strings and at least `label` and `url`. Labels are written for people ("Option 1", "Rewarded video"): a weekly summary bot reads new
   folders and these labels.

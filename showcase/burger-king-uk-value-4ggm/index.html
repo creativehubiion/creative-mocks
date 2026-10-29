@@ -63,7 +63,7 @@ html.night .mk-tabs button[aria-selected="true"]::after{background:#2997ff}
 .mk-tabs button:focus-visible{outline:2px solid #0071e3;outline-offset:-4px;border-radius:8px}
 .nav > .nav-title{display:none!important}
 @media (max-width:900px){.mk-tabs{gap:0}.mk-tabs button{padding:0 10px;font-size:13px;gap:6px}.mk-tabs button svg{width:18px;height:18px}}
-/* compact: on phones, or whenever the tabs don't fit, one dropdown pill names the current mock + "1 / 3"; tapping it opens the
+/* compact: on desktop and laptop always, on phones for 4+ mocks, one dropdown pill names the current mock + "1 / 3"; tapping it opens the
    phone's own picker with every mock (nothing hidden off-screen) */
 .mk-pick{display:none;position:relative;align-items:center;gap:8px;justify-self:center;align-self:center}
 .mk-pick .mk-sel{position:relative;display:flex;align-items:center;gap:8px;height:34px;padding:0 34px 0 12px;border:0;border-radius:999px;cursor:pointer;
@@ -213,14 +213,12 @@ function decorate(frame, cur) {
       if (title) title.after(box, pick); else nav.insertBefore(box, nav.querySelector('.night-toggle'));
       if (!title) box.after(pick);
       const toggle = nav.querySelector('.night-toggle'); if (toggle) nav.appendChild(toggle);
-      // use the picker on phones, or when the tabs would crowd the logo / toggle
+      // the picker on desktop and laptop, and on phones with more than PHONE_TABS mocks
       const fit = () => {
         nav.classList.remove('mk-compact');
-        const w = frame.contentWindow.innerWidth, r = box.getBoundingClientRect();
-        const l = nav.querySelector('.nav-left'), t = nav.querySelector('.night-toggle');
-        // phones: tab bar for up to PHONE_TABS mocks, the dropdown beyond; wider: tabs while they clear the logo and the toggle
-        const crowded = w <= 700 ? MOCKS.length > PHONE_TABS || box.scrollWidth > box.clientWidth + 1
-          : box.scrollWidth > box.clientWidth + 1 || (l && r.left < l.getBoundingClientRect().right + 16) || (t && r.right > t.getBoundingClientRect().left - 16);
+        const w = frame.contentWindow.innerWidth;
+        // desktop and laptop: always the dropdown pill + menu card (user, 2026-10-29); phones: tab bar for up to PHONE_TABS mocks, the dropdown beyond
+        const crowded = w <= 700 ? MOCKS.length > PHONE_TABS || box.scrollWidth > box.clientWidth + 1 : true;
         nav.classList.toggle('mk-compact', crowded || FORCE_PICKER);
       };
       fit(); frame.contentWindow.addEventListener('resize', fit);
