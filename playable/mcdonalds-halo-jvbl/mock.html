@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Hop to the Arches · McDonald's × Halo</title>
+<link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet">
+<script src="_core/draw.js"></script><script src="_core/layers.js"></script><script src="_core/engine.js"></script><script src="_core/world.js"></script><script src="_core/hop-to-the-arches-game.js"></script></head>
+<body><script>
+/* VIEW: side view, level with the pillar tops, panning right after each landing (world kit: side). The tops are the floor line
+   at two thirds of the frame; the follow point (the current rock) sits on the left third. Depth is draw order: sky and canyon
+   walls (kit) → pillars → boxes → restaurant → marine (kit, far to near) → 2D overlays (contact shade, dust, ghost mark, pops, reveal).
+   Pictures: sky plate, canyon tile, pillar states, marine stills, box, restaurant, end shots. Everything that moves is code. */
+const GAME = window.HopToTheArchesGame, P = GAME.CONFIG.play;
+const CAMERA = 'side-on and level at the height of the pillar tops, about eight metres across the canyon, 50 mm, looking straight across; pillar tops at two thirds of the frame height; top eighth plain for the band';
+const G = {
+  canvas: [640, 960], hudTop: 0.125, camera: CAMERA,
+  floor: 0.667,        // the pillar tops: the floor line, frame fraction
+  anchor: 0.28,        // the current rock's centre (0.33 -> 0.28 with the closer camera: the next rock and the restaurant stay in view)
+  thumb: { x: 0, y: 0.667, w: 1, h: 0.333 },   // where the thumb rests; nothing play-critical is drawn under it
+  keepOut: [{ x: 0, y: 0, w: 1, h: 0.125 }],   // the band
+  pillarDepth: 9,      // world units a pillar runs down into the haze (off the frame's bottom)
+  grounded: ['L3', 'L4', 'L5', 'L6'],   // the layers that rest on the pillar tops (the kit sinks them and casts their shadows)
+};
+const GOLD = '#ffbc0d', RED = '#db0007';
+const L = id => VIEW.layers.find(l => l.id === id);
+// the sun wash, the canyon haze and the vignette baked once per size into one canvas: one drawImage a frame (rule 27)
+const OVL = { key: '', c: null };
+function overlay(ctx, W, H) {
+  const key = Math.round(W) + 'x' + Math.round(H);
+  if (OVL.key !== key) {
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(W)); c.height = Math.max(1, Math.round(H)); const x = c.getContext('2d');
+    const sun = x.createRadialGradient(0, H * 0.1, 0, 0, H * 0.1, W * 1.1); sun.addColorStop(0, 'rgba(255,226,170,.22)'); sun.addColorStop(1, 'rgba(255,226,170,0)'); x.fillStyle = sun; x.fillRect(0, 0, W, H);
+    const hz = x.createLinearGradient(0, H * (G.floor + 0.05), 0, H); hz.addColorStop(0, 'rgba(170,184,200,0)'); hz.addColorStop(1, 'rgba(150,166,188,.6)'); x.fillStyle = hz; x.fillRect(0, H * (G.floor + 0.05), W, H * (1 - G.floor));
+    const vg = x.createRadialGradient(W * 0.5, H * 0.52, H * 0.32, W * 0.5, H * 0.52, H * 0.78); vg.addColorStop(0, 'rgba(24,16,10,0)'); vg.addColorStop(1, 'rgba(24,16,10,.3)'); x.fillStyle = vg; x.fillRect(0, 0, W, H);
+    OVL.key = key; OVL.c = c;
+  }
+  ctx.drawImage(OVL.c, 0, 0, W, H);
+}
+const VIEW = {
+  id: 'side-hop', build: true, title: 'Side view · hop across the canyon', canvas: G.canvas, camera: CAMERA, geometry: () => ({ ...G, play: P }),
+  light: { tier: 2, dir: [-0.6, -0.8], color: '255,226,170', strength: 0.32, horizon: G.floor + 0.08, haze: '170,184,200' },
+  world: {
+    kind: 'ground',
+    camera: { mode: 'side', span: P.span, floor: G.floor, anchor: G.anchor },
+    layers: [],          // no code-drawn hills: the painted sky's own mesas stand behind the pillars (owner 2026-10-29)
+    floorFace: false,    // no floor face under the floor line: the painted plate runs on below it, the pillars rise out of it
+    // the canyon walls tile (L2) is the zone's ground and its road: a side world has no separate road surface
+    zones: [{ at: 0, sky: ['#7fa8d8', '#f2dcb8'], ground: '#93a0b2', groundAlt: '#8c99ab', road: '#93a0b2', roadAlt: '#8c99ab', skyPlate: 'L1', groundTile: 'L2', roadTile: 'L2', haze: '#aab8c8' }],
+    band: 8, drawDist: 40,
+  },
+  layers: [
+    { id: 'L1', name: 'sky-ring', type: 'plate', canvas: [1920, 1920], key: null, camera: CAMERA, box: { x: 0.5, y: 0, w: 1.5, h: 1, anchor: 'top' },
+      notes: 'picture · the far backdrop: a clear late-afternoon sky, the Halo™ ring arcing across it, a distant battlefield horizon low; the top eighth plain for the red band; wider than the frame for a slow parallax; distant smoke is code',
+      shape(ctx, x, y, w, h, S, cell, o) {
+        const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#7fa8d8'); g.addColorStop(0.6, '#f2dcb8'); g.addColorStop(1, '#c8b49a'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+        ctx.save(); ctx.strokeStyle = 'rgba(220,226,236,.75)'; ctx.lineWidth = w * 0.018; ctx.beginPath(); ctx.ellipse(x + w * 0.55, y + h * 0.62, w * 0.62, h * 0.42, -0.25, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); ctx.restore();
+        ctx.fillStyle = '#9a8a7a'; ctx.fillRect(x, y + h * 0.7, w, h * 0.3);
+        if (o && o.explain) { GB.bpZone(ctx, 0, 0, w, h * G.hudTop, '#ffa500', 'TOP 1/8: plain for the red band', true); GB.bpLabel(ctx, 30, h * 0.66, 'Floor line (pillar tops) at 2/3', '#ffd23a', true); } } },
+    { id: 'L2', name: 'canyon-walls', type: 'tile', canvas: null, key: null, camera: CAMERA,   // not drawn since the floor face went (floorFace: false): no file, no request
+      notes: 'picture · seamless horizontal tile: far canyon walls falling into cool blue-grey haze, repeated at half the pan speed; one flat tint until it is in',
+      shape(ctx, x, y, w, h) { ctx.fillStyle = '#93a0b2'; ctx.fillRect(x, y, w, h); } },
+    { id: 'L3', name: 'pillar', type: 'sheet', canvas: [1536, 1024], key: '#FF00FF', camera: CAMERA, states: true, grounded: true,
+      cells: { cols: 3, rows: 1, names: ['wide', 'medium', 'narrow'] }, box: { w: 0.3, h: 0.6, anchor: 'bottom' },
+      notes: 'picture ×3 as one object · a rock pillar side-on, flat sunlit top clearly readable as the landing surface, foot running off the bottom into haze; three edits of one base: wide, medium, narrow top; magenta key',
+      shape(ctx, x, y, w, h, S, cell) { const tw = [0.9, 0.7, 0.52][cell] * w, cx = x + w / 2;
+        ctx.beginPath(); ctx.moveTo(cx - tw / 2, y + h * 0.04); ctx.lineTo(cx + tw / 2, y + h * 0.04); ctx.lineTo(cx + tw * 0.4, y + h); ctx.lineTo(cx - tw * 0.4, y + h); ctx.closePath(); ctx.fillStyle = '#8a8178'; ctx.fill();
+        ctx.fillStyle = '#e2c27e'; ctx.fillRect(cx - tw / 2, y, tw, h * 0.07);   // the sunlit flat top: thicker and brighter so the landing surface reads against the haze
+        ctx.fillStyle = 'rgba(60,40,20,.35)'; ctx.fillRect(cx - tw / 2, y + h * 0.07, tw, h * 0.015);   // the lip's contact shade under the top
+        ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(cx, y + h * 0.085, tw * 0.4, h * 0.915); } },
+    { id: 'L4', name: 'marine', type: 'sheet', canvas: [1536, 1024], key: '#FF00FF', camera: CAMERA, grounded: true,
+      cells: { cols: 3, rows: 1, names: ['stand', 'crouch', 'leap'] }, box: { w: 0.14, h: 0.28, anchor: 'bottom' },
+      notes: 'picture ×3 · a Halo™ marine side-on facing right, visor down, olive armour, NO weapon: stand, deep crouch, leap (knees tucked); feet on the cell floor; magenta key; squash, fall turn and drop-in are code',
+      shape(ctx, x, y, w, h, S, cell) { const cx = x + w / 2, k = cell === 1 ? 0.62 : 1, b = y + h * 0.95, hh = h * 0.85 * k, C = '#6b7350', K = '#2e3222';
+        GB.rr(ctx, cx - w * 0.16, b - hh * 0.5, w * 0.32, hh * 0.38, w * 0.06, C, K);
+        GB.ell(ctx, cx + w * 0.02, b - hh * 0.62, w * 0.13, w * 0.12, C, K); GB.rr(ctx, cx + w * 0.04, b - hh * 0.66, w * 0.1, w * 0.06, w * 0.02, '#c08a2a');
+        if (cell === 2) { GB.rr(ctx, cx - w * 0.14, b - hh * 0.2, w * 0.3, hh * 0.1, w * 0.04, C, K); }
+        else { GB.rr(ctx, cx - w * 0.12, b - hh * 0.14, w * 0.09, hh * 0.14, w * 0.03, C, K); GB.rr(ctx, cx + w * 0.03, b - hh * 0.14, w * 0.09, hh * 0.14, w * 0.03, C, K); } } },
+    { id: 'L5', name: 'nugget-box', type: 'sprite', canvas: [512, 512], key: '#4A5A7A', camera: CAMERA, grounded: true, box: { w: 0.07, h: 0.07 * 640 / 960, anchor: 'bottom' },
+      notes: 'picture · the supplied closed box of Black Pepper & Garlic McNuggets®, cut out, side-on; slate key',
+      shape(ctx, x, y, w, h) { GB.rr(ctx, x + w * 0.2, y + h * 0.3, w * 0.6, h * 0.62, w * 0.06, RED, '#7a0004'); GB.rr(ctx, x + w * 0.2, y + h * 0.2, w * 0.6, h * 0.14, w * 0.04, '#b00006', '#7a0004'); GB.ell(ctx, x + w * 0.5, y + h * 0.6, w * 0.12, h * 0.1, GOLD); } },
+    { id: 'L11', name: 'nugget', type: 'sprite', canvas: [512, 512], key: '#FF00FF', camera: CAMERA, box: { w: 0.06, h: 0.06 * 640 / 960, anchor: 'centre' },
+      notes: 'picture · one peppered nugget, cut out; floats in mid-air on the leap arcs (owner 2026-10-29); magenta key',
+      shape(ctx, x, y, w, h) { GB.ell(ctx, x + w * 0.5, y + h * 0.5, w * 0.42, h * 0.36, '#d9a441'); } },
+    { id: 'L6', name: 'restaurant', type: 'sprite', canvas: [1024, 768], key: '#FF00FF', camera: CAMERA, grounded: true, box: { w: 0.4, h: 0.4 * 640 / 960 * 0.75, anchor: 'bottom' },
+      notes: 'picture · a McDonald\'s restaurant with the Golden Arches, side-on, standing on the last pillar top, the doorway facing LEFT; magenta key; the arches\' glow is code',
+      shape(ctx, x, y, w, h) { GB.rr(ctx, x + w * 0.1, y + h * 0.4, w * 0.8, h * 0.58, w * 0.03, '#d9d0c4', '#3a3530'); GB.rr(ctx, x + w * 0.06, y + h * 0.32, w * 0.88, h * 0.12, w * 0.02, RED);
+        GB.rr(ctx, x + w * 0.14, y + h * 0.62, w * 0.12, h * 0.36, w * 0.01, '#3a3530');
+        ctx.save(); ctx.strokeStyle = GOLD; ctx.lineWidth = w * 0.04; ctx.beginPath(); ctx.moveTo(x + w * 0.5, y + h * 0.3); ctx.quadraticCurveTo(x + w * 0.58, y, x + w * 0.66, y + h * 0.3); ctx.quadraticCurveTo(x + w * 0.74, y, x + w * 0.82, y + h * 0.3); ctx.stroke(); ctx.restore(); } },
+    { id: 'L7', name: 'nuggets-dip', type: 'sprite', canvas: [1024, 768], key: '#4A5A7A', camera: 'three-quarter product shot', box: { x: 0.42, y: 0.28, w: 0.52, h: 0.52 * 640 / 960 * 0.75, anchor: 'centre' },
+      notes: 'SUPPLIED · product photography: the Black Pepper & Garlic McNuggets® out of the box with the sweet & sour dip; rises in on the win, stays above the sheet',
+      shape(ctx, x, y, w, h) { GB.ell(ctx, x + w * 0.5, y + h * 0.7, w * 0.42, h * 0.16, '#efe9df', '#888'); for (let i = 0; i < 6; i++) GB.ell(ctx, x + w * (0.25 + i * 0.07), y + h * (0.55 + (i % 2) * 0.08), w * 0.07, h * 0.08, '#c98a3a', '#7a4a1a'); GB.ell(ctx, x + w * 0.76, y + h * 0.58, w * 0.08, h * 0.08, '#e86a2a', '#7a2a0a'); } },
+    { id: 'L8', name: 'master-chief-armour', type: 'sprite', canvas: [768, 1024], key: '#4A5A7A', camera: 'campaign render', box: { x: 0.8, y: 0.29, w: 0.24, h: 0.24 * 640 / 960 * 4 / 3, anchor: 'centre' },
+      notes: 'SUPPLIED · the campaign\'s own render of Master Chief in the McDonald\'s armour set; never generated; on both end sheets',
+      shape(ctx, x, y, w, h) { GB.rr(ctx, x + w * 0.3, y + h * 0.3, w * 0.4, h * 0.6, w * 0.08, '#4a6a3a', '#1a2a12'); GB.ell(ctx, x + w * 0.5, y + h * 0.22, w * 0.16, w * 0.15, '#4a6a3a', '#1a2a12'); GB.rr(ctx, x + w * 0.38, y + h * 0.18, w * 0.24, h * 0.05, w * 0.02, GOLD); GB.rr(ctx, x + w * 0.3, y + h * 0.45, w * 0.4, h * 0.06, 0, RED); } },
+    { id: 'L9', name: 'lockup', type: 'brand', canvas: [1024, 256], key: null, box: { x: 0.04, y: 0.02, w: 0.36, h: 0.06, anchor: 'top-left' },
+      notes: 'SUPPLIED · the McDonald\'s campaign lockup; never drawn; the engine shows it in the band and on the cards', shape() {} },
+    { id: 'L10', name: 'code-effects', type: 'hud-in-code', canvas: null, key: null, notes: 'code · crouch squash, leap arc, pan, dust puff, fall and whistle, the box float, ghost mark, SHORT/LONG pops, LEVEL stamp, drop-in, haze, shadows, contact shade on the tops, vignette, arches glow, win glow' },
+    { id: 'L11', name: 'hud-cards', type: 'hud-in-code', canvas: null, key: null, notes: 'code · red band, rock and order pills, clock bar, hint pill, start card, win and fail sheets (Download the app big, Play again small)' },
+  ],
+  hud: {
+    html: `<div class="hb-band"></div><div class="hb-pills"><div class="hb-pill hb-rock"><span class="hb-rk">Rock 0/7</span></div><div class="hb-pill hb-order"><i class="hb-box"></i><span class="hb-ord">No order</span></div></div><div class="hb-clock"><i></i></div><div class="hb-hint">Hold</div>`,
+    css: `.hb-band{position:absolute;left:0;top:0;width:100%;height:12.5cqw;max-height:12.5%;background:linear-gradient(#e8141c,#c40006);box-shadow:0 .4cqw 1.2cqw rgba(0,0,0,.35);pointer-events:none}
+.hb-pills{position:absolute;right:11cqw;top:2.2cqw;display:flex;gap:1.6cqw;pointer-events:none}
+.hb-pill{display:flex;align-items:center;gap:1.2cqw;height:7.4cqw;padding:0 2.6cqw;border-radius:3.7cqw;font:900 3.6cqw Inter,system-ui,sans-serif;color:#2a1600;background:linear-gradient(#ffe27a,#ffbc0d 55%,#e09a00);box-shadow:inset 0 .5cqw 0 rgba(255,255,255,.6),inset 0 -.5cqw 0 rgba(0,0,0,.18),0 .5cqw 1cqw rgba(0,0,0,.35);transition:transform .12s}
+.hb-order.bump{transform:scale(1.14);box-shadow:inset 0 .5cqw 0 rgba(255,255,255,.6),0 0 3cqw rgba(255,220,80,.95)}
+.hb-box{width:3.4cqw;height:3.4cqw;border-radius:.6cqw;background:linear-gradient(#ff3a3a,#b00006);box-shadow:inset 0 .6cqw 0 #7a0004}
+.hb-clock{position:absolute;left:0;top:12.5cqw;width:100%;height:1.3cqw;background:rgba(0,0,0,.35);pointer-events:none}
+.hb-clock i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ffbc0d,#ffe27a);transform-origin:left}
+.hb-clock.pulse i{background:linear-gradient(90deg,#ff3a1a,#ffbc0d);animation:hbp .5s ease-in-out infinite alternate}
+@keyframes hbp{from{opacity:1}to{opacity:.45}}
+.hb-hint{position:absolute;left:50%;top:84%;transform:translateX(-50%);padding:2cqw 5cqw;border-radius:5cqw;font:800 4.4cqw Inter,system-ui,sans-serif;color:#fff;background:rgba(20,16,10,.62);border:.4cqw solid rgba(255,188,13,.85);pointer-events:none;transition:opacity .25s}`,
+    update(S, root, hud) {
+      if (!hud || !root) return; const q = s => root.querySelector(s), st = root._st || (root._st = {});
+      const rk = hud.left, ord = hud.order || hud.right, bump = (hud.bump || 0) > 0.3, cl = Math.max(0, Math.min(1, hud.clock == null ? 1 : hud.clock)).toFixed(3), pl = !!hud.pulse, hn = !!hud.hintOn;
+      if (st.rk !== rk) { st.rk = rk; q('.hb-rk').textContent = rk; }
+      if (st.ord !== ord) { st.ord = ord; q('.hb-ord').textContent = ord; }
+      if (st.bump !== bump) { st.bump = bump; q('.hb-order').classList.toggle('bump', bump); }
+      if (st.cl !== cl) { st.cl = cl; q('.hb-clock i').style.transform = 'scaleX(' + cl + ')'; }
+      if (st.pl !== pl) { st.pl = pl; q('.hb-clock').classList.toggle('pulse', pl); }
+      if (st.hn !== hn) { st.hn = hn; q('.hb-hint').style.opacity = hn ? 1 : 0; }
+    },
+  },
+  drawFrame(ctx, S, W, H) {
+    if (!S) return;
+    const M = S.marine, shakeY = S.shake > 0 ? Math.sin(S.elapsed * 38) * S.shake * 0.08 : 0;   // a smooth decaying wobble
+    WORLD.begin({ x: 0, y: shakeY, z: S.cam.z });
+    // the leaning ruins: a broken narrow pillar behind the play plane, turned about its foot so its top rests on the next (or
+    // previous) rock's shaft below the cap; tinted toward the haze and drawn first, behind the rocks
+    (P.leaners || []).forEach(l => {
+      const A = S.rocks[l.gap], B = S.rocks[l.gap + 1]; if (!A || !B) return;
+      const R = l.lean > 0 ? B : A, side = l.lean > 0 ? -1 : 1, k = 0.82, Hh = G.pillarDepth * k, c = Math.cos(l.lean), sn = Math.sin(l.lean);
+      const topZ = R.z + side * (0.8 * R.half + 0.48 * 0.8 * k * c), footZ = topZ - Hh * sn;
+      WORLD.layer(L('L3'), 'box', 0, -G.pillarDepth - 0.6, footZ, 0.96 * k, Hh, '#c9bfb3', { cell: 2, shadow: false, sink: 0, rot: l.lean, depth: 1 });
+    });
+    S.rocks.forEach(r => {
+      const cell = r.kind === 'wide' || r.kind === 'arches' ? 0 : r.kind === 'medium' ? 1 : 2;
+      // the arches rock plays wider than the wide pillar's painted top: its picture is drawn scaled so the cap is its own top
+      const pk = r.kind === 'arches' ? r.half / P.halves.wide : 1;
+      WORLD.layer(L('L3'), 'box', 0, -G.pillarDepth * pk, r.z, r.half * 2, G.pillarDepth * pk, '#8a8178', { cell, shadow: false, sink: 0 });   // no cast shadow: the pillars rise out of the painted valley, no floor to fall on
+      if (r.box && !r.taken) WORLD.layer(L('L5'), 'box', 0, 0.14 + 0.07 * Math.sin(S.elapsed * 3.2 + r.i), r.z + r.half * 0.35, 0.82, 0.69, RED, { shadow: true });   // bigger and bobbing (owner 2026-10-29: hardly visible)
+      if (r.last) WORLD.layer(L('L6'), 'box', 0, 0, r.z + r.half * 0.15, r.half * 1.8, 2.0, '#d9d0c4', { shadow: true });
+    });
+    // the mid-air nuggets: a slow bob and a turn, drawn at their arc point (y is the picture's foot, so the centre sits on the arc)
+    S.nuggets.forEach((n, i) => { if (n.taken) return; const bob = 0.05 * Math.sin(S.elapsed * 3 + i * 0.9), sz = 0.42 * (0.94 + 0.06 * Math.sin(S.elapsed * 5 + i));
+      WORLD.layer(L('L11'), 'disc', 0, n.y + bob, n.z, sz, sz, '#d9a441', { shadow: false, centre: true }); });   // centred on its pick-up point
+    S.floats.forEach(f => WORLD.layer(L('L5'), 'box', 0, f.y, f.z, 0.82, 0.69, RED, { shadow: false, alpha: f.alpha, centre: true, rot: f.rot }));
+    S.spill.forEach(k => WORLD.layer(L('L11'), 'disc', 0, k.y, k.z, 0.38, 0.38, '#d9a441', { shadow: false, centre: true, rot: k.rot }));
+    const overTop = S.rocks.some(r => Math.abs(M.z - r.z) < r.half);
+    if (M.alpha > 0.01) {
+      const cell = M.pose === 'crouch' ? 1 : M.pose === 'leap' || M.pose === 'fall' ? 2 : 0;
+      // the poses are stills at one scale (owner 2026-10-29: never shrink a photo to fake a crouch): the crouch still from the first
+      // moment of the hold, a 0.12 s settle on every pose change (a light squash from the feet, eased out), and a tremble that builds
+      // with the charge so the hold reads as power gathering, strongest at full charge
+      if (S.lastCell !== cell) { S.lastCell = cell; S.popAt = S.elapsed; }
+      const e = Math.max(0, 1 - (S.elapsed - (S.popAt || -9)) / 0.12), pop = e * e;
+      const charge = cell === 1 ? M.crouch : 0, tremble = charge > 0.15 ? Math.sin(S.elapsed * 60) * 0.022 * P.marineH * (charge - 0.15) / 0.85 : 0;
+      const shadow = S.phase !== 'fall' && S.phase !== 'drop' && overTop;
+      WORLD.layer(L('L4'), 'capsule', 0, M.y, M.z + tremble, P.marineH * 0.5, P.marineH * (1 + (cell === 2 ? 0.05 : -0.06) * pop), '#6b7350', { cell, shadow, alpha: M.alpha, squash: 1 + (cell === 2 ? -0.04 : 0.05) * pop });   // take-off stretches, crouch and landing squash
+    }
+    WORLD.end();
+    overlay(ctx, W, H);
+    // contact shade on the pillar tops: under each box still standing, under the restaurant, and under the marine when he stands on a top
+    S.rocks.forEach(r => {
+      if (r.box && !r.taken) { const p = WORLD.project(0, 0, r.z + r.half * 0.35); if (p) LAYERS.contact(ctx, p.x, p.y, p.s * 0.7, 0.6); }
+      if (r.last) { const p = WORLD.project(0, 0, r.z + r.half * 0.15); if (p) LAYERS.contact(ctx, p.x, p.y, p.s * r.half * 2, 0.5); }
+    });
+    if (M.alpha > 0.01 && overTop && M.y > -0.05 && S.phase !== 'fall' && S.phase !== 'drop') { const p = WORLD.project(0, 0, M.z), up = Math.max(0, M.y) / P.marineH; if (p) LAYERS.contact(ctx, p.x, p.y, p.s * P.marineH * 0.45 * (1 - Math.min(0.6, up * 0.5)), M.alpha * 0.7 * (1 - Math.min(0.8, up))); }
+    // 2D overlays: the ring faint in the sky, arches glow, dust, ghost mark, pops
+    ctx.save(); ctx.globalAlpha = 0.28; ctx.strokeStyle = '#e8eef8'; ctx.lineWidth = W * 0.012; ctx.beginPath(); ctx.ellipse(W * 0.6 - (S.cam.z * 2) % W * 0.02, H * 0.58, W * 0.75, H * 0.36, -0.22, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke(); ctx.restore();
+    const lr = S.rocks[S.last], ap = WORLD.project(0, 1.7, lr.z + lr.half * 0.4);
+    // the goal: a soft warm glow behind the restaurant (the greybox's flat gold disc read as a hard circle round the arches)
+    if (ap && ap.x < W * 1.3) { const gl = 0.55 + 0.2 * Math.sin(S.elapsed * 2.4), R0 = ap.s * 2.2, gg = ctx.createRadialGradient(ap.x, ap.y, 0, ap.x, ap.y, R0); gg.addColorStop(0, 'rgba(255,214,90,' + (0.42 * gl).toFixed(3) + ')'); gg.addColorStop(1, 'rgba(255,214,90,0)'); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gg; ctx.fillRect(ap.x - R0, ap.y - R0, R0 * 2, R0 * 2); ctx.restore(); }
+    S.nuggets.forEach((n, i) => { if (n.taken) return; const np = WORLD.project(0, n.y, n.z); if (!np || np.x < -40 || np.x > W + 40) return;
+      const R2 = np.s * 0.42, ng = ctx.createRadialGradient(np.x, np.y, 0, np.x, np.y, R2), pu = 0.7 + 0.3 * Math.sin(S.elapsed * 4 + i);
+      ng.addColorStop(0, 'rgba(255,200,60,0)'); ng.addColorStop(0.5, 'rgba(255,200,60,' + (0.45 * pu).toFixed(3) + ')'); ng.addColorStop(1, 'rgba(255,200,60,0)');
+      ctx.save(); ctx.fillStyle = ng; ctx.fillRect(np.x - R2, np.y - R2, R2 * 2, R2 * 2); ctx.restore(); });
+    S.sparks.forEach(k => { const kp = WORLD.project(0, k.y, k.z), e = k.t / 0.45; if (!kp) return; ctx.save(); ctx.fillStyle = '#ffe27a'; ctx.globalAlpha = 1 - e;
+      for (let j = 0; j < 8; j++) { const a = j / 8 * 6.283, r = kp.s * (0.15 + e * 0.55), x = kp.x + Math.cos(a) * r, y = kp.y + Math.sin(a) * r, q = kp.s * 0.05 * (1 - e * 0.6); ctx.beginPath(); ctx.moveTo(x, y - q * 2); ctx.lineTo(x + q, y); ctx.lineTo(x, y + q * 2); ctx.lineTo(x - q, y); ctx.closePath(); ctx.fill(); }
+      ctx.restore(); });
+    // the nugget boxes: a pulsing gold halo and a glint, so the pick-up reads at a glance
+    S.rocks.forEach(r => {
+      if (!r.box || r.taken) return;
+      const by = 0.14 + 0.07 * Math.sin(S.elapsed * 3.2 + r.i) + 0.35, bp = WORLD.project(0, by, r.z + r.half * 0.35); if (!bp || bp.x < -60 || bp.x > W + 60) return;
+      const pu = 0.75 + 0.25 * Math.sin(S.elapsed * 4 + r.i), R1 = bp.s * 0.95, hg = ctx.createRadialGradient(bp.x, bp.y, 0, bp.x, bp.y, R1);
+      hg.addColorStop(0, 'rgba(255,190,30,0)'); hg.addColorStop(0.55, 'rgba(255,190,30,' + (0.7 * pu).toFixed(3) + ')'); hg.addColorStop(1, 'rgba(255,190,30,0)');   // a gold ring round the box: reads on the bright sky without fogging the box
+      ctx.save(); ctx.fillStyle = hg; ctx.fillRect(bp.x - R1, bp.y - R1, R1 * 2, R1 * 2);
+      const gt = (S.elapsed * 0.7 + r.i * 0.3) % 1;
+      if (gt < 0.25) { const ga = Math.sin(gt / 0.25 * Math.PI), gx = bp.x + bp.s * 0.22, gy = bp.y - bp.s * 0.22, gr = bp.s * 0.16 * ga; ctx.globalAlpha = ga; ctx.fillStyle = '#fff6c8';
+        ctx.beginPath(); ctx.moveTo(gx, gy - gr * 2); ctx.lineTo(gx + gr * 0.45, gy); ctx.lineTo(gx, gy + gr * 2); ctx.lineTo(gx - gr * 0.45, gy); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(gx - gr * 2, gy); ctx.lineTo(gx, gy - gr * 0.45); ctx.lineTo(gx + gr * 2, gy); ctx.lineTo(gx, gy + gr * 0.45); ctx.closePath(); ctx.fill(); }
+      ctx.restore();
+    });
+    S.dust.forEach(d => { const p = WORLD.project(0, 0, d.z), k = d.t / 0.5; ctx.save(); ctx.globalAlpha = 0.5 * (1 - k); ctx.fillStyle = '#e6d6b8'; for (let i = -1; i <= 1; i += 2) { ctx.beginPath(); ctx.ellipse(p.x + i * p.s * (0.3 + k * 0.6), p.y - p.s * 0.1, p.s * 0.25 * (1 + k), p.s * 0.12 * (1 + k), 0, 0, 7); ctx.fill(); } ctx.restore(); });
+    if (S.ghost && S.ghost.first) { const p = WORLD.project(0, 0, S.ghost.z), a = Math.max(0, 1 - S.ghost.t / 1.8); ctx.save(); ctx.globalAlpha = a; ctx.setLineDash([6, 5]); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.s * 0.35, p.s * 0.12, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(p.x, p.y - p.s * 0.9); ctx.lineTo(p.x, p.y - p.s * 0.2); ctx.stroke(); ctx.restore(); }
+    if (S.mode === 'play' && !S.attract && !S.demo) S.pops.forEach(p => { const pp = WORLD.project(0, p.y, p.z), life = p.big ? 1.1 : 0.7, k = Math.min(1, p.t / 0.16), sc = p.big ? 1.4 - 0.4 * k : 1;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - p.t / life); GB.label(ctx, pp.x + 1.5, pp.y - p.t * 30 + 2, p.txt, Math.round(W * (p.big ? 0.07 : 0.045) * sc), 'rgba(0,0,0,.5)'); GB.label(ctx, pp.x, pp.y - p.t * 30, p.txt, Math.round(W * (p.big ? 0.07 : 0.045) * sc), p.bad ? '#ffffff' : p.kind === 'box' ? '#ffe27a' : GOLD); ctx.restore(); });
+    if (S.flash > 0) { ctx.save(); ctx.globalAlpha = S.flash * 0.15; ctx.fillStyle = '#ffe27a'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+    // the end screen (owner 2026-10-29: "the armor just comes up very randomly in the sky and the transition comes in late"): the
+    // collab's red fades over the scene, gold rings pulse out from behind the hero, a glow comes up, the armour rises in centred
+    // with an overshoot, sparks burst as it lands; the card's words follow at 1 s, anchored low so the hero owns the middle
+    if (S.mode === 'reveal' || S.mode === 'win' || S.mode === 'fail') {
+      const now = performance.now(); if (!S.endAt) S.endAt = now;
+      const t = (now - S.endAt) / 1000, cl = v => Math.max(0, Math.min(1, v)), win = S.mode !== 'fail';
+      const bk = 1 - Math.pow(1 - cl(t / 0.5), 3), hk = cl((t - 0.25) / 0.7);
+      const back = k => { const c = 1.6; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+      const heroY = 0.345, cx = W * 0.5, cy = H * heroY;
+      ctx.save();
+      ctx.globalAlpha = bk; const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, win ? '#d4000b' : '#9c0006'); g.addColorStop(0.55, win ? '#a50006' : '#760004'); g.addColorStop(1, '#3e0002');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.lineWidth = W * 0.006; ctx.strokeStyle = GOLD;
+      for (let i = 0; i < 7; i++) { const r = (t * 0.11 + i / 7) % 1; ctx.globalAlpha = bk * 0.26 * (1 - r); ctx.beginPath(); ctx.arc(cx, cy, W * (0.12 + r * 1.0), 0, 7); ctx.stroke(); }
+      const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, W * 0.42); rg.addColorStop(0, win ? 'rgba(255,214,90,.6)' : 'rgba(255,214,90,.3)'); rg.addColorStop(1, 'rgba(255,214,90,0)');
+      ctx.globalAlpha = bk * hk; ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+      const fy = H * (heroY + 0.145); ctx.globalAlpha = hk * 0.55; ctx.fillStyle = '#ffd25a'; ctx.beginPath(); ctx.ellipse(cx, fy, W * 0.17 * hk, W * 0.03, 0, 0, 7); ctx.fill();
+      ctx.restore();
+      const e = back(hk), hb = { x: 0.5, y: heroY + (1 - e) * 0.1, w: 0.326, h: 0.326 * 640 / 960 * 4 / 3, anchor: 'centre' };
+      if (hk > 0) LAYERS.draw(ctx, L('L8'), S, W, H, { box: hb, alpha: cl(hk * 2.5) * (win ? 1 : 0.92) });
+      if (win) { const nk = cl((t - 0.55) / 0.5), ne = back(nk), b = L('L7').box; if (nk > 0) LAYERS.draw(ctx, L('L7'), S, W, H, { box: { ...b, x: 0.24, y: 0.45 + (1 - ne) * 0.08, w: 0.3, h: 0.3 * 640 / 960 * 0.75 }, alpha: cl(nk * 2.5) }); }
+      const sp = cl((t - 0.9) / 0.9);
+      if (sp > 0 && sp < 1) { ctx.save(); ctx.fillStyle = '#ffe27a'; for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283 + 0.3, d = W * (0.12 + sp * 0.32) * (0.8 + 0.4 * ((i * 7) % 5) / 5); ctx.globalAlpha = (1 - sp) * 0.9; const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * 0.9, r = W * 0.008 * (1 - sp * 0.5); ctx.beginPath(); ctx.moveTo(x, y - r * 2.4); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r * 2.4); ctx.lineTo(x - r, y); ctx.closePath(); ctx.fill(); } ctx.restore(); }
+    } else S.endAt = 0;
+  },
+};
+VIEW.art = ".frame{--accent:#FFBC0D;--ink:#000;--red:#DB0007}.greylabel{display:none!important}.frame.own-hud .hint{display:none}.brandmark{left:2.4cqw!important;top:1.5cqw!important;right:auto!important;transform:none!important;width:auto!important;height:9.5cqw;max-width:42cqw;z-index:20;border:0;border-radius:0;background:none;background-color:transparent;padding:0 1.6cqw;justify-content:flex-start;color:#fff;font-family:'Russo One','Arial Black',Inter,sans-serif;font-weight:400;font-size:4.2cqw;letter-spacing:.04em;text-shadow:0 .35cqw 0 rgba(0,0,0,.35)}.brandmark.plain{font-size:4.2cqw;letter-spacing:.04em}.brandmark img{max-height:7.5cqw}@keyframes hxdrop{from{transform:translateY(-100%)}to{transform:none}}@keyframes hxrise{from{opacity:0;transform:translateY(4cqw)}to{opacity:1;transform:none}}@keyframes hxin{from{opacity:0}to{opacity:1}}@keyframes hxslam{0%{opacity:0;transform:rotate(-4deg) scale(2.2)}70%{opacity:1;transform:rotate(-4deg) scale(.94)}100%{opacity:1;transform:rotate(-4deg) scale(1)}}@keyframes hxbreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}.hx-band{position:absolute;left:0;top:0;width:100%;height:12.5cqw;background:linear-gradient(#e8141c,#c40006);box-shadow:0 .4cqw 1.2cqw rgba(0,0,0,.35);animation:hxdrop .45s cubic-bezier(.2,1,.3,1) both;pointer-events:none}.hx-band:after{content:'';position:absolute;left:0;right:0;bottom:-1.3cqw;height:1.3cqw;background:linear-gradient(90deg,#ffbc0d,#ffe27a)}.hx-glow{position:absolute;left:-10cqw;right:-10cqw;top:12cqw;height:48cqw;background:radial-gradient(ellipse 50% 50% at 50% 50%,rgba(255,250,240,.75),rgba(255,250,240,0));animation:hxin .6s ease-out both;pointer-events:none}.card{padding:0 7cqw 9cqw;justify-content:flex-start}.card .stat{order:1}.card p{order:2}.card .hand{order:3}.card .btn{order:4}.card .btn.ghost{order:5}#startCard{background:none;padding-top:17cqw}#startCard .lockup{position:absolute;left:2.4cqw;top:1.5cqw;height:9.5cqw;margin:0;padding:0 1.6cqw;border:0;border-radius:0;background:none;background-color:transparent;display:flex;align-items:center;color:#fff;font-family:'Russo One','Arial Black',Inter,sans-serif;font-weight:400;font-size:4.2cqw;letter-spacing:.04em;text-shadow:0 .35cqw 0 rgba(0,0,0,.35);animation:hxin .4s ease-out .25s both}#startCard .lockup img{height:7.5cqw}#startCard h1{font-family:'Russo One','Arial Black',Inter,sans-serif;font-weight:400;font-size:11.5cqw;line-height:1.02;letter-spacing:.01em;color:#000;text-shadow:0 .55cqw 0 #FFBC0D;max-width:86cqw;animation:hxrise .5s cubic-bezier(.2,1,.3,1) .15s both}#startCard p{margin-top:3.4cqw;font-size:4cqw;line-height:1.3;font-weight:700;color:#000;background:rgba(255,255,255,.93);border-radius:999px;padding:1.6cqw 4.4cqw;box-shadow:0 .6cqw 1.6cqw rgba(0,0,0,.15);max-width:86cqw;animation:hxrise .45s ease-out .35s both}#startCard .hand{margin:auto 0 2cqw;filter:drop-shadow(0 .4cqw .6cqw rgba(0,0,0,.35))}.card .btn{font-family:'Russo One','Arial Black',Inter,sans-serif;font-weight:400;font-size:5.4cqw;letter-spacing:.02em;min-height:12.5cqw;padding:2.4cqw 10cqw;margin-top:4cqw;border-radius:999px;border:0;background:#FFBC0D linear-gradient(#ffe27a,#ffbc0d 55%,#e09a00);background-color:#FFBC0D;color:#000;box-shadow:inset 0 .6cqw 0 rgba(255,255,255,.55),inset 0 -.7cqw 0 rgba(0,0,0,.18),0 1cqw 2.4cqw rgba(0,0,0,.4);animation:hxrise .4s ease-out .6s both,hxbreathe 2.2s ease-in-out 1.6s infinite}.card .btn.ghost{background:rgba(0,0,0,.22);background-color:rgba(0,0,0,.22);color:#fff;border:.5cqw solid rgba(255,255,255,.8);box-shadow:none;text-decoration:none;font-size:4.2cqw;min-height:10cqw;padding:1.6cqw 7cqw;margin-top:3.8cqw;animation:hxrise .4s ease-out .75s both}#winCard,#failCard{padding-top:16cqw;isolation:isolate;background:none}#winCard .lockup,#failCard .lockup{display:none}.card .stamp{font-family:'Russo One','Arial Black',Inter,sans-serif;font-weight:400;font-size:8cqw;line-height:1;letter-spacing:.03em;color:#000;background:#FFBC0D;background-color:#FFBC0D;border:.9cqw solid #000;border-radius:1.6cqw;padding:1.6cqw 4.4cqw;margin:0;transform:rotate(-4deg);box-shadow:0 1.2cqw 0 rgba(0,0,0,.35);animation:hxslam .45s cubic-bezier(.2,1,.3,1) both}.card .stamp.bad{color:#fff;background:#DB0007;background-color:#DB0007;border-color:#fff}#winCard h1,#failCard h1{margin-top:auto;font-family:'Russo One','Arial Black',Inter,sans-serif;font-weight:400;font-size:6.8cqw;line-height:1.08;color:#fff;max-width:86cqw;text-shadow:0 .4cqw 1.2cqw rgba(0,0,0,.5);animation:hxrise .4s ease-out .2s both}#failCard h1{font-size:7.4cqw}#winCard .stat,#failCard .stat{margin-top:2.6cqw;font-size:3.4cqw;font-weight:800;color:#fff;background:rgba(0,0,0,.28);background-color:rgba(0,0,0,.28);border:.4cqw solid #FFBC0D;border-radius:999px;padding:1.2cqw 4cqw;max-width:86cqw;animation:hxrise .4s ease-out .35s both}#winCard p,#failCard p{margin-top:2.6cqw;font-size:3.3cqw;line-height:1.32;font-weight:600;color:#fff;max-width:82cqw;animation:hxin .4s ease-out .5s both}";   // the art director's composition
+VIEW.art += "#winCard p small,#failCard p small{display:block;margin-top:1.2cqw;font-size:2.6cqw;opacity:.7;font-weight:600}#winCard p:empty,#failCard p:empty{display:none}#winCard h1,#failCard h1{font-size:9cqw}#winStat,#failStat{font-size:4.4cqw;padding:1.2cqw 3.6cqw}";   // a game screen: big result, one line, small legal (owner 2026-10-29)
+VIEW.art += "#winCard .btn:not(.ghost),#failCard .btn:not(.ghost){margin-top:5cqw}";
+VIEW.art += ".hud .top{left:auto!important;justify-content:flex-end!important;gap:1.2cqw;font-size:3.1cqw!important}.hud .top .pill{padding:1.2cqw 2.4cqw!important;white-space:nowrap}.brandmark img{max-height:5.4cqw!important}.hb-pills{gap:2.6cqw!important}.hb-order{transform-origin:left center}.hb-order.bump{transform:scale(1.08)!important}.hb-pill{height:6.6cqw!important;padding:0 2.2cqw!important;font-size:3.2cqw!important;gap:1cqw!important;white-space:nowrap}";   // the counters sit right, clear of the lockup (owner 2026-10-29: they ran into the MyM pill)
+VIEW.art += "#startCard{background:linear-gradient(180deg,rgba(24,8,2,.78) 0%,rgba(24,8,2,.5) 34%,rgba(24,8,2,0) 56%)}#startCard h1{font-family:'Archivo Black','Arial Black',Inter,sans-serif!important;font-size:9.4cqw!important;letter-spacing:.07em!important;text-transform:uppercase;color:#fff!important;line-height:1.06!important;text-shadow:0 .6cqw 0 #DB0007,0 1cqw 2.6cqw rgba(0,0,0,.6),0 0 1.2cqw rgba(0,0,0,.35)!important}#startCard h1:before{content:'SIDE MISSION';display:block;font:400 3.2cqw 'Russo One',Inter,sans-serif;letter-spacing:.46em;color:#FFBC0D;margin:0 0 2.2cqw .46em;text-shadow:0 .3cqw 1cqw rgba(0,0,0,.4)}#startCard h1:after{content:'';display:block;width:34cqw;height:1.1cqw;margin:3cqw auto 0;background:linear-gradient(90deg,rgba(255,188,13,0),#FFBC0D 20%,#ffe27a 50%,#FFBC0D 80%,rgba(255,188,13,0));box-shadow:0 .4cqw 1.2cqw rgba(0,0,0,.45)}#startCard p{color:#fff!important;background:rgba(12,16,22,.74)!important;border-radius:0!important;border:.35cqw solid rgba(255,188,13,.9);box-shadow:0 .8cqw 2.4cqw rgba(0,0,0,.3)!important;padding:2.2cqw 4.6cqw!important;font:700 3.5cqw Inter,system-ui,sans-serif!important;letter-spacing:.03em;clip-path:polygon(3cqw 0,100% 0,100% calc(100% - 3cqw),calc(100% - 3cqw) 100%,0 100%,0 3cqw)}#startCard p b{display:inline-block;font:400 3cqw 'Russo One',Inter,sans-serif;letter-spacing:.14em;color:#2a1600;background:linear-gradient(#ffe27a,#ffbc0d);padding:.7cqw 1.6cqw;border-radius:.7cqw;margin-right:1.2cqw;vertical-align:.2cqw}#startCard p i{font-style:normal;color:#FFBC0D;margin:0 2cqw}#startCard .btn{text-transform:uppercase;letter-spacing:.1em;font-size:4.8cqw!important}.hb-hint{border-radius:0!important;background:rgba(12,16,22,.74)!important;border:.35cqw solid rgba(255,188,13,.9)!important;font:400 3.6cqw 'Russo One',Inter,sans-serif!important;letter-spacing:.14em;text-transform:uppercase;clip-path:polygon(2.4cqw 0,100% 0,100% calc(100% - 2.4cqw),calc(100% - 2.4cqw) 100%,0 100%,0 2.4cqw)}";   // the mission-briefing start card and the HUD prompt: the posts' spaced capitals, Halo-style angled plates, McDonald's red and gold (owner 2026-10-29)
+VIEW.artDecor = {"start":"<div class=\"hx-band\"></div><div class=\"hx-glow\"></div>","win":"<div class=\"hx-band\"></div>","fail":"<div class=\"hx-band\"></div>"};
+VIEW.artFonts = ["Archivo Black", "Russo One"];
+GAME.run(VIEW);
+</script></body></html>

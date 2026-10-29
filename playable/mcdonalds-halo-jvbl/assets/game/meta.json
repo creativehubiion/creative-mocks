@@ -1,0 +1,178 @@
+{
+ "sky-ring": {
+  "w": 1248,
+  "h": 1248,
+  "box": {
+   "x": 0.5,
+   "y": 0,
+   "w": 1.5,
+   "h": 1,
+   "anchor": "top"
+  },
+  "measured": {
+   "line": "horizon",
+   "at": 0.7,
+   "found": 0.745,
+   "off": 0.014453124999999956,
+   "note": "set by hand 2026-10-29: the near mesa tops sit on the floor line, so the painted mesas show above the pillar tops"
+  }
+ },
+ "canyon-walls": {
+  "w": 1024,
+  "h": 1024,
+  "tile": "x"
+ },
+ "pillar": {
+  "cellW": 250,
+  "cellH": 749,
+  "cols": 3,
+  "rows": 1,
+  "names": [
+   "wide",
+   "medium",
+   "narrow"
+  ],
+  "states": true,
+  "foot": {
+   "cx": 0.498,
+   "cy": 0.9185580774365821,
+   "rx": 0.238,
+   "ry": 0.0801068090787717
+  },
+  "bounds": [
+   [
+    0.216,
+    0.0013,
+    0.784,
+    1
+   ],
+   [
+    0.216,
+    0.0013,
+    0.784,
+    1
+   ],
+   [
+    0.216,
+    0.0013,
+    0.784,
+    1
+   ]
+  ]
+ },
+ "marine": {
+  "cellW": 256,
+  "cellH": 578,
+  "cols": 3,
+  "rows": 1,
+  "names": [
+   "stand",
+   "crouch",
+   "leap"
+  ],
+  "feet": [
+   1,
+   1,
+   1
+  ],
+  "spans": [
+   0.5156,
+   0.8477,
+   0.9531
+  ],
+  "bounds": [
+   [
+    0.2422,
+    0.2076,
+    0.7578,
+    1
+   ],
+   [
+    0.0742,
+    0.5104,
+    0.9219,
+    1
+   ],
+   [
+    0.0234,
+    0.4325,
+    0.9766,
+    1
+   ]
+  ],
+  "note": "one figure scale across the poses (helmet-matched), 2026-10-29"
+ },
+ "nugget-box": {
+  "w": 192,
+  "h": 192,
+  "box": {
+   "w": 0.07,
+   "h": 0.04666666666666667,
+   "anchor": "bottom"
+  },
+  "foot": {
+   "cx": 0.4973958333333333,
+   "cy": 0.8489583333333334,
+   "rx": 0.3046875,
+   "ry": 0.078125
+  },
+  "bounds": [
+   0.1927,
+   0.0677,
+   0.8073,
+   0.9323
+  ]
+ },
+ "restaurant": {
+  "w": 333,
+  "h": 250,
+  "box": {
+   "w": 0.4,
+   "h": 0.2,
+   "anchor": "bottom"
+  },
+  "foot": {
+   "cx": 0.4924924924924925,
+   "cy": 0.916,
+   "rx": 0.4144144144144144,
+   "ry": 0.08
+  },
+  "bounds": [
+   0,
+   0.2,
+   1,
+   1
+  ]
+ },
+ "master-chief-armour": {
+  "w": 200,
+  "h": 266,
+  "box": {
+   "x": 0.8,
+   "y": 0.29,
+   "w": 0.24,
+   "h": 0.21333333333333335,
+   "anchor": "centre"
+  },
+  "supplied": true,
+  "note": "placed as supplied, no cutout"
+ },
+ "nuggets-dip": {
+  "w": 433,
+  "h": 324,
+  "box": {
+   "x": 0.42,
+   "y": 0.28,
+   "w": 0.52,
+   "h": 0.26,
+   "anchor": "centre"
+  },
+  "supplied": true,
+  "note": "generated stand-in matched to a product reference photo (owner 2026-10-29); the client photography replaces it"
+ },
+ "nugget": {
+  "w": 192,
+  "h": 192,
+  "note": "generated stand-in, one nugget (owner 2026-10-29)"
+ }
+}
