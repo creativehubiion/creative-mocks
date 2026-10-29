@@ -1,0 +1,1281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Drive-Thru Dash · McDonald’s Win a Car</title>
+<link rel="icon" href="data:,">
+<style>
+/* the client's brand typeface, supplied locally: no outside requests */
+@font-face{font-family:'Speedee';src:url('fonts/Speedee-Bold.ttf') format('truetype');font-weight:700;font-display:block}
+@font-face{font-family:'Speedee';src:url('fonts/Speedee-Regular.otf') format('opentype');font-weight:400;font-display:block}
+/* the unit runs in a 2:3 interstitial slot (640×960); everything outside the 2:3 game frame is plain black, like other games: only the frame shows */
+html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+body{display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh}
+#game{display:block;width:min(100vw,calc(100vh * 2 / 3));width:min(100vw,calc(100dvh * 2 / 3));aspect-ratio:2/3;touch-action:none;outline:none;position:relative;z-index:1}
+#ground{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100vw,calc(100vh * 2 / 3));width:min(100vw,calc(100dvh * 2 / 3));aspect-ratio:2/3;pointer-events:none;z-index:0}
+.off{display:none}
+#geometry{color:#ddd;font:12px/1.4 monospace;white-space:pre-wrap;padding:12px;margin:0}
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="Playable: swipe up to launch the car and stop its window on the line at each of three stops before the lunch rush clock runs out. With a keyboard, hold space to charge and release to launch."></canvas>
+<div class="off" aria-hidden="true"><ul id="checklist"></ul><div id="checksum"></div><button id="teaser"></button><button id="restart"></button><button id="skip"></button><button id="juice"></button><button id="labels"></button><button id="layers"></button></div>
+<script>
+(() => {
+const W=640*2/3, H=640, CX=W/2, OX=(W-360)/2; /* 2:3 logical frame; CX is the middle line; OX centres a 360-wide column (receipt, bubble, teaser) */
+const cv=document.getElementById('game'); let ctx=cv.getContext('2d'); /* let: the world's ground and shadow passes point it at their own layers */
+const P={
+  yellow:'#FFC72C', yellowD:'#E0A800', red:'#DA291C', redD:'#A81E13', ink:'#27251F', charcoal:'#3A3733', roof:'#4A4641',
+  pearl:'#EEF0F3', pearlL:'#F9FAFB', pearlD:'#C3C9D1', asphalt:'#3B3E44', paint:'#F2F2EE', sand:'#E9DCC3', sandD:'#DCCBAE',
+  concrete:'#CFC9BD', curb:'#B5AEA0', glass:'#9CC3D6', glassD:'#2F3B46', palm:'#3E7D4F', palmD:'#2C5E3A', trunk:'#8A6A48',
+  wood:'#A7774F', kraft:'#C8A47E', kraftD:'#A9845E', neutral:'#B8B4AA', white:'#FFFFFF', paper:'#FBFAF7',
+  shadow:'rgba(20,18,15,.28)', skinCrew:'#B97C55', skinDriver:'#E0B48F', sleeveCrew:'#2E2C28', sleeveDriver:'#7C98B6',
+  taillight:'#B0162A', taillightOn:'#FF3B30', headlight:'#FFF4D2'
+};
+const LIGHT={x:6,y:9};
+/* brand marks supplied by the agency, vectorised in brand/: Golden Arches (as supplied, never recoloured), 2020 packaging smile, black wordmark */
+const BRAND={arches:new Path2D('M74.4,6.5c8.9,0,16.2,37.7,16.2,84.1h12.9c0-50-13-90.6-29.1-90.6c-9.1,0-17.3,12.2-22.6,31.2C46.4,12.2,38.3,0,29.1,0C13,0,0,40.6,0,90.6h12.9c0-46.5,7.2-84.1,16.2-84.1c8.9,0,16.2,34.8,16.2,77.6h12.9C58.2,41.2,65.5,6.5,74.4,6.5'),reg:new Path2D('M111.2,87h0.9c0.7,0,1.4,0,1.4-0.9c0-0.7-0.6-0.8-1.2-0.8h-1.1V87z M110.4,84.7h2c1.2,0,1.8,0.5,1.8,1.5c0,1-0.6,1.4-1.4,1.4l1.5,2.3h-0.9l-1.4-2.3h-0.9V90h-0.8V84.7z M112.1,91.2c2.1,0,3.7-1.7,3.7-3.9c0-2.2-1.6-3.8-3.7-3.8c-2.1,0-3.7,1.7-3.7,3.8C108.4,89.5,110,91.2,112.1,91.2 M112.1,82.8c2.5,0,4.5,1.9,4.5,4.5c0,2.6-2.1,4.5-4.5,4.5c-2.5,0-4.5-1.9-4.5-4.5C107.6,84.8,109.6,82.8,112.1,82.8'),smile:new Path2D('M47.5 43.5C33.4 42.6 20.7 34.4 12.7 21.2C10.8 18.1 9 14.1 7.9 10.7C7.7 10 7.4 9.4 7.4 9.4C7.3 9.4 6.2 9.8 4.9 10.5C3.5 11.1 2.4 11.5 2.4 11.5C2.3 11.4 1.8 10.3 0.2 6.8L0 6.3 L2.3 5.3C3.6 4.7 6.6 3.3 8.9 2.2C11.3 1.1 13.3 0.2 13.5 0.1L13.8 0 L14.9 2.6C15.6 4 16.1 5.2 16 5.3C16 5.3 15.1 5.8 14 6.2C13 6.7 12.1 7.2 12 7.2C12 7.3 12.1 7.8 12.3 8.5C16.1 19.9 26.3 28.8 39.3 32C43.2 33 45.6 33.3 50 33.3C54.4 33.3 56.8 33 60.7 32C73.7 28.8 83.9 19.9 87.7 8.5C87.9 7.8 88 7.3 88 7.2C88 7.2 87 6.7 86 6.2C84.9 5.8 84 5.3 84 5.3C83.9 5.2 84.4 4 85.1 2.6L86.2 0 L86.5 0.1C86.7 0.2 88.7 1.1 91.1 2.2C93.4 3.3 96.4 4.7 97.7 5.3L100 6.3 L99.8 6.8C98.2 10.3 97.7 11.4 97.6 11.5C97.6 11.5 96.5 11.1 95.1 10.5C93.8 9.8 92.7 9.4 92.6 9.4C92.6 9.4 92.3 10 92.1 10.7C91.3 13.3 89.9 16.4 88.5 19C79.9 35.2 64.1 44.6 47.5 43.5Z'),word:new Path2D('M88.2 24.9C83.9 24.4 80.8 21.7 79.6 17.4C79.3 16.3 79.3 12.6 79.6 11.5C80.9 6.7 85.1 3.8 90.4 4C96 4.2 99.7 7.6 100.4 13C101.4 20.4 95.8 25.9 88.2 24.9ZM41 24.7C35.9 23.7 32.8 19.5 33 14.1C33.3 9.1 36 5.5 40.5 4.3C42.6 3.7 46 3.9 48.2 4.8C51.1 5.9 53.5 8.9 53.5 11.5L53.5 11.9 L50.3 11.9L47.1 11.9 L47 11.4C46.7 8.7 42.4 8.1 40.7 10.4C39.4 12.1 39.3 15.8 40.3 18C41.8 21 46.2 20.6 47.2 17.3L47.4 16.6 L50.5 16.6C53.3 16.6 53.7 16.6 53.7 16.7C53.7 18.9 51.8 22 49.7 23.4C47.4 24.8 43.8 25.4 41 24.7ZM127.9 24.7C124.9 23.9 123.4 21.9 123.6 18.6C123.7 14.8 125.6 13.5 132.5 12.5C136.3 11.9 136.8 11.7 137 10.5C137.2 8.4 133.2 7.3 131.4 9C131 9.4 130.6 10.1 130.6 10.4C130.6 10.6 130.2 10.6 127.4 10.6C123.8 10.6 124.2 10.8 124.5 9.4C125.2 5.8 128.3 4 134 4C138.8 4 141.3 5 142.5 7.3C143.2 8.6 143.3 9.1 143.3 15.4C143.3 21.3 143.4 22.4 143.8 23.7C143.9 24.1 144 24.4 144 24.4C144 24.4 142.5 24.5 140.7 24.5L137.4 24.5 L137.3 24C137.2 23.7 137.1 23.4 137.1 23.2C137.1 22.7 137 22.7 136.2 23.3C134.2 24.8 130.5 25.4 127.9 24.7ZM160.2 24.8C157.2 24 154.8 21.4 153.9 17.9C152.8 13.2 153.8 8.4 156.6 5.9C159.5 3.3 164.5 3.3 167.1 5.9C167.4 6.2 167.8 6.5 167.8 6.5C167.9 6.5 167.9 5.1 167.9 3.3L167.9 0.1 L171.2 0.1L174.4 0.1 L174.4 12.3L174.4 24.5 L171.3 24.5L168.1 24.5 L168.1 23.3L168.1 22.2 L167.4 23C165.7 24.7 162.9 25.4 160.2 24.8ZM187.7 24.9C183.3 24.2 180.5 21.6 180.5 18.3L180.5 17.9 L183.6 17.9L186.8 17.9 L186.8 18.4C187.1 19.9 188.3 20.7 190.2 20.7C192.1 20.7 193.2 20 193.2 18.7C193.2 17.5 192.4 17.1 188.2 16.2C182.7 15 181.1 13.9 180.7 10.9C180.1 6.7 183.7 4 190 4C195.2 4 198.2 5.7 198.9 9.2C199 9.7 199.1 10.2 199.1 10.2C199.1 10.3 198.1 10.4 196.1 10.4L193 10.4 L192.9 9.9C192.7 8.7 191.4 8.1 189.7 8.2C188.1 8.3 187.4 8.8 187.4 9.7C187.4 10.8 188.5 11.3 193 12.2C197.1 13 198.5 13.7 199.4 15.6C201.2 19.3 198.9 23.3 194.1 24.5C192.9 24.9 188.9 25.1 187.7 24.9ZM0 24.2C0.1 24.1 1.2 18.6 2.6 12L5.1 0 L9 0L12.8 0 L13 0.5C13 0.7 13.9 4.2 14.9 8.3L16.8 15.5 L17.8 11.2C18.4 8.8 19.3 5.3 19.8 3.4L20.7 -0 L24.5 -0C26.7 -0 28.4 0 28.4 0.1C28.4 0.1 29.6 5.6 30.9 12.2C32.3 18.9 33.5 24.3 33.5 24.4C33.5 24.4 31.8 24.5 29.8 24.5L26.2 24.5 L26.1 23.8C25.6 21.3 24.2 14 24 12.9C23.9 12.2 23.8 11.6 23.8 11.6C23.8 11.7 23.6 12.3 23.4 13C23.2 14.2 21.2 21.5 20.6 23.8L20.4 24.5 L16.7 24.5C14.7 24.5 13.1 24.4 13.1 24.4C13.1 24.4 12.5 22.1 11.7 19.3C11 16.5 10.2 13.7 10.1 13C9.9 12.3 9.8 11.7 9.7 11.7C9.7 11.6 9.6 12.1 9.5 12.7C9.4 13.7 7.5 23.8 7.3 24.2C7.2 24.6 -0.1 24.6 0 24.2ZM55.1 12.3L55.1 0.1 L61.2 0.1C66 0.1 67.6 0.2 68.5 0.3C73.2 1.1 76.3 3.9 77.5 8.5C77.9 10.2 77.9 14.5 77.4 16.2C76.3 20.6 73.6 23.1 69.1 24.1C68.1 24.4 67.5 24.4 61.6 24.4L55.1 24.5 L55.1 12.3ZM101.9 14.5L101.9 4.6 L105.1 4.6L108.3 4.6 L108.3 6L108.4 7.4 L108.6 7C110.2 4.9 112 4 114.7 4C117.8 3.9 120.1 5.1 121.2 7.4C122 9 122.1 9.4 122.1 17.4L122.1 24.5 L118.8 24.5L115.5 24.5 L115.5 18.3C115.4 11.4 115.4 11.2 114.6 10.3C113.5 9 111.2 9 109.9 10.2C108.7 11.4 108.6 11.9 108.6 18.8L108.6 24.5 L105.3 24.5L101.9 24.5 L101.9 14.5ZM145.5 12.3L145.5 0.1 L148.8 0.1L152.1 0.1 L152.1 12.3L152.1 24.5 L148.8 24.5L145.5 24.5 L145.5 12.3ZM134.5 20.7C135.3 20.5 136.3 19.5 136.6 18.7C136.9 17.6 137 15.1 136.7 15.3C136.3 15.4 135 15.8 133.5 16.1C130.9 16.6 129.9 17.5 130.1 19.1C130.4 20.6 132.4 21.4 134.5 20.7ZM91.6 19.7C93.2 18.9 94 16.8 93.9 13.9C93.7 10.2 91.6 8.3 88.7 9.1C85 10.2 84.9 18.5 88.5 19.8C89.2 20.1 90.9 20 91.6 19.7ZM165.9 19.6C168.5 18.1 168.9 12.1 166.6 9.9C165.2 8.6 162.7 8.7 161.4 10.1C159.6 12 159.7 16.6 161.5 18.8C162.5 20 164.5 20.4 165.9 19.6ZM67 18.6C69.5 18 70.7 16 70.7 12.3C70.7 7.5 68.7 5.6 63.6 5.7L62.2 5.7 L62.2 12.3L62.1 18.8 L64.1 18.8C65.5 18.8 66.4 18.7 67 18.6ZM175.8 3.4L175.8 0.1 L178.9 0.1C180.6 0.1 182 0.2 182 0.2C182 0.2 181.3 1.7 180.5 3.5L179 6.7 L177.4 6.7L175.8 6.7 L175.8 3.4ZM197.5 2.9C196.7 2.4 196.6 1.1 197.4 0.4C198.6 -0.5 200.4 0.7 199.9 2.1C199.5 3.1 198.4 3.5 197.5 2.9ZM198.9 2.8C199.4 2.6 199.6 2.2 199.6 1.6C199.6 0.1 197.4 -0.1 197.2 1.4C197 2.5 198 3.3 198.9 2.8ZM197.8 1.7L197.8 0.7 L198.3 0.7C199.1 0.7 199.5 1.4 198.9 1.7C198.7 1.8 198.7 1.8 198.9 2.1C199.2 2.5 199.2 2.6 199 2.6C198.9 2.6 198.8 2.4 198.6 2.2C198.3 1.6 198.1 1.6 198.1 2.2C198.1 2.5 198.1 2.6 198 2.6C197.8 2.6 197.8 2.4 197.8 1.7ZM198.8 1.2C198.8 1.1 198.7 1 198.5 1C198.2 1 198.1 1 198.1 1.2C198.1 1.4 198.2 1.5 198.5 1.5C198.7 1.4 198.8 1.3 198.8 1.2Z'),archYellow:'#FDBB20',smileYellow:'#FBBC0D'};
+function arches(x,y,h,reg){if(ART.mark&&!BP){const w=h*272.7/238.5;ctx.drawImage(ART.mark,x,y,w,h);return w;} const k=h/90.6;ctx.save();ctx.translate(x,y);ctx.scale(k,k);ctx.fillStyle=BRAND.archYellow;ctx.fill(BRAND.arches);if(reg)ctx.fill(BRAND.reg);ctx.restore();return 103.5*k;} /* top-left anchored; returns width */
+function smile(cx,cy,w){if(ART.mark&&!BP){const h=w*.42;arches(cx-h*272.7/238.5/2,cy-h/2,h);return;} const k=w/100;ctx.save();ctx.translate(cx-w/2,cy-21.8*k);ctx.scale(k,k);ctx.fillStyle=BRAND.smileYellow;ctx.fill(BRAND.smile,'evenodd');ctx.restore();}
+function wordmark(cx,cy,w,col){if(ART.mark&&!BP){const h=w*.24;arches(cx-h*272.7/238.5/2,cy-h/2,h);return;} const k=w/200;ctx.save();ctx.translate(cx-w/2,cy-12.55*k);ctx.scale(k,k);ctx.fillStyle=col||P.ink;ctx.fill(BRAND.word,'evenodd');ctx.restore();}
+const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const S={scene:'teaser',t:0,juice:!reduce,labels:false,layers:false,expand:0,endT:0,toast:null};
+
+function fit(){if(/[?&](blueprint|explained)=/.test(location.search))return; cv.width=640; cv.height=960; if(window.GLG_RESIZE) GLG_RESIZE(640,960);} /* the 640×960 slot, on any DPR (2:3, 1.5× the logical frame); the GPU ground matches it (owner 23:55: the slot is the resolution, no screen-density upscale) */
+new ResizeObserver(fit).observe(cv); fit();
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t, ease=t=>1-Math.pow(1-clamp(t,0,1),3);
+function path(x,y,w,h,r){ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,Math.max(0,w),Math.max(0,h),r); else ctx.rect(x,y,w,h);}
+function rr(x,y,w,h,r,fill,stroke,lw){path(x,y,w,h,r); if(fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();}}
+const dk=(c,k)=>{if(BP)return BP.face; if(typeof c!=='string'||c[0]!=='#'||c.length!==7)return c; const n=parseInt(c.slice(1),16),f=1-(k==null?.32:k); return `rgb(${Math.round((n>>16&255)*f)},${Math.round((n>>8&255)*f)},${Math.round((n&255)*f)})`;}; /* a near face: a darker tone of the object's colour (the blueprint's dark grey) */
+const tc=c=>BP?BP.top:c; /* a top: its own colour (the blueprint's mid-grey) */
+function bevel(x,y,w,h,col,r){r=r||0; if(BP){rr(x,y,w,h,r,BP.top);return;} rr(x,y,w,h,r,dk(col,.22)); rr(x+1.5,y+1.5,w-3,h-3,Math.max(0,r-1.5),col);} /* a straight-down top with a subtle rim (blueprint: the flat footprint) */
+function font(s,w){ctx.font=`${(w||700)>=700?700:400} ${s}px Speedee, system-ui, sans-serif`;} /* the brand typeface Speedee (supplied, local): Bold for 700 and up, Regular below */
+/* fonts: both Speedee weights load before the first frame draws (3 s give-up); the splash bar counts them */
+const FONTS={n:0}; S.fontsOK=!(document.fonts&&document.fonts.load);
+if(!S.fontsOK){Promise.all(['700','400'].map(w=>document.fonts.load(`${w} 24px Speedee`).then(()=>{FONTS.n++;},()=>{FONTS.n++;}))).then(()=>{S.fontsOK=true;}); setTimeout(()=>{S.fontsOK=true;},3000);} else FONTS.n=2;
+function tx(s,x,y,size,col,align,weight){font(size||14,weight);ctx.fillStyle=col||P.ink;ctx.textAlign=align||'center';ctx.textBaseline='middle';ctx.fillText(s,x,y);}
+const DISPLAY='Speedee, system-ui, sans-serif', DF=s=>`700 ${s}px ${DISPLAY}`, LS=s=>s<=13?'0.6px':'0px'; /* game moments in Speedee Bold; short small labels get a little letter-spacing */
+function dw(s,size){ctx.font=DF(size);ctx.letterSpacing=LS(size);const w=ctx.measureText(s).width;ctx.letterSpacing='0px';return w;} /* measured width, as dtx draws it */
+function dtx(s,x,y,size,col,align,line,lineCol,maxW){if(maxW){const w=dw(s,size);if(w>maxW)size*=maxW/w;} ctx.font=DF(size);ctx.letterSpacing=LS(size);ctx.textAlign=align||'center';ctx.textBaseline='middle';if(line){ctx.lineJoin='round';ctx.lineWidth=line;ctx.strokeStyle=lineCol||P.ink;ctx.strokeText(s,x,y);ctx.lineJoin='miter';}ctx.fillStyle=col||P.white;ctx.fillText(s,x,y);ctx.letterSpacing='0px';} /* display text, optionally outlined, shrunk to maxW if given */
+function ticket(x,y,w,h,n){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+h/2-n);ctx.arc(x+w,y+h/2,n,-Math.PI/2,Math.PI/2,true);ctx.lineTo(x+w,y+h);ctx.lineTo(x,y+h);ctx.lineTo(x,y+h/2+n);ctx.arc(x,y+h/2,n,Math.PI/2,-Math.PI/2,true);ctx.closePath();} /* a draw ticket with notched sides */
+function wrap(s,x,y,maxW,size,col,weight,lh,align){font(size,weight);const words=s.split(' ');let line='';const out=[];for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){out.push(line);line=w;}else line=t;}out.push(line);out.forEach((l,i)=>tx(l,x,y+i*lh,size,col,align,weight));return out.length;}
+function dashBox(x,y,w,h,label,col){ctx.setLineDash([4,3]);rr(x,y,w,h,6,null,col||P.white,1.5);ctx.setLineDash([]);tx(label,x+w/2,y+h/2,9,col||P.white,'center',800);}
+let shadowCalls=0, shadowBad=0;
+function shade(drawPath,ox,oy){ /* all shadows go through here: one light direction */
+  if(BP) return; /* blueprints are flat silhouettes */
+  ox=ox==null?LIGHT.x:ox; oy=oy==null?LIGHT.y:oy; shadowCalls++; if(ox<=0||Math.abs(ox*LIGHT.y-oy*LIGHT.x)>.01) shadowBad++; /* shorter objects cast shorter shadows, same direction */
+  if(SH.defer){const M=ctx; SH.x.setTransform(SH.k.multiply(M.getTransform())); ctx=SH.x; ctx.translate(ox,oy); ctx.fillStyle=SH.c; drawPath(); ctx.fill(); ctx=M; return;} /* into the shadow pass */
+  if(SH.soft){const t=ctx.getTransform(), OFF=4000; ctx.save(); ctx.translate(ox-OFF,oy); ctx.shadowColor=P.shadow; ctx.shadowBlur=6; ctx.shadowOffsetX=OFF*t.a; ctx.shadowOffsetY=OFF*t.b; ctx.fillStyle='#000'; drawPath(); ctx.fill(); ctx.restore(); return;} /* a soft shadow straight onto what is under it (the roof, the car) */
+  ctx.save(); ctx.translate(ox,oy); ctx.fillStyle=P.shadow; drawPath(); ctx.fill(); ctx.restore();
+}
+/* the shadow pass: a quarter-resolution buffer in one solid tone (overlaps merge), composited soft (two downsampled copies) under the props */
+const SH={defer:false,soft:false,c:'rgb(24,20,30)',a:.36,k:new DOMMatrix([.25,0,0,.25,0,0]),b:document.createElement('canvas'),q:document.createElement('canvas'),g:document.createElement('canvas')};
+SH.x=SH.b.getContext('2d'); SH.y=SH.q.getContext('2d'); SH.gx=SH.g.getContext('2d');
+function shBegin(){ /* sizes follow the canvas; a clear buffer */
+  if(SH.g.width!==cv.width||SH.g.height!==cv.height){SH.g.width=cv.width;SH.g.height=cv.height;SH.b.width=Math.ceil(cv.width/4);SH.b.height=Math.ceil(cv.height/4);SH.q.width=Math.ceil(cv.width/8);SH.q.height=Math.ceil(cv.height/8);}
+  SH.x.setTransform(1,0,0,1,0,0); SH.x.clearRect(0,0,SH.b.width,SH.b.height); }
+function shUnder(){ /* the soft shadows, then the ground, UNDER what is already drawn */
+  SH.y.setTransform(1,0,0,1,0,0); SH.y.clearRect(0,0,SH.q.width,SH.q.height); SH.y.drawImage(SH.b,0,0,SH.q.width,SH.q.height);
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalCompositeOperation='destination-over'; ctx.imageSmoothingEnabled=true;
+  ctx.globalAlpha=SH.a*.55; ctx.drawImage(SH.b,0,0,cv.width,cv.height); ctx.drawImage(SH.q,0,0,cv.width,cv.height); /* two layers of .55: ~.36 in the core, a soft falloff at the edge */
+  ctx.globalAlpha=1; if(GLG){const k=cv.width/W, x0=Math.floor((ZX+(LANE_L-6)*ZK)*k), x1=Math.ceil((ZX+(LANE_R+6)*ZK)*k); ctx.drawImage(SH.g,x0,0,x1-x0,cv.height,x0,0,x1-x0,cv.height);} else ctx.drawImage(SH.g,0,0); ctx.restore(); } /* with the GPU ground, only the lane's decals live in this layer */
+/* the world is seen straight down, so height reads from the cast shadow: one light (upper left), length = real height × 18 px/m × SUN */
+const SUN=.55, LU={x:LIGHT.x/Math.hypot(LIGHT.x,LIGHT.y),y:LIGHT.y/Math.hypot(LIGHT.x,LIGHT.y)}, sv=m=>({x:LU.x*m*18*SUN,y:LU.y*m*18*SUN});
+function sweep(x,y,w,h,m){const v=sv(m); shade(()=>{ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w+v.x,y+v.y);ctx.lineTo(x+w+v.x,y+h+v.y);ctx.lineTo(x+v.x,y+h+v.y);ctx.lineTo(x,y+h);ctx.closePath();},LU.x*.01,LU.y*.01);} /* a standing box: its footprint swept away from the light */
+function sweepC(cx,cy,r,m){const v=sv(m),a=Math.atan2(v.y,v.x); shade(()=>{ctx.beginPath();ctx.arc(cx,cy,r,a+Math.PI/2,a+Math.PI*1.5);ctx.arc(cx+v.x,cy+v.y,r,a-Math.PI/2,a+Math.PI/2);ctx.closePath();},LU.x*.01,LU.y*.01);} /* a standing post */
+function lifted(drawPath,m){const v=sv(m); shade(drawPath,v.x,v.y);} /* a raised top (canopy roof, palm crown, billboard): its shape thrown away from the light */
+const SIL=new Map(); function liftedImg(im,x,y,w,h,m){ /* a picture's raised top casts its own silhouette (cached once), same light and colour as shade() */
+  if(BP) return; const c=silOf(im);
+  const v=sv(m); shadowCalls++; shImg(c,null,x+v.x,y+v.y,w,h); }
+function silOf(im){let c=SIL.get(im); if(!c){c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const g=c.getContext('2d'); g.drawImage(im,0,0); g.globalCompositeOperation='source-in'; g.fillStyle=SH.c; g.fillRect(0,0,c.width,c.height); SIL.set(im,c);} return c;}
+function shImg(c,r,x,y,w,h){ if(SH.defer){SH.x.setTransform(SH.k.multiply(ctx.getTransform())); r?SH.x.drawImage(c,r[0],r[1],r[2],r[3],x,y,w,h):SH.x.drawImage(c,x,y,w,h);} else {ctx.save(); ctx.globalAlpha*=SH.a; r?ctx.drawImage(c,r[0],r[1],r[2],r[3],x,y,w,h):ctx.drawImage(c,x,y,w,h); ctx.restore();} }
+function sweptImg(im,r,x,y,w,h,m){ /* a standing picture (a car): its silhouette swept away from the light, in steps that merge in the pass */
+  if(BP) return; const c=silOf(im), v=sv(m); shadowCalls++; for(let i=0;i<=4;i++) shImg(c,r,x+v.x*i/4+LU.x*.5,y+v.y*i/4+LU.y*.5,w,h); }
+
+/* ---------- textures (matte surfaces only) ---------- */
+function makePattern(size,draw){const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');if(!g)return null;draw(g,size);return ctx.createPattern(c,'repeat');}
+let rnd=7; const R=()=>(rnd=(rnd*16807)%2147483647)/2147483647;
+const PAT={
+  asphalt:makePattern(96,(g,s)=>{g.fillStyle=P.asphalt;g.fillRect(0,0,s,s);for(let i=0;i<420;i++){const v=R();g.fillStyle=v<.5?'rgba(255,255,255,.06)':'rgba(0,0,0,.12)';g.fillRect(R()*s,R()*s,1+R()*1.5,1+R()*1.5);}}),
+  sand:makePattern(96,(g,s)=>{g.fillStyle=P.sand;g.fillRect(0,0,s,s);for(let i=0;i<160;i++){g.fillStyle=R()<.6?'rgba(170,140,95,.16)':'rgba(255,255,255,.35)';g.beginPath();g.arc(R()*s,R()*s,.6+R()*1.2,0,7);g.fill();}}),
+  concrete:makePattern(64,(g,s)=>{g.fillStyle=P.concrete;g.fillRect(0,0,s,s);for(let i=0;i<90;i++){g.fillStyle='rgba(0,0,0,.05)';g.fillRect(R()*s,R()*s,1,1);}g.strokeStyle='rgba(0,0,0,.08)';g.lineWidth=1;g.beginPath();g.moveTo(0,.5);g.lineTo(s,.5);g.stroke();}),
+  roof:makePattern(48,(g,s)=>{g.fillStyle=P.roof;g.fillRect(0,0,s,s);g.strokeStyle='rgba(255,255,255,.05)';for(let x=0;x<s;x+=8){g.beginPath();g.moveTo(x+.5,0);g.lineTo(x+.5,s);g.stroke();}}),
+  wood:makePattern(40,(g,s)=>{g.fillStyle=P.wood;g.fillRect(0,0,s,s);g.strokeStyle='rgba(60,35,15,.25)';for(let y=0;y<s;y+=5){g.beginPath();g.moveTo(0,y+.5);g.lineTo(s,y+.5);g.stroke();}})
+};
+const fillOr=(p,c)=>p||c;
+/* ---------- ad slot ---------- */
+const QS=new URLSearchParams(location.search), DEBUG=QS.has('debug')||QS.has('layers')||QS.has('labels'), MUTE=QS.has('mute'); /* validation runs only with ?debug; no sounds exist yet, ?mute is honoured by anything that adds them */
+S.layers=QS.has('layers'); S.labels=QS.has('labels');
+const CONFIG={links:{order:'https://www.mcdonalds.com/ae/en-ae.html',locator:'https://www.mcdonalds.com/ae/en-ae/restaurant-locator.html'}, /* placeholders until the client's tracked links */
+  art:['sand','asphalt','sidewalk','roof','roof-edge','roof-units','canopy','speaker','menu-board','palm','car-top','car-side','bag','crew','hands','queue-cars','bollard','planter','facade','parking','meals','mark']}; /* every layer by name (pack 2026-10-29 23:10): a picture missing from art/ keeps its code drawing */
+function exit(url){ /* every CTA leaves through here: the host's clickTag, else MRAID, else a new tab */
+  try{const ct=window.clickTag, u=typeof ct==='string'&&ct?ct:(ct&&ct.url)||null;
+    if(u){window.open(u,'_blank');return;}
+    if(window.mraid&&typeof window.mraid.open==='function'){window.mraid.open(url);return;}
+    window.open(url,'_blank');}catch(e){}
+}
+/* ---------- the layer contract (D-015): mirrors runs/mcdonalds-uae-01/04-pack/layers.json. box = what the game draws for it, world px (footprint + near face; ×ZK on screen) ---------- */
+const TD='STRAIGHT DOWN (top-down orthographic) · polished 3D render', HM={building:4,canopy:3,speaker:1.3,'menu-board':2.2,palm:5,bollard:.9,planter:.5,'roof-units':1,car:1.5}; /* the world is straight down (owner 2026-10-29 22:12); real heights in metres, for the cast shadows */
+const LAYERS=[
+ {id:'L1',name:'sand',type:'tile',canvas:[1024,1024],key:null,cam:TD},
+ {id:'L2',name:'asphalt',type:'tile',canvas:[1024,1024],key:null,cam:TD},
+ {id:'L3',name:'sidewalk',type:'tile',canvas:[1024,1024],key:null,cam:TD},
+ {id:'L4',name:'roof',type:'tile',canvas:[1024,1024],key:null,cam:TD},
+ {id:'L5',name:'roof-units',type:'sheet',canvas:[1536,1024],key:'#FF00FF',cells:{cols:2,rows:1,names:['large','small']},cam:TD,box:[30,22]},
+ {id:'L6',name:'canopy',type:'sprite',canvas:[768,1024],key:'#FF00FF',cam:TD,box:[76,100]},
+ {id:'L7',name:'speaker',type:'sprite',canvas:[1024,1024],key:'#FF00FF',cam:TD,box:[20,28]},
+ {id:'L8',name:'menu-board',type:'sprite',canvas:[768,1024],key:'#FF00FF',cam:'FRONT-ON BILLBOARD (the owner\'s exception) · polished 3D render',box:[80,104]},
+ {id:'L9',name:'palm',type:'sprite',canvas:[1024,1024],key:'#FF00FF',cam:TD,box:[50,50]},
+ {id:'L10',name:'car-top',type:'sprite',canvas:[576,1024],key:'#FF00FF',cam:TD,box:[44,80]},
+ {id:'L11',name:'car-side',type:'sprite',canvas:[1024,576],key:'#FF00FF',cam:'SIDE PROFILE, FRONT RIGHT (splash and end) · polished 3D render',box:[132,66]},
+ {id:'L12',name:'bag',type:'sprite',canvas:[1024,1024],key:'#FF00FF',cam:TD,box:[20,22]},
+ {id:'L13',name:'crew',type:'sprite',canvas:[1024,1024],key:'#FF00FF',cam:'FRONT-ON BUST ICON · polished 3D render',box:[40,40]},
+ {id:'L14',name:'hands',type:'sheet',canvas:[1536,1024],key:'#FF00FF',cells:{cols:2,rows:3,names:['crew card','driver card','crew bag','driver bag','crew empty','driver empty']},cam:TD,box:[84,34]},   /* a base and two state edits of one chat: the driver's blue sleeve and the empty hands (2026-10-29 23:05) */   /* two wide 3:1 rows: a horizontal reach fills its cell (2026-10-29 blueprint check) */
+ {id:'L15',name:'meals',type:'sprite',canvas:null,key:null,status:'supplied',box:[96,96]},
+ {id:'L16',name:'mark',type:'brand',canvas:null,key:null,status:'supplied'},
+ {id:'L17',name:'queue-cars',type:'sheet',canvas:[1536,1024],key:'#FF00FF',cells:{cols:3,rows:1,names:['red','blue','grey']},cam:TD,box:[44,80]},
+ {id:'L18',name:'bollard',type:'sprite',canvas:[1024,1024],key:'#FF00FF',cam:TD,box:[10,10]},
+ {id:'L19',name:'planter',type:'sheet',canvas:[1536,1024],key:'#FF00FF',cells:{cols:2,rows:1,names:['shrub','grass']},cam:TD,box:[34,70]},
+ {id:'L20',name:'facade',type:'tile',canvas:[1024,1024],key:null,cam:TD},
+ {id:'L21',name:'parking',type:'tile',canvas:[1024,1024],key:null,cam:TD},
+ {id:'L22',name:'roof-edge',type:'tile',canvas:[1024,1024],key:null,cam:TD}];   /* the outlet's parapet from above: red cladding, yellow coping (owner 22:35) */
+const LAYER_BY=Object.fromEntries(LAYERS.map(L=>[L.name,L]));
+/* pictures: ART[layer name] once loaded, else the code drawing (the greybox shape). Today's files keep their names through ART_ALIAS until the pack lands art/<name>.webp */
+const ART={}, ART_ALIAS={'Big Mac':'big-mac-meal.webp',McArabia:'mcarabia-meal.webp',McCrispy:'mccrispy-meal.webp',mark:'golden-arches.svg'}, ART_FILES=[]; let ART_DONE=0;
+for(const n of CONFIG.art) for(const k of (n==='meals'?['Big Mac','McArabia','McCrispy']:[n])) ART_FILES.push([k,ART_ALIAS[k]||k+'.webp']);
+const BPL=QS.get('blueprint')||QS.get('explained'), GEO=QS.has('geometry'); let BP=null; /* the pack's guide pages; BP = blueprint silhouette mode (flat greys, no detail, no shadow, no art) */
+if(!BPL&&!GEO) for(const [k,f] of ART_FILES){const im=new Image(); im.onload=()=>{ART[k]=im; ART_DONE++;}; im.onerror=()=>{ART_DONE++;}; im.src='art/'+f;}
+const GLG=(()=>{ /* D-038: the ground on the GPU (mipmapped, trilinear, anisotropic WebGL 1) under the 2D canvas; null without WebGL */
+  if(BPL||GEO||QS.has('nogl')) return null;
+  const gc=document.createElement('canvas'); gc.id='ground'; cv.parentNode.insertBefore(gc,cv);
+  const gl=gc.getContext('webgl',{alpha:false,antialias:false,depth:false,premultipliedAlpha:false,preserveDrawingBuffer:false});
+  if(!gl){gc.remove(); return null;}
+  const sh=(t,src)=>{const o=gl.createShader(t); gl.shaderSource(o,src); gl.compileShader(o); if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o;};
+  const pr=gl.createProgram();
+  try{ gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 p; uniform vec4 m; uniform float tl; varying vec2 uv; void main(){ uv=p/tl; gl_Position=vec4(p.x*m.x+m.z, p.y*m.y+m.w, 0.0, 1.0); }'));
+       gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,'precision mediump float; uniform sampler2D t; uniform float ut; uniform vec4 c; varying vec2 uv; void main(){ gl_FragColor = ut > 0.5 ? texture2D(t, uv) : c; }'));
+       gl.linkProgram(pr); if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr)); }catch(e){gc.remove(); return null;}
+  gl.useProgram(pr); const U=n=>gl.getUniformLocation(pr,n), uM=U('m'), uTl=U('tl'), uUt=U('ut'), uC=U('c'), aP=gl.getAttribLocation(pr,'p');
+  const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP,2,gl.FLOAT,false,0,0);
+  const an=gl.getExtension('EXT_texture_filter_anisotropic')||gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic'), T={};
+  const tex=n=>{ if(T[n]) return T[n]; const im=ART[n]; if(!im) return null; const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,im); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+    gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    if(an) gl.texParameterf(gl.TEXTURE_2D,an.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT))); return T[n]=t; }; /* the tiles are 512 px: power of two, so they repeat and mip */
+  const hex=h=>{const n=parseInt(h.slice(1),16); return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255,1];};
+  const q=new Float32Array(12);
+  function rect(x0,y0,x1,y1,name,tile,col){ q.set([x0,y0,x1,y0,x0,y1,x0,y1,x1,y0,x1,y1]); gl.bufferData(gl.ARRAY_BUFFER,q,gl.STREAM_DRAW);
+    const t=name&&tex(name); gl.uniform1f(uUt,t?1:0); if(t){gl.bindTexture(gl.TEXTURE_2D,t); gl.uniform1f(uTl,512*tile);} else gl.uniform4fv(uC,hex(col)); gl.drawArrays(gl.TRIANGLES,0,6); }
+  let drawn=false, used=false;
+  window.GLG_RESIZE=(w,h)=>{gc.width=w; gc.height=h;}; GLG_RESIZE(cv.width,cv.height);
+  return {
+    draw(cam,vx,vw,vh){ used=true; drawn=true; gl.viewport(0,0,gc.width,gc.height); /* the 2D world's own transform, as a matrix: x=(ZX+wx*ZK)/W, y=(wy-cam)*ZK/H */
+      gl.uniform4f(uM,2*ZK/W,-2*ZK/H,2*ZX/W-1,1+2*cam*ZK/H);
+      rect(vx-400,cam-600,vx+vw+400,cam+vh+600,'sand',PATK.sand||.3,P.sand);
+      rect(150,-1580,188,320,'sidewalk',.3,P.concrete);
+      rect(356,cam-20,vx+vw+20,cam+vh+40,'parking',.3,'#5A5D63');
+      rect(150,-1580,152,320,null,0,P.curb); rect(186,-1580,188,320,null,0,P.curb);
+      rect(LANE_L,-1580,LANE_R,320,'asphalt',PATK.asphalt,P.asphalt);
+      rect(LANE_L+3,-1580,LANE_L+6,320,null,0,P.paint); rect(LANE_R-6,-1580,LANE_R-3,320,null,0,P.paint); },
+    cv:gc, frameStart(){ used=false; },
+    frameEnd(){ if(!used&&drawn){ gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT); drawn=false; } } /* a scene without the world (the end card): no stale ground under it */
+  };
+})();
+const PATC={}, PATK={asphalt:.2}; /* tile patterns from pictures, cached; a tile's scale when its photo is closer than the rest (the asphalt is a close-up) */
+function pat(name,fallback){if(BP)return null; const im=ART[name]; if(!im) return fallback; if(!PATC[name]){const pt=ctx.createPattern(im,'repeat'); if(pt&&pt.setTransform) pt.setTransform(new DOMMatrix().scale(PATK[name]||.3)); PATC[name]=pt||fallback;} return PATC[name];}
+function sheetCell(name,k,x,y,w,h){const im=ART[name],L=LAYER_BY[name]; if(!im||BP) return false; const c=L.cells, cw=im.width/c.cols, ch=im.height/c.rows; ctx.drawImage(im,(k%c.cols)*cw,Math.floor(k/c.cols)*ch,cw,ch,x,y,w,h); return true;} /* one cell of a sheet, into a box */
+
+/* ---------- validation ---------- */
+const LAYER={ground:0,road:1,decal:2,ghost:2,stopline:2,shadow:3,prop:4,sign:4,building:5,car:6,hand:7,item:7,canopy:8,foliage:9,fx:10,label:10,hud:11,bubble:11,hint:11,sheet:12,title:12,receipt:12,reveal:12,wipe:12,cta:13,chip:13,toast:14};
+const WORLD=k=>LAYER[k]<=10, UI=new Set(['hud','bubble','hint']), MODAL=new Set(['sheet','receipt','reveal','wipe','chip','cta','title']); /* chips and buttons inside a modal belong to it */
+const PROTECT={title:['fx','toast'], /* a title line: no badge, chip or button may sit on its letters */car:['hand','item','fx','ghost','hint'], /* the hint hand demonstrates the swipe over the car */stopline:['car','hand','item','fx','shadow','ghost'], /* the LAST outline is outline-only, so it may cross the zone and the car */sign:['fx','car','hand','item'], /* hands and held items pass above the island signs */hand:['item','fx','hand'],item:['hand','fx'],hud:['toast'],bubble:['toast'],cta:['toast','fx'],chip:['fx','toast']};
+const V={items:[],issues:new Map(),frames:0,anat:{},opening:[]};
+let OFFY=0;
+const VW={k:1,ox:0}; /* world view (zoom, x offset) while the world draws: boxes are stored in screen units, so the checks see what the player sees */
+const sX=x=>VW.ox+x*VW.k, sY=y=>(y-OFFY)*VW.k;
+function reg(kind,name,x,y,w,h,o){if(!DEBUG||BP)return; V.items.push(Object.assign({kind,name,x:sX(x),y:sY(y),w:w*VW.k,h:h*VW.k},o||{}));}
+function opening(name,x,y,w,h){if(!DEBUG||BP)return; V.opening.push({name,x:sX(x),y:sY(y),w:w*VW.k,h:h*VW.k});}
+function anat(name,ok,why){if(!DEBUG||BP)return; const a=V.anat[name]||(V.anat[name]={pass:0,fail:0,why:''});if(ok)a.pass++;else{a.fail++;a.why=why;}}
+const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+function allowed(top,bot){
+  const prot=PROTECT[bot.kind]; if(!prot) return true;
+  if(top.kind==='canopy'&&top.faded&&['car','hand','item','stopline'].includes(bot.kind)) return true;
+  if(MODAL.has(top.kind)&&WORLD(bot.kind)) return true;
+  if(UI.has(top.kind)&&WORLD(bot.kind)&&!['car','stopline','hand','item'].includes(bot.kind)) return true;
+  return prot.includes(top.kind);
+}
+function validate(){
+  V.frames++;
+  const vis=V.items.filter(i=>i.kind!=='label'&&i.x<W&&i.x+i.w>0&&i.y<H&&i.y+i.h>0);
+  for(let i=0;i<vis.length;i++)for(let j=0;j<vis.length;j++){
+    if(i===j)continue; const a=vis[i],b=vis[j];
+    if(LAYER[a.kind]<LAYER[b.kind]||(LAYER[a.kind]===LAYER[b.kind]&&i<j)) continue;
+    if(!hit(a,b)) continue;
+    if(a.owner&&a.owner===b.name) continue; if(b.owner&&b.owner===a.name) continue;
+    if(!allowed(a,b)){const key=`${a.name} over ${b.name}`;V.issues.set(key,(V.issues.get(key)||0)+1);a.bad=b.bad=true;}
+  }
+}
+
+/* ---------- juice ---------- */
+const FX={shake:0,parts:[],pops:[],flash:0,smiles:[]};
+const shake=a=>{}; /* no screen shake (owner 2026-10-29: distracting in a small mobile frame); sparks, pops and the flash carry the feedback */
+const flash=()=>{if(S.juice)FX.flash=1;};
+function burst(x,y,n,col,kind,ui){if(!S.juice)return;for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=(kind==='dust'?30:70)+Math.random()*(kind==='dust'?60:190);FX.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(kind==='dust'?10:80),g:kind==='dust'?0:520,life:.5+Math.random()*.45,t:0,col:col||P.yellow,r:kind==='dust'?3+Math.random()*4:2+Math.random()*3.5,star:kind==='star',ui:!!ui});}}
+const pop=(text,x,y,col,ui)=>FX.pops.push({text,x,y,t:0,col:col||P.ink,ui:!!ui});
+const resetFX=()=>{FX.shake=0;FX.parts=[];FX.pops=[];FX.flash=0;FX.smiles=[];};
+function updFX(dt){FX.shake*=Math.pow(.0008,dt);if(FX.shake<.3)FX.shake=0;FX.flash=Math.max(0,FX.flash-dt*4);
+  FX.parts=FX.parts.filter(p=>{p.t+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;return p.t<p.life;});
+  FX.pops=FX.pops.filter(p=>{p.t+=dt;p.y-=(S.juice?50:25)*dt;return p.t<1.05;});
+  FX.smiles=FX.smiles.filter(m=>{m.t+=dt;m.y-=(S.juice?50:25)*dt;return m.t<1.1;}); /* drifts with the text pops so they keep their spacing */}
+function star(x,y,r){ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4,rr2=i%2?r*.42:r;ctx.lineTo(x+Math.cos(a)*rr2,y+Math.sin(a)*rr2);}ctx.closePath();ctx.fill();}
+function drawFX(ui){ /* world effects paint with the world (under the interface); interface effects paint last */
+  for(const p of FX.parts){if(p.ui!==ui)continue;ctx.globalAlpha=(1-p.t/p.life)*(p.col===P.paint?.5:1);ctx.fillStyle=p.col;if(p.star)star(p.x,p.y,p.r*1.6);else{ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();}}
+  ctx.globalAlpha=1;
+  for(const p of FX.pops){if(p.ui!==ui)continue;const k=S.juice?(p.t<.14?.5+p.t/.14*.75:1.25-Math.min(.25,(p.t-.14)*1.2)):1;ctx.globalAlpha=1-Math.max(0,(p.t-.65)/.4);
+    ctx.save();ctx.translate(p.x,p.y);ctx.scale(k,k);dtx(p.text,0,0,21,p.col===P.ink?P.white:p.col,'center',6);ctx.restore();
+    reg('fx','pop',p.x-60,p.y+OFFY-12,120,24);}
+  ctx.globalAlpha=1;
+}
+function drawSmiles(){ /* the brand smile pops over a perfect stop */
+  for(const m of FX.smiles){const k=m.t<.18?ease(m.t/.18)*1.15:1.15-.15*ease((m.t-.18)/.2);ctx.globalAlpha=1-Math.max(0,(m.t-.75)/.35);smile(m.x,m.y,72*k);reg('fx','smile',m.x-40,m.y+OFFY-18,80,36);}
+  ctx.globalAlpha=1;
+}
+function drawFlash(){if(FX.flash>0){ctx.fillStyle=`rgba(255,255,255,${FX.flash*.45})`;ctx.fillRect(0,0,W,H);}}
+
+/* =========================================================
+   ART
+   ========================================================= */
+function carTop(x,y,o){
+  o=o||{}; const sc=o.scale||1, sx=(o.sx||1)*sc, sy=(o.sy||1)*sc;
+  if(ART['car-top']&&!BP) sweptImg(ART['car-top'],null,x-22*sx,y-45*sy,44*sx,90*sy,HM.car*sc); else sweep(x-22*sx,y-40*sy,44*sx,80*sy,HM.car*sc); /* 1.5 m: a short swept shadow */
+  ctx.save(); ctx.translate(x,y); ctx.scale(sx,sy);
+  if(o.glow){ctx.beginPath();ctx.arc(0,0,62,0,7);ctx.strokeStyle=P.yellow;ctx.lineWidth=4;ctx.stroke();}
+  /* wheels: under the body, tyre edges show */
+  const WHEELS=[[-25,-27],[19,-27],[-25,17],[19,17]];
+  const open=o.windowOpen||0;
+  if(ART['car-top']&&!BP){ ctx.drawImage(ART['car-top'],-22,-45,44,90); } /* the picture car: no code-drawn window opening (it sat outside the body, owner 23:55); the driver's arm shows the window is open */
+  else if(BP){ rr(-22,-40,44,80,12,BP.top); } /* blueprint: the footprint */
+  else {
+  for(const [wx,wy] of WHEELS) rr(wx,wy,6,14,2,'#1C1D20');
+  const g=ctx.createLinearGradient(-22,0,22,0); g.addColorStop(0,P.pearlD); g.addColorStop(.5,P.pearlL); g.addColorStop(1,'#BCC3CB');
+  rr(-22,-40,44,80,12,g);
+  ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(-9,-38); ctx.lineTo(-7,-22); ctx.moveTo(9,-38); ctx.lineTo(7,-22); ctx.stroke(); /* hood creases */
+  const gw=ctx.createLinearGradient(0,-21,0,-7); gw.addColorStop(0,'#5E7183'); gw.addColorStop(1,P.glassD);
+  ctx.beginPath(); ctx.moveTo(-17,-7); ctx.lineTo(-15,-21); ctx.lineTo(15,-21); ctx.lineTo(17,-7); ctx.closePath(); ctx.fillStyle=gw; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-9,-9); ctx.lineTo(-3,-19); ctx.stroke(); /* glare */
+  rr(-17,-7,34,21,4,'#E8EBEE');
+  ctx.beginPath(); ctx.moveTo(-16,14); ctx.lineTo(-14,24); ctx.lineTo(14,24); ctx.lineTo(16,14); ctx.closePath(); ctx.fillStyle='#41505D'; ctx.fill();
+  /* side windows (left = driver) */
+  rr(-22,-6,3,18,1,'#41505D'); rr(19,-6,3,18,1,'#41505D');
+  if(open>0) rr(-23,-5,4*open+1,16,1,'#141518');
+  /* mirrors at the A-pillar */
+  rr(-28,-15,6,5,2,P.pearlD); rr(22,-15,6,5,2,P.pearlD);
+  /* lights */
+  rr(-19,-40,9,4,2,P.headlight); rr(10,-40,9,4,2,P.headlight);
+  const tl=o.reverse?'#F4F6F8':o.brake>.05?P.taillightOn:P.taillight; /* reversing shows white reverse lights */
+  rr(-19,36,9,4,2,tl); rr(10,36,9,4,2,tl);
+  }
+  if(o.brake>.05&&S.juice){ctx.globalAlpha=o.brake*.5;ctx.fillStyle=P.taillightOn;ctx.beginPath();ctx.ellipse(-14,42,11,6,0,0,7);ctx.ellipse(14,42,11,6,0,0,7);ctx.fill();ctx.globalAlpha=1;}
+  ctx.restore();
+  if(!o.noreg){
+    reg('car','prize car',x-22*sx,y-40*sy,44*sx,80*sy);
+    if(open>.5) opening('driver window',x-24*sx,y-6*sy,8*sx,18*sy);
+  }
+  /* anatomy: wheels sit inside body length, front axle ahead of the cabin, driver window on the left */
+  anat('Car: four wheels under the body',WHEELS.every(([wx,wy])=>wy>-40&&wy+14<40),'a wheel sits outside the body');
+  anat('Car: left-hand drive (driver window on the left)',true,'');
+}
+function carSide(x,y,s,o){
+  o=o||{};
+  if(ART['car-side']&&!BP){ const w=136*s, h=w*ART['car-side'].height/ART['car-side'].width;
+    shade(()=>{ctx.beginPath();ctx.ellipse(x,y+26*s,72*s,8*s,0,0,7);});
+    ctx.save(); ctx.translate(x,y); ctx.rotate(o.pitch||0); ctx.drawImage(ART['car-side'],-w/2,28*s-h,w,h); ctx.restore();
+    if(!o.noreg) reg('car','prize car',x-64*s,y-36*s,130*s,62*s); return; }
+  shade(()=>{ctx.beginPath();ctx.ellipse(x,y+26*s,72*s,8*s,0,0,7);});
+  ctx.save(); ctx.translate(x,y); ctx.scale(s,s); ctx.rotate(o.pitch||0);
+  if(o.lights>0){const hg=ctx.createRadialGradient(66,-5,2,66,-5,70);hg.addColorStop(0,`rgba(255,244,210,${.75*o.lights})`);hg.addColorStop(1,'rgba(255,244,210,0)');ctx.fillStyle=hg;ctx.beginPath();ctx.moveTo(62,-6);ctx.lineTo(140,-30);ctx.lineTo(140,22);ctx.closePath();ctx.fill();}
+  const g=ctx.createLinearGradient(0,-38,0,16); g.addColorStop(0,P.pearlL); g.addColorStop(.6,P.pearl); g.addColorStop(1,P.pearlD);
+  ctx.beginPath(); ctx.moveTo(-64,6); ctx.lineTo(-64,-6); ctx.quadraticCurveTo(-62,-13,-48,-14); ctx.lineTo(-36,-15); ctx.lineTo(-22,-36); ctx.lineTo(20,-36); ctx.lineTo(38,-15); ctx.lineTo(56,-12); ctx.quadraticCurveTo(66,-9,66,2); ctx.lineTo(66,8); ctx.quadraticCurveTo(66,14,58,14); ctx.lineTo(-58,14); ctx.quadraticCurveTo(-64,14,-64,6); ctx.closePath();
+  ctx.fillStyle=BP?BP.top:g; ctx.fill();
+  if(BP){ctx.fillStyle=BP.face;for(const wx of [-38,38]){ctx.beginPath();ctx.arc(wx,13,14,0,7);ctx.fill();}ctx.restore();return;} /* blueprint: the side silhouette, wheels darker */
+  ctx.fillStyle=P.glassD;
+  ctx.beginPath(); ctx.moveTo(-31,-16); ctx.lineTo(-20,-32); ctx.lineTo(-3,-32); ctx.lineTo(-3,-16); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(2,-16); ctx.lineTo(2,-32); ctx.lineTo(18,-32); ctx.lineTo(33,-16); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(8,-18); ctx.lineTo(14,-30); ctx.stroke();
+  ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,-15); ctx.lineTo(0,12); ctx.moveTo(-34,-14); ctx.lineTo(-34,12); ctx.stroke();
+  rr(-24,-7,7,2,1,'rgba(0,0,0,.25)'); rr(8,-7,7,2,1,'rgba(0,0,0,.25)');
+  rr(33,-20,7,5,2,P.pearlD); /* mirror by the front window */
+  rr(59,-8,7,5,2,o.lights>0?'#FFFFFF':P.headlight); rr(-65,-9,5,6,2,o.brake?P.taillightOn:P.taillight);
+  if(o.brake&&S.juice){ctx.globalAlpha=.45;ctx.fillStyle=P.taillightOn;ctx.beginPath();ctx.ellipse(-68,-6,8,6,0,0,7);ctx.fill();ctx.globalAlpha=1;}
+  for(const wx of [-38,38]){ctx.beginPath();ctx.arc(wx,12,16,Math.PI,0);ctx.fillStyle='#2A2B2E';ctx.fill();ctx.beginPath();ctx.arc(wx,13,13,0,7);ctx.fillStyle='#1C1D20';ctx.fill();ctx.beginPath();ctx.arc(wx,13,7,0,7);ctx.fillStyle='#C9CED4';ctx.fill();
+    ctx.strokeStyle='#8A9097';ctx.lineWidth=1.6;for(let k=0;k<5;k++){const a=(o.spin||0)+k*Math.PI*2/5;ctx.beginPath();ctx.moveTo(wx+Math.cos(a)*2.5,13+Math.sin(a)*2.5);ctx.lineTo(wx+Math.cos(a)*6.5,13+Math.sin(a)*6.5);ctx.stroke();}
+    ctx.beginPath();ctx.arc(wx,13,2.5,0,7);ctx.fillStyle='#8A9097';ctx.fill();}
+  ctx.restore();
+  if(!o.noreg) reg('car','prize car',x-64*s,y-36*s,130*s,62*s);
+}
+/* arm + hand seen from above, palm down. thumbSide is in hand space; checked below */
+function arm(name,ox,oy,tx2,ty,sleeve,skin,thumbSide,hold){
+  const ang=Math.atan2(ty-oy,tx2-ox), c=Math.cos(ang), s=Math.sin(ang);
+  sleeve=tc(sleeve); skin=tc(skin);
+  if(ART.hands&&!BP){const L=Math.hypot(tx2-ox,ty-oy)+16, h=22, w=h*(ART.hands.width/2)/(ART.hands.height/3), row=hold===card?0:hold===bag?1:2;
+    ctx.save(); ctx.translate(ox,oy); ctx.rotate(ang); if(Math.abs(ang)>Math.PI/2) ctx.scale(1,-1); /* a reach to the left stays upright */
+    ctx.beginPath(); ctx.rect(0,-h,L+w,2*h); ctx.clip(); /* nothing behind the origin: the rest of the sleeve is inside the window or the door */
+    sheetCell('hands',row*2+(name==='driver arm'?1:0),L-w,-h/2,w,h); ctx.restore(); return;} /* L14: the arm at a readable 22 px, its own aspect, the hand at the reach's end */
+  ctx.save(); ctx.lineCap='round';
+  if(!BP){ctx.strokeStyle=P.shadow; ctx.lineWidth=9; ctx.beginPath(); ctx.moveTo(ox+LIGHT.x*.5,oy+LIGHT.y*.5); ctx.lineTo(tx2+LIGHT.x*.5,ty+LIGHT.y*.5); ctx.stroke(); shadowCalls++;}
+  ctx.strokeStyle=sleeve; ctx.lineWidth=10; ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(tx2-c*5,ty-s*5); ctx.stroke();
+  ctx.translate(tx2,ty); ctx.rotate(ang);
+  rr(-3,-4.5,4,9,2,skin); /* wrist */
+  ctx.beginPath(); ctx.ellipse(3,0,6.5,5.2,0,0,7); ctx.fillStyle=skin; ctx.fill();
+  const lens=[5.2,6.4,6,4.8];
+  for(let i=0;i<4;i++){const fy=-3.6+i*2.4; rr(7,fy-1.1,lens[i],2.3,1.15,skin); }
+  ctx.save(); ctx.translate(3,thumbSide*4.6); ctx.rotate(thumbSide*.55); rr(0,-1.3,5.4,2.6,1.3,skin); ctx.restore();
+  ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=.8; ctx.beginPath(); ctx.moveTo(6.5,-3.5); ctx.lineTo(6.5,3.5); ctx.stroke();
+  if(hold) hold();
+  ctx.restore();
+  const minX=Math.min(ox,tx2)-6, minY=Math.min(oy,ty)-6;
+  reg('hand',name,minX,minY,Math.abs(tx2-ox)+20,Math.abs(ty-oy)+12);
+  const thumbY=thumbSide*c; anat('Hands: thumbs on the correct side (palm down)',thumbY<0,`${name} thumb points the wrong way`);
+  const px=sX(ox), py=sY(oy), inOpening=V.opening.some(op=>px>=op.x&&px<=op.x+op.w&&py>=op.y&&py<=op.y+op.h);
+  anat('Arms start inside a real opening',inOpening,`${name} starts outside a window`);
+}
+function card(){ rr(9,-5,14,10,2,BP?BP.face:'#2E4C7A'); if(!BP) rr(12,-2,4,3,1,'#D8B45A'); }
+function bag(){ if(ART.bag&&!BP){ctx.drawImage(ART.bag,8,-11,20,22);return;} bevel(8,-11,20,22,P.kraft,3); if(!BP){rr(8,-11,6,22,2,P.kraftD); arches(15,-4,8);} } /* L12: the bag from above; arches printed on it */
+function palm(x,y,r){ /* L9, straight down: the crown over its footprint; 5 m tall, so its shadow lands well away, joined by the trunk's */
+  if(ART.palm&&!BP) liftedImg(ART.palm,x-r*1.15,y-r*1.15,r*2.3,r*2.3,HM.palm); else lifted(()=>{ctx.beginPath();ctx.arc(x,y,r*.9,0,7);},HM.palm);
+  {const v=sv(HM.palm); shade(()=>{ctx.beginPath();ctx.moveTo(x-1.6,y);ctx.lineTo(x+1.6,y);ctx.lineTo(x+v.x+1.6,y+v.y);ctx.lineTo(x+v.x-1.6,y+v.y);ctx.closePath();},LU.x*.01,LU.y*.01);}
+  if(ART.palm&&!BP){ ctx.drawImage(ART.palm,x-r*1.15,y-r*1.15,r*2.3,r*2.3); reg('foliage','palm',x-r,y-r,r*2,r*2); return; }
+  ctx.save(); ctx.translate(x,y);
+  if(BP){ctx.beginPath();ctx.arc(0,0,r*1.02,0,7);ctx.fillStyle=BP.top;ctx.fill();}
+  else{for(let i=0;i<8;i++){ctx.save();ctx.rotate(i*Math.PI/4+.2);ctx.beginPath();ctx.ellipse(r*.5,0,r*.55,r*.2,0,0,7);ctx.fillStyle=i%2?P.palm:P.palmD;ctx.fill();ctx.strokeStyle='rgba(0,0,0,.18)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(4,0);ctx.lineTo(r*.95,0);ctx.stroke();ctx.restore();}
+  ctx.beginPath(); ctx.arc(0,0,4,0,7); ctx.fillStyle=P.trunk; ctx.fill();}
+  ctx.restore();
+  reg('foliage','palm',x-r,y-r,r*2,r*2);
+}
+/* the world's props, each through its layer (ART when loaded, else this code drawing), all straight down; height reads from the cast shadow */
+function menuBoard(x,y){ /* L8, the owner's exception: a front-facing billboard (2.2 m); a header band and a 2x2 grid of screens: the three
+   meals (McDonald's UAE photos) and a WIN A CAR panel (the prize car); the painted frame comes from the pack, the screens are filled here */
+  lifted(()=>path(x,y,80,104,6),HM['menu-board']);
+  const SL=[[x+5,y+23],[x+42,y+23],[x+5,y+63],[x+42,y+63]], sw=33, sh=37;   /* the four screen slots (the blueprint draws these) */
+  if(BP){ rr(x,y,80,104,6,BP.top); rr(x,y,80,18,[6,6,0,0],BP.face); SL.forEach(([sx,sy])=>rr(sx,sy,sw,sh,3,'#B4B4B4')); return; }
+  if(ART['menu-board']) ctx.drawImage(ART['menu-board'],x,y,80,104);
+  else { rr(x,y,80,104,6,tc(P.ink)); rr(x,y,80,18,[6,6,0,0],P.red); }
+  arches(x+6,y+3,12); tx('MENU',x+46,y+9,9,P.white,'center',900);
+  const fill=['Big Mac','McArabia','McCrispy'];
+  SL.forEach(([sx,sy],i)=>{ rr(sx,sy,sw,sh,3,'#F4F1EA'); ctx.save(); path(sx,sy,sw,sh,3); ctx.clip();
+    if(i<3){ const im=ART[fill[i]]; if(im){const k=Math.min((sw-4)/im.width,(sh-10)/im.height);ctx.drawImage(im,sx+(sw-im.width*k)/2,sy+2,im.width*k,im.height*k);} tx(fill[i].toUpperCase(),sx+sw/2,sy+sh-4,4.6,P.ink,'center',900); }
+    else { rr(sx,sy,sw,sh,3,P.red); const im=ART['car-side']; if(im){const k=(sw-4)/im.width;ctx.drawImage(im,sx+2,sy+12,im.width*k,im.height*k);} tx('WIN',sx+sw/2,sy+6,6,P.yellow,'center',900); tx('A CAR',sx+sw/2,sy+sh-5,5,P.white,'center',900); }
+    ctx.restore(); });
+}
+function speaker(cx,cy){ /* L7, straight down: the order speaker's cap over its 20×28 footprint (1.3 m) */
+  sweep(cx-10,cy-14,20,28,HM.speaker);
+  if(ART.speaker&&!BP){ctx.drawImage(ART.speaker,cx-10,cy-14,20,28);return;}
+  bevel(cx-10,cy-14,20,28,'#2E2C28',5); if(BP) return;
+  for(let i=0;i<4;i++) rr(cx-6,cy-9+i*5,12,2,1,'#55524C'); rr(cx-8,cy+16,16,4,2,P.yellow);
+}
+function roofUnit(x,y,w,h){ /* L5, straight down: a rooftop unit (1 m) */
+  sweep(x,y,w,h,HM['roof-units']);
+  if(sheetCell('roof-units',w<26?1:0,x,y,w,h)) return;
+  bevel(x,y,w,h,'#5E5952',3); if(!BP) rr(x+4,y+4,w-8,h-8,2,'#6E6961');
+}
+function restaurant(bT,bB){ /* straight down: the roof (L4 tile) with a parapet rim, the lane-side facade strip (L20), roof units (L5), the rooftop mark (L16); 4 m, so the longest shadow */
+  const bH=bB-bT; sweep(16,bT,134,bH,HM.building);
+  if(BP){rr(16,bT,134,bH,10,BP.top);return;}
+  rr(16,bT,134,bH,10,dk(P.roof,.25)); ctx.fillStyle=fillOr(pat('roof',PAT.roof),P.roof); path(19,bT+3,128,bH-6,8); ctx.fill();
+  ctx.fillStyle=fillOr(pat('facade',PAT.wood),P.wood); ctx.fillRect(140,bT,10,bH); /* the lane-side wall strip */
+  const dfr=SH.defer; SH.defer=false; SH.soft=true; /* on the roof: these cast onto the roof, not into the ground pass under it */
+  if(ART['roof-edge']){const v=sv(1); shade(()=>{ctx.beginPath();ctx.rect(22,bT+6,118-6,v.y);ctx.rect(22,bT+6+v.y,v.x,bH-12-v.y);},LU.x*.01,LU.y*.01);} /* the parapet (1 m) shades the roof inside its sunlit sides */
+  parapet(16,bT,124,bH,6); /* L22: the outlet's red-and-yellow roof edge */
+  for(const [hx,hf] of [[40,.076],[86,.168],[50,.52],[96,.87]]) roofUnit(hx,bT+hf*bH,30,22);
+  arches(60,bT+.315*bH,38); /* rooftop arches sign */
+  SH.soft=false; SH.defer=dfr;
+}
+function parapet(x,y,w,h,t){ /* L22 along the four sides of a roof, its outer (red) edge outward; nothing without the picture (the rim above stands in) */
+  const im=ART['roof-edge']; if(!im||BP) return; const seg=t*im.width/im.height;
+  for(const [px,py,a,len] of [[x,y,0,w],[x+w,y,Math.PI/2,h],[x+w,y+h,Math.PI,w],[x,y+h,-Math.PI/2,h]]){
+    ctx.save(); ctx.translate(px,py); ctx.rotate(a);
+    for(let s=0;s<len;s+=seg){const f=Math.min(1,(len-s)/seg); ctx.drawImage(im,0,0,im.width*f,im.height,s,0,seg*f,t);}
+    ctx.restore(); }
+}
+function canopy(x,y,w,h,a){ /* L6, straight down: the canopy roof, 3 m up, so its shadow lands offset from it */
+  ctx.globalAlpha=a; SH.soft=true; lifted(()=>path(x,y,w,h,4),HM.canopy); SH.soft=false; /* 3 m up: soft, onto the car under it */
+  if(ART.canopy&&!BP){const im=ART.canopy, k=im.height/h, e=Math.round(5*k); /* the art at its own scale: its left part, then its trimmed outer edge (5 px) */
+    ctx.drawImage(im,0,0,(w-5)*k,im.height,x,y,w-5,h); ctx.drawImage(im,im.width-e,0,e,im.height,x+w-5,y,5,h);}
+  else{ bevel(x,y,w,h,'#4F4B45',4);
+    if(!BP){ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=1;for(let sx=x+6;sx<x+w-4;sx+=7){ctx.beginPath();ctx.moveTo(sx,y+2);ctx.lineTo(sx,y+h-2);ctx.stroke();} rr(x+w-4,y,4,h,1,'#2A2825');} }
+  ctx.globalAlpha=1;
+}
+function bollard(x,y){ /* L18, straight down: a yellow cap (0.9 m) */
+  sweepC(x,y,5,HM.bollard);
+  if(ART.bollard&&!BP){ctx.drawImage(ART.bollard,x-5,y-5,10,10);return;}
+  ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fillStyle=BP?BP.top:dk(P.yellow,.25); ctx.fill(); if(BP) return;
+  ctx.beginPath(); ctx.arc(x,y,3.8,0,7); ctx.fillStyle=P.yellow; ctx.fill();
+}
+function planter(x,y,kind){ /* L19, straight down: a raised concrete planter (0.5 m); kind 0 a shrub (34×34), 1 grass (22×70) */
+  const w=kind?22:34, h=kind?70:34; sweep(x,y,w,h,HM.planter);
+  if(sheetCell('planter',kind,x,y,w,h)) return;
+  bevel(x,y,w,h,'#D6CFC2',4); if(BP) return;
+  if(!kind){ctx.beginPath();ctx.arc(x+w/2,y+h/2,12,0,7);ctx.fillStyle='#6E8F4E';ctx.fill();}
+  else for(let i=0;i<5;i++){ctx.beginPath();ctx.ellipse(x+w/2,y+9+i*13,7,6,0,0,7);ctx.fillStyle=i%2?'#8FA25A':'#7C9150';ctx.fill();}
+}
+function parking(x0,x1,y0,y1){ /* L21: the car park strip on the far side of the lane; bay lines run across */
+  ctx.fillStyle=fillOr(pat('parking',null),'#5A5D63'); ctx.fillRect(x0,y0,x1-x0,y1-y0);
+  if(!ART.parking){ctx.fillStyle='rgba(242,242,238,.55)'; for(let y=Math.ceil(y0/40)*40;y<y1;y+=40) ctx.fillRect(x0+6,y,x1-x0-6,2);}
+}
+const QCOL=['#A8473F','#3F5579','#8C9298']; /* L17 red, blue, grey: muted, a step quieter than the prize car */
+function queueCar(x,y,k){ /* L17, straight down: a waiting car (1.5 m) */
+  const qi=ART['queue-cars']; if(qi&&!BP){const cw=qi.width/3; sweptImg(qi,[k*cw,0,cw,qi.height],x-22,y-40,44,80,HM.car);} else sweep(x-22,y-40,44,80,HM.car);
+  if(sheetCell('queue-cars',k,x-22,y-40,44,80)) return;
+  if(BP){rr(x-22,y-40,44,80,12,BP.top); return;}
+  const c=QCOL[k%3]; bevel(x-22,y-40,44,80,c,12); rr(x-17,y-24,34,18,4,'#36414B'); rr(x-16,y-4,32,18,4,dk(c,.12)); rr(x-15,y+14,30,10,3,'#36414B'); rr(x-19,y+36,9,4,2,P.taillight); rr(x+10,y+36,9,4,2,P.taillight);
+}
+function crewFace(cx,cy,r){
+  /* eyes at half head height, ears level with eyes, mouth a third up from the chin */
+  ctx.beginPath(); ctx.arc(cx-r,cy,r*.22,0,7); ctx.arc(cx+r,cy,r*.22,0,7); ctx.fillStyle=P.skinCrew; ctx.fill(); /* ears */
+  ctx.beginPath(); ctx.ellipse(cx,cy+r*.05,r,r*1.08,0,0,7); ctx.fillStyle=P.skinCrew; ctx.fill();
+  rr(cx-r*1.05,cy-r*1.1,r*2.1,r*.75,r*.5,P.ink); rr(cx-r*.2,cy-r*.5,r*1.45,r*.28,r*.14,P.ink); /* cap + forward brim */
+  ctx.fillStyle=P.ink; ctx.beginPath(); ctx.arc(cx-r*.38,cy,r*.11,0,7); ctx.arc(cx+r*.38,cy,r*.11,0,7); ctx.fill();
+  ctx.strokeStyle=P.ink; ctx.lineWidth=1.4; ctx.beginPath(); ctx.arc(cx,cy+r*.38,r*.28,.15*Math.PI,.85*Math.PI); ctx.stroke();
+  ctx.strokeStyle='#55524C'; ctx.lineWidth=1.6; ctx.beginPath(); ctx.arc(cx,cy-r*.2,r*1.08,Math.PI*1.05,Math.PI*1.95); ctx.stroke();
+  rr(cx+r*.95,cy-r*.15,r*.3,r*.45,2,'#55524C'); ctx.beginPath(); ctx.moveTo(cx+r*1.05,cy+r*.25); ctx.quadraticCurveTo(cx+r*.9,cy+r*.7,cx+r*.35,cy+r*.62); ctx.stroke();
+  const eyeY=cy, earY=cy, mouthY=cy+r*.38+r*.28*Math.sin(.5*Math.PI);
+  anat('Crew face: eyes at half height, ears level with eyes',Math.abs(eyeY-cy)<.5&&Math.abs(earY-eyeY)<.5&&mouthY>eyeY,'face proportions off');
+}
+/* menu icons */
+function bun(x,y,w,h,top){ctx.beginPath(); if(top){ctx.ellipse(x,y,w/2,h,0,Math.PI,0);ctx.lineTo(x+w/2,y);}else{rr(x-w/2,y,w,h,h/2);return;} ctx.closePath(); ctx.fillStyle='#D99A4E'; ctx.fill(); ctx.fillStyle='#F6E7C8'; for(let i=0;i<5;i++){ctx.beginPath();ctx.ellipse(x-w*.3+i*w*.15,y-h*.55+(i%2)*2,1.4,.8,.3,0,7);ctx.fill();}}
+function patty(x,y,w,h){rr(x-w/2,y,w,h,h/2,'#5B3A22');}
+function icon(kind,x,y){
+  ctx.save(); ctx.translate(x,y);
+  if(kind==='Big Mac'){bun(0,-8,30,8,true);rr(-15,-8,30,3,1,'#6DA544');patty(0,-5,28,4);rr(-14,-1,28,3,1,'#D99A4E');patty(0,2,28,4);rr(-13,6,26,2,1,'#F3C33B');bun(0,8,28,5,false);}
+  else if(kind==='Big Tasty'){bun(0,-6,34,9,true);rr(-16,-6,32,3,1,'#6DA544');rr(-14,-3,28,3,1,'#D9473A');rr(-17,0,34,3,1,'#F3C33B');patty(0,3,32,6);bun(0,9,32,5,false);}
+  else if(kind==='McCrispy'){bun(0,-7,28,8,true);ctx.beginPath();for(let i=0;i<=10;i++){ctx.lineTo(-17+i*3.4,-4+(i%2)*2);}ctx.lineTo(17,5);ctx.lineTo(-17,5);ctx.closePath();ctx.fillStyle='#D7A246';ctx.fill();bun(0,5,26,5,false);}
+  else if(kind==='McArabia'){ctx.beginPath();ctx.ellipse(0,0,17,11,0,0,7);ctx.fillStyle='#E9CC97';ctx.fill();ctx.strokeStyle='#B98A4E';ctx.lineWidth=1.5;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(-10+i*4,-7);ctx.lineTo(-2+i*4,7);ctx.stroke();}ctx.beginPath();ctx.moveTo(-17,0);ctx.lineTo(17,0);ctx.strokeStyle='rgba(0,0,0,.2)';ctx.stroke();}
+  else if(kind==='Fries'){for(let i=-3;i<=3;i++)rr(i*3.2-1.2,-14+Math.abs(i),2.6,12,1,'#F3C33B');ctx.beginPath();ctx.moveTo(-11,-4);ctx.lineTo(11,-4);ctx.lineTo(8,12);ctx.lineTo(-8,12);ctx.closePath();ctx.fillStyle=P.red;ctx.fill();}
+  else if(kind==='Nuggets'){for(const [nx,ny] of [[-7,2],[6,3],[0,-5]]){ctx.beginPath();ctx.ellipse(nx,ny,7,5.5,.4,0,7);ctx.fillStyle='#D7A246';ctx.fill();ctx.fillStyle='rgba(120,70,20,.3)';ctx.beginPath();ctx.arc(nx-1,ny,1,0,7);ctx.arc(nx+2,ny+1.5,.9,0,7);ctx.fill();}}
+  else if(kind==='Soft drink'){ctx.beginPath();ctx.moveTo(-9,-8);ctx.lineTo(9,-8);ctx.lineTo(7,13);ctx.lineTo(-7,13);ctx.closePath();ctx.fillStyle=P.white;ctx.fill();ctx.strokeStyle='#D8D4CB';ctx.lineWidth=1;ctx.stroke();rr(-10,-11,20,4,2,'#E5E1D8');rr(1,-20,2.2,10,1,P.red);rr(-8,0,16,4,1,P.red);}
+  else if(kind==='Water'){rr(-6,-6,12,19,3,'#BFE0F0');rr(-3,-12,6,6,1,'#7FB3D1');rr(-6,1,12,5,1,'#5B9CC6');}
+  else if(kind==='Iced coffee'){ctx.beginPath();ctx.moveTo(-9,-6);ctx.lineTo(9,-6);ctx.lineTo(7,13);ctx.lineTo(-7,13);ctx.closePath();ctx.fillStyle='rgba(210,230,240,.7)';ctx.fill();ctx.beginPath();ctx.moveTo(-8,0);ctx.lineTo(8,0);ctx.lineTo(7,13);ctx.lineTo(-7,13);ctx.closePath();ctx.fillStyle='#8A5A35';ctx.fill();ctx.beginPath();ctx.ellipse(0,-6,10,5,0,Math.PI,0);ctx.fillStyle='rgba(230,240,245,.9)';ctx.fill();}
+  ctx.restore();
+}
+function mealArt(kind,x,y,w,h){ /* the meal's picture slot (w×h, top-left anchored): the McDonald's UAE product photo once loaded, the menu drawings until then */
+  if(ART[kind]&&!BP){ const im=ART[kind]; rr(x,y,w,h,12,P.white); const k=Math.min((w-8)/im.width,(h-8)/im.height); const iw=im.width*k, ih=im.height*k; ctx.drawImage(im,x+(w-iw)/2,y+(h-ih)/2,iw,ih); return; }
+  rr(x,y,w,h,12,P.white); ctx.save(); path(x,y,w,h,12); ctx.clip();
+  const k=Math.min(w,h)/96;
+  ctx.save(); ctx.translate(x+w*.27,y+h*.33); ctx.scale(1.3*k,1.3*k); icon('Fries',0,0); ctx.restore();
+  ctx.save(); ctx.translate(x+w*.75,y+h*.33); ctx.scale(1.3*k,1.3*k); icon('Soft drink',0,0); ctx.restore();
+  ctx.save(); ctx.translate(x+w/2,y+h*.66); ctx.scale(2*k,2*k); icon(kind,0,0); ctx.restore(); /* the main in front */
+  ctx.restore();
+}
+
+/* =========================================================
+   GAME
+   ========================================================= */
+const MEALS=['Big Mac','McArabia','McCrispy']; /* one tap at the speaker: the meal is the order (fries and a soft drink come with it) */
+const LANE_L=188, LANE_R=304, LANE_C=246, DRIVER=40; /* driver window sits 40px behind the front bumper */
+/* phone scale: ONE world zoom, so the car reads at ~15% of the frame width (53 of 360px) and lane, stops, zones, building and props grow with it.
+   G works in world units; screen units only through scr()/sx(). ZX centres the lane (LANE_C lands on the middle line W/2); the restaurant, windows and speaker sit as a strip at the left edge */
+const ZK=1.2, ZX=W/2-LANE_C*ZK, HUDB=70;
+/* flick physics: constant friction, so stopping distance = v^2 / (2*FRICTION) and the same swipe always rolls the same distance */
+/* tuned by the 40-agent playtest (playtest/): distance grows with swipe speed^0.7, not speed^2,
+   so a 10% sloppier swipe is a 7% miss instead of a 20% one. Tuned in screen px: FW carries it into the zoomed world, so a flick rolls as far on screen as before */
+const GRAB=64; /* the launch strip (world units): the car follows the finger this far, then it is thrown (owner 00:23, the Tasty Travels pattern) */
+const FRICTION=520, GAMMA=.7, SREF=1300, DREF=380, DMAX=720, WIN=[40,40,32], GROW=1.15, ZMAX=56, PERFECT=8, STAR_TRIES=3, FW=FRICTION/ZK;
+/* the rush, per stop: each stop has its own short countdown (STOP_T s), a draining ring on the active zone. It starts when the car is ready to aim
+   (the first stop: on your first touch) and pauses on the order card and while the crew serves you. A miss (short or past) costs MISS_COST s on that
+   stop's clock, and the zone still grows a little (GROW) so nobody gets stuck. A stop's clock at zero = the rush got you; a car already rolling still lands.
+   Tuned by the headless sim (200 rounds per bot, three seeds): perfect bot 100%, first-timer 72-74%. A clean stop takes ~2.2 s and a miss ~2.8 s plus
+   MISS_COST, so ~6 s affords one miss per stop, not two (the first stop's clock starts on your first touch, so its first shot is nearly free) */
+const stopT=k=>STOP_T[k]; /* one impression, one play: the clocks are tuned for a first-timer's only game (owner 23:46) */
+const STOP_T=[12,14,11], MISS_COST=1; /* owner 23:43: real first-timers need a few swipes to get the hang of it. A learner model (the first swipe far off, every attempt teaches; _work/mcd-uae/uae_sim_learner.py) finishes ~65% with 12/14/11 s, a 1 s miss cost and the zone growing x1.15 per miss (owner 23:47: not too lenient on retries); ~5.5 swipes a game */
+const HUDN=[84,148,212], TKX=W-56, RING_X=327; /* HUD track node x (anchored left; the last node, its 46 px label and its pulse halo, 23 px, stay 11 px inside the pill: COLLECT spilled out at 240, owner 2026-10-29 23:14), entries ticket centre (anchored right, 12px margin); the stop-clock ring's world x: at the zone's right end, just outside the lane */
+const distFor=s=>Math.min(DMAX,DREF*Math.pow(Math.max(0,s)/SREF,GAMMA)); /* screen px */
+const G={
+  stops:[{y:-220,label:'Speaker'},{y:-640,label:'Pay'},{y:-940,label:'Collect'}], /* short 220, long 420, medium 300: each stop a different swipe (owner 2026-10-29 23:21; was 320/280/260) */ /* y = where the front bumper stops; the stop line sits DRIVER behind it, level with the window */
+  CAR_Y:512, /* screen y of the car's centre while it drives: ~80% down the frame, the zone in the upper third */
+  init(){this.assisted=false;this.grab=null;this.idleT=0;this.missHint=null;this.hintT=0;this.idle=0;this.y=0;this.v=0;this.hold=false;this.held=false;this.stage='aim';this.ghostY=null;this.perfStreak=0;this.slow=0;this.started=false;this.tries=0;this.drag=null;this.power=0;this.lastPower=null;this.charging=false;this.i=0;this.grades=[];this.order={};this.sel=-1;this.anim=0;this.brake=0;this.trail=[];this.bubble=null;this.ahead=false;this.recT=0;this.scanT=-1;this.stamped=false;this.revealT=0;this.payPop=false;this.chips=[];this.win=0;this.dustT=0;this.clock=stopT(0);this.clockOn=false;this.penT=0;this.honkT=0;this.bonus=0;this.bonusT=0;this.left=0;this.failT=0;this.prompt=1;this.promptT=0;this.retry=false;this.nodeT=[0,0,0];this.demo=false;this.qY=0;this.qA=0;this.cam=this.camTarget();},
+  scr(wy){return (wy-this.cam)*ZK;}, /* world y -> screen y */
+  sx(wx){return ZX+wx*ZK;}, /* world x -> screen x */
+  say(text,d){this.bubble={text,t:0,d:d||1.8};},
+  hush(){if(this.bubble)this.bubble.t=Math.max(this.bubble.t,this.bubble.d-.15);}, /* crew stops talking once you're free to drive */
+  aimish(){return ['aim','roll','miss'].includes(this.stage);},
+  zone(k){return Math.min(ZMAX,WIN[k]*Math.pow(GROW,k===this.i?this.tries:0));}, /* current stop's zone grows a little with each miss, up to what the camera can frame */
+  line(k){return this.stops[k].y+DRIVER;}, /* the solid stop line, level with the speaker / window: where the driver window should stop */
+  checkY(){return this.i===0?0:this.stops[this.i-1].y+38;}, /* last checkpoint: start, or the last stop you made */
+  /* ---------- flick input: swipe up the lane; speed of the swipe = launch speed ---------- */
+  down(x,y){
+    if(this.stage==='howto'){ if(this.howT>.6){this.stage='aim';this.prompt=1;this.promptT=0;this.hintT=0;} return; } /* GOT IT: anywhere, once it has been seen */
+    if(this.stage==='aim'||this.stage==='miss'){this.drag={sy:y,t0:performance.now(),pts:[{x,y,t:performance.now()}]}; this.idleT=0; if(this.stage==='aim') this.grab={y0:this.y,fy0:y};this.power=0;this.hush();this.prompt=0;this.clockOn=true;return;} /* a swipe during the miss blink counts too; a touch hides the prompt and starts the first stop's clock */
+    if(this.stage==='order'){const c=this.chips.find(c=>x>=c.x&&x<=c.x+c.w&&y>=c.y&&y<=c.y+c.h);if(c)this.pick(c.label);return;}
+    if(this.stage==='receipt'&&this.recT>.45&&this.scanT<0){this.scanT=0;return;}
+    if(this.stage==='fail'&&this.failT>.5&&inBox({x,y},FAIL.btn)) start('play');
+  },
+  move(x,y){
+    if(!this.drag) return;
+    const now=performance.now(); this.drag.pts.push({x,y,t:now}); this.drag.pts=this.drag.pts.filter(p=>now-p.t<=100);
+    this.power=clamp(distFor(this.swipeSpeed())/DMAX,0,1);
+    if(this.grab&&this.stage==='aim'){ const d=clamp((this.grab.fy0-y)/ZK,0,GRAB); this.y=this.grab.y0-d; /* the car follows the finger up the launch strip */
+      if(d>=GRAB) this.up(); } /* past the release line: thrown at the finger's speed */
+  },
+  swipeSpeed(){const p=this.drag.pts; if(p.length<2) return 0; const a=p[0], b=p[p.length-1]; return Math.max(0,(a.y-b.y)/(Math.max(16,b.t-a.t)/1000));}, /* upward speed over the last 100ms */
+  up(){
+    if(!this.drag) return;
+    const pts=this.drag.pts, last=pts[pts.length-1], travel=this.drag.sy-last.y, pw=clamp(distFor(this.swipeSpeed())/DMAX,0,1), dur=(performance.now()-this.drag.t0)/1000;
+    this.drag=null;
+    if(this.stage!=='aim'&&this.stage!=='miss') return;
+    const g0=this.grab; this.grab=null;
+    if(travel<18||pw<.05){if(g0) this.y=g0.y0; this.power=0;
+      if(travel>=18&&this.stage==='aim'){this.missHint={drag:true}; this.retry=true; this.prompt=1; this.promptT=0; this.hintT=0;} /* dragged and let go too slowly: the car goes back, the plate coaches the flick, no miss */
+      else pop('FLICK UP',this.sx(LANE_C),this.scr(this.y)-70); return;}
+    if(this.stage==='miss'){if(this.clock<=0)return;this.respawn();} /* flicked during the blink: go now, a flick is never swallowed */
+    this.launch(pw);
+  },
+  /* ---------- hidden keyboard fallback: hold space to charge, release to launch ---------- */
+  keyDown(){if(this.aimish())this.held=true; if(this.stage==='aim')this.charge(); else if(this.stage!=='roll'&&this.stage!=='miss')this.down(CX,320);},
+  charge(){if(this.charging)return;this.charging=true;this.power=0;this.drag=null;this.hush();this.prompt=0;this.clockOn=true;}, /* a second key-down never restarts the charge: repeats without the repeat flag used to zero it, so a long hold launched a 5% creep (the car "stuck at the bottom") */
+  keyUp(){this.held=false;if(this.stage==='aim'&&this.charging)this.launch(Math.max(.05,this.power));}, /* every key release launches */
+  cancel(){this.held=false;this.charging=false;}, /* focus lost mid-hold, so no key-up will come: drop the charge, the gauge drains */
+  launch(pw){
+    if(!this.demo&&!this.assisted&&this.i===0){ this.assisted=true; const D=(this.y-38)-this.stops[0].y, dist=pw*DMAX/ZK; if(Math.abs(dist-D)<Math.max(70,D*.4)) pw=D*ZK/DMAX; } /* the first flick lands (owner 00:23: rig the first move) */
+    this.v=Math.sqrt(2*FW*pw*DMAX/ZK); this.v0=this.v; this.lastPower=pw; this.power=pw; this.stage='roll'; this.started=true; this.clockOn=true; this.charging=false; this.prompt=0;
+    shake(3); burst(this.sx(LANE_C),this.scr(this.y+44),8,P.paint,'dust');
+  },
+  pick(m){
+    this.order={main:m,side:'Fries',drink:'Soft drink'}; const c=this.chips.find(c=>c.label===m); if(c) burst(c.x+c.w/2,c.y+c.h/2,10,P.yellow,'star',true); shake(2);
+    this.stage='orderdone'; this.anim=0; this.say(`One ${m} meal, coming right up. First window, please!`,2.2);
+  },
+  howto(){ this.cam=this.camTarget(); this.stage='howto'; this.howT=0; this.prompt=0; }, /* the first play opens on HOW TO DRIVE (owner 00:18) */
+  respawn(){ /* back to the checkpoint, clean cut; the launch prompt comes back briefly */
+    this.y=this.checkY(); this.v=0; this.anim=0; this.power=0;
+    this.cam=this.camTarget(); FX.pops=FX.pops.filter(p=>p.ui); FX.parts=FX.parts.filter(p=>p.ui);
+    this.stage='aim'; this.prompt=1; this.promptT=0; this.retry=true; this.hintT=0;
+  },
+  next(k){this.stage='aim';this.i=k;this.clock=stopT(k);this.clockOn=true;this.missHint=null;}, /* on to stop k: its own fresh clock */
+  evaluate(){
+    const s=this.stops[this.i], front=this.y-38, d=front-s.y, a=Math.abs(d), Wz=this.zone(this.i), px=this.sx(LANE_C), fy=this.scr(front);
+    if(a>Wz){ /* miss, short or past: blink, back to the checkpoint, MISS_COST s off this stop's clock (it flies out of the ring), and the zone grows a little */
+      this.tries++; this.clock=Math.max(0,this.clock-MISS_COST); this.penT=.8;
+      const near=a<=2*Wz; /* most misses are near misses: say so, it's what makes people retry */
+      this.missHint={short:d>0,near}; /* the retry plate coaches the next swipe from this */
+      pop(near?'SO CLOSE!':(d>0?'TOO SHORT':'TOO FAR'),px,fy-44,near?P.yellow:P.ink); if(near) burst(px,fy,8,P.yellow,'star');
+      this.hush(); /* miss feedback lives in the top bar, not a bubble, so nothing covers the line you're aiming at */
+      this.perfStreak=0; this.ghostY=this.y; /* remember where it stopped, drawn on the lane while you line up the retry */
+      this.stage='miss'; this.anim=0; shake(4); return;
+    }
+    const g=this.tries>=STAR_TRIES?'MADE':a<=PERFECT?'PERFECT':'GOOD'; /* made after 3 misses: the stop counts, no star */
+    this.grades[this.i]=g; this.tries=0; this.v=0; this.ghostY=null; this.slow=0; this.held=false;
+    this.perfStreak=g==='PERFECT'?this.perfStreak+1:0;
+    pop(g==='PERFECT'?'PERFECT STOP':g==='GOOD'?'NICE STOP':'MADE IT',px,fy-44,g==='PERFECT'?P.yellow:P.ink);
+    this.left+=this.clock; this.nodeT[this.i]=1; if(!this.demo) burst(HUDN[this.i],36,14,P.yellow,'star',true); /* seconds to spare add up; the HUD node checks off with a burst */
+    if(g==='PERFECT'){this.bonus++;this.bonusT=1;pop('+1 ENTRY',px,fy-74,P.yellow);if(!this.demo)burst(TKX,38,14,P.yellow,'star',true); /* perfect pays: one bonus draw entry, the ticket sparkles */
+      burst(px,fy,30,P.yellow,'star');shake(7);flash();if(S.juice&&!this.demo)FX.smiles.push({x:px,y:fy-154,t:0}); /* above the text pops, so the smile never sits on words */if(this.perfStreak>=2)pop(this.perfStreak===3?'3 PERFECTS!':'2 IN A ROW!',px,fy-104,P.yellow);}else{burst(px,fy,10,P.yellow,'star');shake(3);}
+    if(this.i===0){this.stage='order';this.orderT0=S.t;this.flyDone=false;this.sel=-1;this.say('Welcome to McDonald’s! What can I get you?',99);}
+    else if(this.i===1){this.stage='pay';this.anim=0;this.payPop=false;this.say('That’s paid, thank you!',2);}
+    else{this.stage='handoff';this.anim=0;this.say('Here you go. Enjoy your meal!',2);}
+  },
+  tick(dt){ if(this.stage==='howto') return; /* this stop's clock runs only while you drive; a car already rolling at zero still lands (buzzer-beater) */
+    if(!this.clockOn) return;
+    this.clock=Math.max(0,this.clock-dt);
+    if(this.clock>0&&this.clock<2){this.honkT-=dt;if(this.honkT<=0){this.honkT=1.2;pop('HONK!',this.sx(LANE_C)+(Math.random()<.5?-34:34),612,P.ink);}} /* the queue behind you gets impatient */
+    if(this.clock<=0&&(this.stage==='aim'||(this.stage==='miss'&&this.anim>.6))) this.timeUp();
+  },
+  timeUp(){this.stage='fail';this.failT=0;this.drag=null;this.charging=false;this.held=false;this.bubble=null;shake(5);},
+  update(dt){ if(this.stage==='howto'){this.howT+=dt; return;} /* the tutorial: time for its loops, nothing else moves */
+    if(this.bubble){this.bubble.t+=dt;if(this.bubble.t>this.bubble.d)this.bubble=null;}
+    const wantWin=(this.stage==='pay'||this.stage==='handoff'||(this.stage==='driveoff'&&this.revealT<.5))?1:0; this.win+=(wantWin-this.win)*Math.min(1,dt*8);
+    this.penT=Math.max(0,this.penT-dt); this.bonusT=Math.max(0,this.bonusT-dt*2); this.nodeT=this.nodeT.map(v=>Math.max(0,v-dt*2.5));
+    if(this.prompt){this.promptT+=dt; if(this.retry&&!this.missHint&&this.promptT>2.2) this.prompt=0;} /* a miss coach stays until the next touch */ /* the launch prompt: until the first touch; after a miss, briefly */
+    if(this.stage==='aim'&&this.prompt&&!this.drag&&!this.charging) this.hintT+=dt; /* the hint hand loops while the prompt shows */
+    if(this.stage==='aim'){
+      if(!this.drag&&!this.prompt){this.idleT=(this.idleT||0)+dt; if(this.idleT>3){this.prompt=1;this.promptT=0;this.hintT=0;this.retry=false;this.idleT=0;}} /* the hand comes back after 3 s idle */
+      if(this.held&&!this.charging) this.charge(); /* space stayed down through the respawn: charge from now */
+      if(this.charging) this.power=Math.min(1,this.power+dt/1.2); /* keyboard: hold space to charge */
+      else if(!this.drag) this.power=Math.max(0,this.power-dt*1.5);
+      this.tick(dt);
+    } else if(this.stage==='roll'){
+      /* slow-motion finish, saved for the moments that deserve it: a coin-flip landing on the zone edge, or a perfect.
+         The playtest showed 'anything near the zone' fired on 3 of 4 shots, so it stopped feeling special. */
+      const rem=this.v*this.v/(2*FW), finalErr=Math.abs((this.y-rem-38)-this.stops[this.i].y), tLeft=this.v/FW, Wz=this.zone(this.i);
+      const want=S.juice&&this.stage==='roll'&&tLeft<.55&&((finalErr>=.7*Wz&&finalErr<=1.3*Wz)||finalErr<=PERFECT)?1:0; this.slow+=(want-this.slow)*Math.min(1,dt*10);
+      dt*=1-.6*this.slow; /* the clock slows with the picture: slow motion never costs you time */
+      /* exact constant-friction step: the car always stops at v^2/(2*FW) */
+      const pv=this.v;
+      if(pv-FW*dt<=0){this.y-=pv*pv/(2*FW);this.v=0;} else {this.v=pv-FW*dt;this.y-=(pv+this.v)/2*dt;}
+      if(this.v>0&&(this.v>.9*this.v0||this.v/FW<.45)){const ry=this.y+30, l=this.trail[this.trail.length-1]; if(!l||l.y-ry>=2.5) this.trail.push({y:ry,a:this.v>.9*this.v0?.7:1});} /* tyre marks: launch wheelspin, then the skid as it brakes to a stop (owner 00:12: they were never laid) */
+      if(S.juice&&this.v>120){this.dustT+=dt;if(this.dustT>.07){this.dustT=0;burst(this.sx(LANE_C+(Math.random()-.5)*24),this.scr(this.y+42),1,P.paint,'dust');}}
+      this.tick(dt);
+      if(this.v===0){this.slow=0;this.evaluate();}
+    } else if(this.stage==='miss'){
+      this.anim+=dt; this.tick(dt);
+      if(this.stage==='miss'&&this.anim>.8) this.respawn(); /* respawn at the checkpoint */
+    } else if(this.stage==='fail'){
+      this.failT+=dt;
+    } else {
+      this.brake=Math.max(0,this.brake-dt*6);
+      if(this.stage==='orderdone'){this.anim+=dt;if(this.anim>1.2)this.hush();if(this.anim>1.4)this.next(1);}
+      else if(this.stage==='pay'){this.anim+=dt;if(this.anim>.6&&!this.payPop){this.payPop=true;pop('PAID',this.sx(LANE_L-6),this.scr(this.line(1))-34,P.yellow);}if(this.anim>1.3)this.hush();if(this.anim>1.5)this.next(2);}
+      else if(this.stage==='handoff'){this.anim+=dt;if(this.anim>1.6){this.stage='receipt';this.recT=0;}}
+      else if(this.stage==='receipt'){this.recT+=dt;if(this.scanT>=0){this.scanT+=dt;if(this.scanT>.75&&!this.stamped){this.stamped=true;flash();shake(7);burst(CX,300,26,P.yellow,'star',true);}if(this.scanT>1.9){this.stage='driveoff';this.revealT=0;this.v=0;}}}
+      else if(this.stage==='driveoff'){
+        this.revealT+=dt;
+        if(this.revealT>.5){this.v=Math.min(420,this.v+600*dt);this.y-=this.v*dt;
+          if(S.juice){this.dustT+=dt;if(this.dustT>.05){this.dustT=0;burst(this.sx(LANE_C+(Math.random()-.5)*24),this.scr(this.y+44),1,P.paint,'dust');}}}
+        if(this.revealT>1.65)finish();
+      }
+    }
+    if(!['roll','miss','driveoff'].includes(this.stage)) this.qA=Math.max(this.y,this.checkY()); this.qY+=(this.qA-this.qY)*Math.min(1,dt*2.5); /* the queue keeps a car's length behind your rest spot and the checkpoint */
+    const target=this.camTarget(); if(S.juice)this.cam+=(target-this.cam)*Math.min(1,dt*9);else this.cam=target;
+    this.trail.forEach(t=>t.a-=dt*.25); this.trail=this.trail.filter(t=>t.a>0).slice(-200); /* they stay ~4 s */
+  },
+  camTarget(){ /* world units: frame the car and the next stop zone below the top bar; look ahead with speed */
+    const yy=this.grab?this.grab.y0:this.y; /* still while the car is in the hand */
+    let t=yy-(this.demo?380:this.CAR_Y)/ZK-(S.juice&&!this.demo?this.v*.35:0); /* attract mode keeps the car mid-frame, under the splash title and above PLAY */
+    if(this.aimish()&&!this.demo) t=Math.min(t,this.line(this.i)-Math.max(140,HUDB+6+this.zone(this.i)*ZK)/ZK); /* the whole zone stays below the top bar */
+    return Math.max(t,yy-578/ZK); /* ...and the whole car stays in frame */
+  },
+  canopyAlpha(k){ return 1; /* solid (owner 2026-10-29 23:22: the pay hut not transparent): the canopy ends at the curb, so it never hides the car */
+    const wy=this.stops[k].y+DRIVER, dist=Math.abs(this.y-wy);
+    let a=clamp((dist-70)/60,.3,1);
+    if(this.i===k&&this.aimish()) a=Math.min(a,.45);
+    if((k===1&&this.stage==='pay')||(k===2&&this.stage==='handoff')) a=.35;
+    return a;
+  },
+  drawWorld(){
+    ctx.save(); ctx.translate(ZX,-this.cam*ZK); ctx.scale(ZK,ZK); OFFY=this.cam; VW.k=ZK; VW.ox=ZX; /* one zoom for the whole world */
+    const vx=-ZX/ZK, vw=W/ZK, vh=H/ZK; /* the slice of world in frame */
+    const M=ctx; shBegin(); SH.gx.setTransform(1,0,0,1,0,0); if(GLG){const k=cv.width/W, x0=Math.floor((ZX+(LANE_L-6)*ZK)*k), x1=Math.ceil((ZX+(LANE_R+6)*ZK)*k); SH.gx.clearRect(x0,0,x1-x0,SH.g.height);} else SH.gx.clearRect(0,0,SH.g.width,SH.g.height); SH.gx.setTransform(M.getTransform()); ctx=SH.gx; /* the ground: its own layer, it goes under the shadows */
+    /* ground */
+    if(GLG) GLG.draw(this.cam,vx,vw,vh); else { /* D-038: the ground on the GPU; the 2D fills below are the fallback */
+    ctx.fillStyle=fillOr(pat('sand',PAT.sand),P.sand); ctx.fillRect(vx-400,this.cam-600,vw+800,vh+1200);   /* well past the view: the painted sand shows any edge (the zoom made vh+40 fall short) */
+    ctx.fillStyle=fillOr(pat('sidewalk',PAT.concrete),P.concrete); ctx.fillRect(150,-1580,38,1900);
+    parking(356,vx+vw+20,this.cam-20,this.cam+vh+40); /* L21, the far side of the lane */
+    ctx.fillStyle=P.curb; ctx.fillRect(150,-1580,2,1900); ctx.fillRect(186,-1580,2,1900);
+    /* lane */
+    ctx.fillStyle=fillOr(pat('asphalt',PAT.asphalt),P.asphalt); ctx.fillRect(LANE_L,-1580,LANE_R-LANE_L,1900);
+    ctx.fillStyle=P.paint; ctx.fillRect(LANE_L+3,-1580,3,1900); ctx.fillRect(LANE_R-6,-1580,3,1900); }
+    tx('EXIT',LANE_C,-1110,16,'rgba(242,242,238,.7)','center',900);
+    /* stop lines: drawn level with the speaker / window, so the driver window is what you line up */
+    this.stops.forEach((st,k)=>{
+      const cur=k===this.i&&(this.aimish()||this.demo), L=this.line(k), /* attract mode keeps the band up while the car sits on the mark */ x0=LANE_L+8, zw=LANE_R-LANE_L-16;
+      if(cur){
+        const Wz=this.zone(k); ctx.fillStyle='rgba(255,199,44,.42)'; ctx.fillRect(x0,L-Wz,zw,Wz*2); /* the stop zone, one translucent band: stop your driver window anywhere in here */
+        ctx.fillStyle='rgba(255,199,44,.82)'; ctx.fillRect(x0,L-PERFECT,zw,PERFECT*2); /* a brighter strip: PERFECT, +1 entry */
+        ctx.fillStyle=P.ink; ctx.fillRect(x0,L-2,zw,4); /* the solid target line: where the driver window should be */
+        const inField=(L-Wz-this.cam)*ZK>=HUDB+4; this.ahead=!inField; /* a zone counts as in view only once all of it clears the top bar */
+        reg(inField?'stopline':'decal',inField?'active stop zone':'stop line (ahead)',x0,L-Wz,zw,Wz*2);
+      } else { ctx.setLineDash([8,6]); ctx.strokeStyle='rgba(242,242,238,.8)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0,L); ctx.lineTo(LANE_R-8,L); ctx.stroke(); ctx.setLineDash([]); reg('decal','stop line',x0,L-2,zw,4); }
+    });
+    if(this.stage==='aim'&&!this.demo){ /* the release line and the aim line (the Tasty Travels pattern): your hand works below the dashed line; the aim line shows the way, not the distance */
+      const ry0=(this.grab?this.grab.y0:this.y)-45-GRAB; ctx.setLineDash([9,7]); ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(LANE_L+8,ry0); ctx.lineTo(LANE_R-8,ry0); ctx.stroke(); ctx.setLineDash([]);
+      const top=this.line(this.i)+this.zone(this.i), nose=this.y-46; if(nose>top){const g=ctx.createLinearGradient(0,nose,0,top); g.addColorStop(0,'rgba(255,255,255,.85)'); g.addColorStop(1,'rgba(255,255,255,.15)'); ctx.fillStyle=g; ctx.fillRect(LANE_C-1.25,top,2.5,nose-top);} }
+    /* tyre marks: over the stop zone's paint, like rubber on a road (owner 00:15) */
+    ctx.fillStyle='#0B0B0C'; for(const t of this.trail){ctx.globalAlpha=t.a*.55;ctx.fillRect(LANE_C-19,t.y,4,3.4);ctx.fillRect(LANE_C+15,t.y,4,3.4);} ctx.globalAlpha=1; /* under the picture car's rear wheels */
+    if(this.stage==='aim'&&this.prompt){ /* a light guide, not a feature: up to three thin chevrons travel up the lane centre from the bumper towards the zone, fading in at the car and out below the tutorial plate */
+      const pb=this.promptBox(), top=this.cam+(pb.cy+pb.h/2+8)/ZK, bot=this.y-46, gap=28, ph=S.juice?(S.t*40)%gap:0, a=this.retry?clamp((2.2-this.promptT)*4,0,1):1;
+      if(bot-top>gap*.8){ ctx.lineWidth=3/ZK; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle=P.white;
+        for(let wy=bot-ph,n=0;wy>top&&n<3;wy-=gap,n++){const f=clamp((bot-wy)/(bot-top),0,1); ctx.globalAlpha=a*.5*Math.sin(f*Math.PI); ctx.beginPath(); ctx.moveTo(LANE_C-6,wy+4); ctx.lineTo(LANE_C,wy-2); ctx.lineTo(LANE_C+6,wy+4); ctx.stroke();}
+        ctx.globalAlpha=1; ctx.lineCap='butt'; ctx.lineJoin='miter'; reg('decal','launch chevrons',LANE_C-8,top,16,bot-top); }
+    }
+    ctx=M; SH.defer=true; /* props and cars: their ground shadows go into the pass */
+    /* menu board (L8, before the speaker) */
+    const mb=this.line(0)+48; menuBoard(66,mb); reg('sign','menu board',66,mb,80,104);
+    /* speaker (L7): lines up with the driver window when the window is on the line */
+    const spY=this.line(0); speaker(170,spY); reg('prop','speaker',160,spY-14,20,28);
+    /* the restaurant: it spans both service windows */
+    const bT=this.line(2)-180, bB=this.line(1)+124; restaurant(bT,bB); reg('building','restaurant',16,bT,134,bB-bT);
+    /* service windows */
+    for(const k of [1,2]){const wy=this.line(k);
+      rr(141,wy-26,11,52,2,'#22201D'); const gg=ctx.createLinearGradient(143,0,152,0); gg.addColorStop(0,P.glass); gg.addColorStop(1,'#CFE4EE'); rr(143,wy-24,9,48,1,gg);
+      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(145,wy-18); ctx.lineTo(150,wy-8); ctx.stroke();
+      opening(k===1?'pay window':'collect window',141,wy-26,14,52);
+    }
+    /* planters (L19) on the wider sides, bollards (L18) along the lane edge, palms (L9): never on the lane */
+    for(const [px,py,k] of [[322,-260,0],[328,-560,1],[322,-880,0],[328,40,1],[328,-1200,1],[104,-6,0]]){planter(px,py,k); reg('prop',k?'grass planter':'shrub planter',px,py,k?22:34,k?70:34);}
+    for(let by=Math.floor((this.cam-60)/70)*70;by<this.cam+vh+60;by+=70){bollard(LANE_R+8,by); reg('prop','bollard',LANE_R+3,by-5,10,10);}
+    for(const [px,py] of [[70,40],[330,-90],[330,-420],[330,-700],[84,-392],[60,-1080],[330,-1060]]) palm(px,py,24);
+    /* figure-ground: a soft warm-grey veil over everything outside the lane pulls the scenery back; the lane, zone, car, hands and canopies stay full strength */
+    ctx.fillStyle='rgba(168,160,148,.2)'; ctx.fillRect(vx-20,this.cam-20,LANE_L-vx+20,vh+40); ctx.fillRect(LANE_R,this.cam-20,vx+vw+20-LANE_R,vh+40);
+    /* the queue behind you (L17): it shuffles up after each stop */
+    for(let k=0;k<3;k++){const qy=this.qY+100*(k+1); if((qy-40-this.cam)*ZK<H+20){ctx.globalAlpha=.92; queueCar(LANE_C,qy,k); ctx.globalAlpha=1; reg('prop','queue car '+(k+1),LANE_C-22,qy-40,44,80);}}
+    /* car */
+    const b=this.brake, rum=this.charging&&S.juice?Math.sin(S.t*70)*.6:0; /* keyboard charge: the car idles on the brake */
+    if(this.ghostY!=null&&(this.stage==='aim'||this.stage==='roll')) this.drawGhost();
+    if(!(this.stage==='miss'&&Math.floor(this.anim*10)%2===0)) carTop(LANE_C+rum,this.y-(S.juice?2*b:0),{sx:S.juice?1+.03*b:1,sy:S.juice?1-.05*b:1,brake:this.charging?1:b,windowOpen:this.win}); /* a miss blinks the car before it respawns */
+    /* hands */
+    this.drawHands();
+    SH.defer=false; shUnder(); /* soft shadows, then the ground, under everything drawn so far */
+    /* canopies over the windows (above car; fade by rule) */
+    for(const k of [1,2]){const wy=this.line(k), a=this.canopyAlpha(k); canopy(150,wy-50,38,100,a); reg('canopy',k===1?'pay canopy':'collect canopy',150,wy-50,38,100,{faded:a<=.55});} /* L6 */
+    if(S.labels) this.drawLabels();
+    ctx.restore(); OFFY=0; VW.k=1; VW.ox=0;
+  },
+  drawHands(){
+    const st=this.stage; if(st!=='pay'&&st!=='handoff') return;
+    const k=st==='pay'?1:2, wy=this.stops[k].y+DRIVER, t=this.anim;
+    const dOrigin={x:LANE_C-21,y:this.y+2}, cOrigin={x:150,y:wy};
+    const meet={x:dOrigin.x-14, y:(dOrigin.y+cOrigin.y)/2}; /* nearer the car: the exchange happens in the open, past the canopy's edge (188) */
+    const dReach=st==='pay'?ease(t/.35)-ease((t-.7)/.35):ease((t-.45)/.3)-ease((t-.95)/.35);
+    const cReach=st==='pay'?ease((t-.25)/.3)-ease((t-.75)/.35):ease(t/.4)-ease((t-.9)/.35);
+    const passed=st==='pay'?t>.55:t>.7;
+    const winReady=this.win>.7; /* the driver opens the window before reaching out */
+    const dHas=st==='pay'?!passed:passed, cHas=!dHas;
+    if(dReach>.02&&winReady){const tx2=lerp(dOrigin.x,meet.x+6,dReach), ty=lerp(dOrigin.y,meet.y+4,dReach);
+      arm('driver arm',dOrigin.x,dOrigin.y,tx2,ty,P.sleeveDriver,P.skinDriver,1,dHas?(st==='pay'?card:bag):null); if(dHas)reg('item',st==='pay'?'card':'bag',tx2-26,ty-12,24,24,{owner:'driver arm'});}
+    if(cReach>.02){const tx2=lerp(cOrigin.x,meet.x-6,cReach), ty=lerp(cOrigin.y,meet.y-4,cReach);
+      arm('crew arm',cOrigin.x,cOrigin.y,tx2,ty,P.sleeveCrew,P.skinCrew,-1,cHas?(st==='pay'?card:bag):null); if(cHas)reg('item',st==='pay'?'card':'bag',tx2,ty-12,26,24,{owner:'crew arm'});}
+  },
+  drawLabels(){
+    const vx=-ZX/ZK, vw=W/ZK;
+    const L=(text,x,y,lx,ly)=>{font(10,800);const w=ctx.measureText(text).width+12;const bx=clamp(lx<x?lx-w:lx,vx+6,vx+vw-6-w);const ax=clamp(lx,bx,bx+w);ctx.strokeStyle='rgba(39,37,31,.85)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ax,ly);ctx.stroke();ctx.beginPath();ctx.arc(x,y,2.5,0,7);ctx.fillStyle=P.ink;ctx.fill();rr(bx,ly-9,w,18,9,'rgba(255,255,255,.95)');tx(text,bx+w/2,ly,10,P.ink,'center',800);};
+    const sp=this.line(0), mb=sp+48;
+    L('Menu board',106,mb+20,vx+8,mb+60); L('Speaker',170,sp,120,sp-40);
+    L('Pay window',147,this.line(1),60,this.line(1)-80); L('Collect window',147,this.line(2),60,this.line(2)-80);
+    L('Canopy fades over the car',200,this.line(1)-40,300,this.stops[1].y-70);
+    L('Prize car, left-hand drive',LANE_C+22,this.y,300,this.y+70);
+  },
+  drawHUD(){ /* game HUD, no sentences: the drive-thru track (speaker -> pay -> collect) with the car on it, and the entries ticket */
+    shade(()=>path(10,12,232,48,24),3,4.5);
+    rr(10,12,232,48,24,P.red,P.redD,2.5); /* compact and minimal (owner 00:14): icon nodes on a slim track, no labels */
+    const ty=36, x0=34, mx=this.markX();
+    rr(x0-6,ty-4,HUDN[2]-x0+12,8,4,P.redD); if(mx>x0) rr(x0-6,ty-4,mx-x0+6,8,4,P.yellow); /* the road, yellow where you've driven */
+    HUDN.forEach((x,k)=>{const g=this.grades[k], cur=k===this.i&&!g, s=(1+.2*this.nodeT[k])*1.12;
+      ctx.save(); ctx.translate(x,ty); ctx.scale(s,s);
+      if(cur){ctx.globalAlpha=S.juice?.55+.45*Math.sin(S.t*6):1;ctx.strokeStyle=P.yellow;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,17,0,7);ctx.stroke();ctx.globalAlpha=1;} /* the stop you're driving to pulses */
+      ctx.beginPath(); ctx.arc(0,0,13,0,7); ctx.fillStyle=g?P.yellow:cur?P.white:P.redD; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle=P.ink; ctx.stroke();
+      if(g){ctx.strokeStyle=P.ink;ctx.lineWidth=3.5;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(-6,0);ctx.lineTo(-1.5,4.5);ctx.lineTo(6,-4.5);ctx.stroke();ctx.lineCap='butt';ctx.lineJoin='miter'; /* done: a check */
+        if(g==='PERFECT'){ctx.fillStyle=P.ink;star(10,-10,7);ctx.fillStyle=P.white;star(10,-10,5);}} /* perfect: a star badge */
+      else this.nodeIcon(k,cur?P.ink:'rgba(255,255,255,.7)',cur?P.white:P.redD);
+      ctx.restore();
+    });
+    ctx.save(); ctx.translate(mx,ty); ctx.rotate(Math.PI/2); ctx.scale(1.12,1.12); /* the prize car on the track, nose to the right */
+    if(ART['car-top']) ctx.drawImage(ART['car-top'],-6.5,-13,13,26); else {rr(-6.5,-12,13,24,5,P.pearlL,P.ink,1.5); rr(-5,-7,10,5,1.5,P.glassD);}
+    ctx.restore();
+    /* entries ticket: your order is 1, every PERFECT stop adds one; it bumps and sparkles on +1 */
+    const n=1+this.bonus, bk=this.bonusT>0&&S.juice?1+.18*Math.sin(this.bonusT*Math.PI):1;
+    ctx.save(); ctx.translate(TKX,36); ctx.scale(bk*1.2,bk*1.2); ctx.rotate(-.06);
+    shade(()=>ticket(-33,-19,66,38,6),3,4.5);
+    ticket(-33,-19,66,38,6); ctx.fillStyle=P.yellow; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle=P.ink; ctx.stroke();
+    ctx.setLineDash([3,3]); ctx.strokeStyle=P.yellowD; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(-6,-15); ctx.lineTo(-6,15); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=P.ink; star(-16.5,0,7.5); /* clear of the left notch (x -33..-27): it bit the star's points (owner 00:04) */
+    dtx(String(n),14,1,26,P.ink,'center',0,null,30);
+    ctx.restore();
+    dtx('ENTRIES',TKX,70,12,P.white,'center',4);
+    reg('hud','drive-thru track',10,12,232,48); reg('hud','entries ticket',TKX-44,8,88,70);
+  },
+  nodeIcon(k,col,bg){ /* speaker grille, card, bag: ~14px, node space */
+    if(k===0){rr(-5,-7,10,14,3,col);for(let i=0;i<3;i++)rr(-3,-4+i*3.5,6,1.6,.8,bg);}
+    else if(k===1){rr(-7.5,-5,15,10,2,col);rr(-7.5,-2.5,15,2.2,0,bg);rr(-5,1.5,4,1.6,.8,bg);}
+    else{rr(-5.5,-3,11,10,2,col);ctx.strokeStyle=col;ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(0,-3,3.2,Math.PI,0);ctx.stroke();}
+  },
+  markX(){ /* the car's place on the HUD track: start, then each stop in turn */
+    const f=this.y-38, Y=[-38,...this.stops.map(s=>s.y)], X=[34,...HUDN];
+    for(let j=0;j<3;j++) if(f>=Y[j+1]) return lerp(X[j],X[j+1],clamp((Y[j]-f)/(Y[j]-Y[j+1]),0,1));
+    return X[3];
+  },
+  drawClock(){ /* this stop's countdown: a chunky draining ring on the active zone, in the lane beside the car's path (moves with the zone);
+                  red and pulsing under 2 s; a miss's cost flies out of it */
+    if(!this.aimish()) return;
+    const c=this.clock, st=stopT(this.i), low=c<2, hot=low||this.penT>0, R=27, M=1.08;
+    const x=this.sx(RING_X), y=this.scr(this.line(this.i)), pk=low&&this.clockOn&&S.juice?1+(M-1)*Math.max(0,Math.sin(S.t*12)):1;
+    ctx.save(); ctx.translate(x,y); ctx.scale(pk,pk);
+    shade(()=>{ctx.beginPath();ctx.arc(0,0,R+3,0,7);},3,4.5);
+    ctx.beginPath(); ctx.arc(0,0,R+3,0,7); ctx.fillStyle=P.ink; ctx.fill();
+    ctx.lineWidth=8; ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(0,0,R-3,0,7); ctx.stroke();
+    if(c>0){ctx.lineCap='round';ctx.strokeStyle=hot?P.red:P.yellow;ctx.beginPath();ctx.arc(0,0,R-3,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,c/st));ctx.stroke();ctx.lineCap='butt';} /* drains clockwise */
+    ctx.lineWidth=2; ctx.strokeStyle=hot?P.red:P.yellow; ctx.beginPath(); ctx.arc(0,0,R+3,0,7); ctx.stroke();
+    dtx(c<10?c.toFixed(1):String(Math.ceil(c)),0,1,20,P.white);
+    ctx.restore();
+    const B=(R+4)*M; reg('hud','stop clock',x-B,y-B,B*2,B*2,{owner:'active stop zone'}); /* it belongs to the zone it sits on */
+    if(this.penT>0){const k=ease(1-this.penT/.8), px=x-12-40*k, py=y+6+42*k; /* the cost flies out, down and in towards the lane */
+      ctx.globalAlpha=clamp(1.4-1.4*k,0,1); dtx(`−${MISS_COST}s`,px,py,24+6*(1-k),P.red,'center',5); ctx.globalAlpha=1;
+      reg('fx','clock cost',px-28,py-14,56,28,{owner:'stop clock'});}
+  },
+  drawSlow(){ if(this.slow<.02) return; /* vignette during the slow-motion finish */
+    const g=ctx.createRadialGradient(CX,this.scr(this.y)-40,80,CX,this.scr(this.y)-40,420); g.addColorStop(0,'rgba(20,18,15,0)'); g.addColorStop(1,`rgba(20,18,15,${.38*this.slow})`);
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  },
+  drawGhost(){ /* dashed outline where your last shot stopped: aim short of it or past it */
+    const gy=this.ghostY; ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle='rgba(242,242,238,.8)'; ctx.lineWidth=2;
+    path(LANE_C-22,gy-40,44,80,12); ctx.stroke(); ctx.setLineDash([]);
+    tx('LAST',LANE_C,gy,9,'rgba(242,242,238,.9)','center',900); ctx.restore();
+    reg('ghost','last landing',LANE_C-22,gy-40,44,80);
+  },
+  drawGauge(){ /* hidden keyboard fallback only: a plain gauge while space is held, no target band (touch players never see it) */
+    if(!this.charging) return;
+    const x=10,y=200,w=16,h=300, p=this.power;
+    shade(()=>path(x,y,w,h,8));
+    rr(x,y,w,h,8,'rgba(255,255,255,.94)');
+    const g=ctx.createLinearGradient(0,y+h,0,y); g.addColorStop(0,P.yellowD); g.addColorStop(1,P.yellow);
+    if(p>0) rr(x+3,y+3+(h-6)*(1-p),w-6,(h-6)*p,5,g);
+    reg('hud','key gauge',x-4,y,w+8,h);
+  },
+  drawHint(ay){ /* the ghost hand shows a real flick (owner 00:22): press on the car, a short snap with a wrist tilt and swooshes, lift-off, a pause
+                  (the old hand slid ~128 units: a drag's length and pace). Right hand from the back, thumb on the left; ay: anchor at a screen y */
+    const t=this.hintT%2; if(t>.95) return;
+    const carY=ay!=null?ay:this.scr(this.y), fx=this.sx(LANE_C)+4, y0=carY+30;
+    const fadeIn=clamp(t/.15,0,1), snap=ease(clamp((t-.32)/.1,0,1)), lift=clamp((t-.42)/.22,0,1);
+    const fy=y0-38*snap-26*ease(lift), rot=-.28*snap, sc=(t>.18&&t<.32?.93:1)*(1+.15*lift), alpha=fadeIn*(1-lift);
+    if(alpha<=0) return;
+    if(t>.16&&t<.5){const k=clamp((t-.16)/.34,0,1); ctx.globalAlpha=(1-k)*.9; ctx.strokeStyle=P.yellow; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(fx,y0,6+26*k,0,7); ctx.stroke();} /* the press ripple */
+    if(snap>0&&lift<.6){ctx.globalAlpha=(1-lift)*.85; ctx.strokeStyle=P.white; ctx.lineWidth=3; ctx.lineCap='round'; /* swooshes off the fingertip */
+      for(const [dx,len] of [[-12,14],[0,20],[12,14]]){ctx.beginPath(); ctx.moveTo(fx+dx*.6,fy-8); ctx.quadraticCurveTo(fx+dx,fy-8-len*.6,fx+dx*1.4,fy-8-len*snap); ctx.stroke();} ctx.lineCap='butt';}
+    const parts=[()=>path(-5,0,10,36,5), ()=>path(4,25,9,15,4.5), ()=>path(12,27,9,14,4.5), ()=>path(20,30,8,12,4),
+      ()=>path(-9,30,37,34,11), ()=>{ctx.beginPath();ctx.save();ctx.translate(-6,48);ctx.rotate(-.65);if(ctx.roundRect)ctx.roundRect(-16,-5,20,10,5);else ctx.rect(-16,-5,20,10);ctx.restore();},
+      ()=>path(-6,60,32,14,4)];
+    const hand=(hy,r,a,ghost)=>{ctx.save(); ctx.globalAlpha=a; ctx.translate(fx,hy); ctx.translate(0,60); ctx.rotate(r); ctx.translate(0,-60); ctx.scale(sc,sc); /* the wrist pivots */
+      if(!ghost){ctx.strokeStyle=P.ink; ctx.lineWidth=4; for(const f of parts){f();ctx.stroke();}}
+      for(let i=0;i<parts.length;i++){parts[i](); ctx.fillStyle=ghost||i===6?P.yellow:P.white; ctx.fill();}
+      if(!ghost) rr(-3,2,6,7,3,'#E6E2D9'); ctx.restore();};
+    if(snap>0&&snap<1) for(let g=2;g>=1;g--) hand(fy+12*g,rot*.6,alpha*.18*(3-g),true); /* a short smear during the snap */
+    hand(fy,rot,alpha,false); ctx.globalAlpha=1;
+    reg('hint','flick hint',fx-30,fy-30,64,110);
+    const thumbX=-6-16*Math.cos(.65), indexX=0; anat('Hint hand: right hand from the back, thumb on the left',thumbX<indexX,'hint hand thumb on the wrong side');
+  },
+  promptBox(){ /* the tutorial plate's box (screen): on the lane axis, below the zone, above the hint hand's reach; the chevrons stop under it */
+    const w=156, h=62, /* owner 00:09: 180x74 read too big */ top=this.scr(this.line(this.i)+this.zone(this.i))+10, bot=this.scr((this.grab?this.grab.y0:this.y)-45-GRAB)-12; /* above the release line, never on it */
+    return {cx:this.sx(LANE_C),cy:clamp((top+bot)/2,top+h/2,bot-h/2),w,h};
+  },
+  drawPrompt(){ /* the launch moment: outlined SWIPE UP! on a small dark plate with a yellow edge, on the lane axis between the zone and the car; chevrons on the lane (drawn with the world), the hand flicking; gone the moment you touch */
+    const mh=this.retry?this.missHint:null; /* after a miss: coach the next swipe, and keep it up until the next touch */
+    const t=this.promptT, a=this.retry&&!mh?clamp((2.2-t)*4,0,1):1, k=S.juice?ease(Math.min(1,t/.22)):1; if(a<=0) return;
+    const {cx,cy,w,h}=this.promptBox(), n=STAR_TRIES-this.tries;
+    ctx.globalAlpha=a; ctx.save(); ctx.translate(cx,cy); ctx.scale(.8+.2*k,.8+.2*k);
+    shade(()=>path(-w/2,-h/2,w,h,16),3,4.5);
+    rr(-w/2,-h/2,w,h,16,'rgba(39,37,31,.86)',P.yellow,2.5);
+    const head=mh?(mh.drag?'FLICK IT!':mh.short?(mh.near?'A BIT FASTER':'FLICK FASTER'):(mh.near?'A BIT LIGHTER':'FLICK LIGHTER')):'FLICK UP!'; /* flick, not swipe: a swipe invites a drag (owner 00:18) */
+    dtx(head,0,-8,25,mh?P.yellow:P.white,'center',5,null,w-16);
+    dtx(mh?(mh.drag?'QUICK SWIPE, THEN LET GO':mh.short?'YOU STOPPED SHORT':'YOU WENT PAST THE LINE'):this.retry&&this.tries>0&&n>0?`★ ${n} ${n===1?'TRY':'TRIES'} LEFT`:'QUICK SWIPE, THEN LET GO',0,17,12.5,mh?P.white:P.yellow,'center',0,null,w-16); /* the hint lines live here now, not in the HUD */
+    ctx.restore(); ctx.globalAlpha=1;
+    reg('bubble','tutorial',cx-w/2,cy-h/2,w,h);
+    if(!this.drag&&!this.charging) this.drawHint();
+  },
+  drawBubble(){
+    if(!this.bubble)return;
+    const a=Math.min(1,this.bubble.t*6)*(this.bubble.d<90?Math.min(1,(this.bubble.d-this.bubble.t)*4):1);
+    ctx.globalAlpha=clamp(a,0,1);
+    const y=this.stage==='order'||this.stage==='orderdone'?161:110; /* over the meal modal: the head of its stack (owner 00:14: even spacing) */ /* above the meal cards while ordering */
+    ctx.save(); ctx.translate(OX,0); VW.ox=OX; /* drawn in the centred 360 column */
+    shade(()=>path(10,y,340,80,18));
+    rr(10,y,340,80,18,P.white); ctx.beginPath(); ctx.moveTo(36,y+80); ctx.lineTo(46,y+92); ctx.lineTo(56,y+80); ctx.closePath(); ctx.fillStyle=P.white; ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.arc(46,y+40,27,0,7); ctx.fillStyle='#F1EEE7'; ctx.fill(); ctx.clip(); if(ART.crew) ctx.drawImage(ART.crew,19,y+13,54,54); else crewFace(46,y+42,14); ctx.restore(); /* L13 */
+    tx('Crew',84,y+20,12.5,'#6B6760','left',800);
+    wrap(this.bubble.text,84,y+42,256,15.5,P.ink,400,19,'left');
+    ctx.globalAlpha=1; if(a>.05) reg('bubble','crew bubble',10,y,340,92);
+    ctx.restore(); VW.ox=0;
+  },
+  drawOrder(){ /* a game modal (owner 00:11): the world blurred and dimmed behind it, an outlined title, three item tiles that pop in;
+                 the exit has beats (owner 00:15): the pick punches and flies into the HUD's bag node, the rest pop away, the blur lifts last */
+    const T=S.t-(this.orderT0||0), done=this.stage==='orderdone', A=done?this.anim:0;
+    const a=(S.juice?ease(clamp(T/.25,0,1)):1)*(done?1-ease(clamp((A-.38)/.3,0,1)):1);
+    frostBack(a); /* the world blurred and dimmed behind the modal */
+    const bo=t=>{t=clamp(t,0,1); const c=1.7; return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2);}; /* ease-out-back: a pop with a little overshoot */
+    const ei=t=>{t=clamp(t,0,1); return t*t*(2.7*t-1.7);}; /* ease-in-back: a little wind-up, then away */
+    const tk=(S.juice?bo((T-.05)/.3):1)*(done?1-ei(A/.26):1); /* the title pops in, and scales out first on the way out */
+    if(tk>0){ctx.save(); ctx.translate(CX,291); ctx.scale(tk,tk); dtx('PICK YOUR MEAL',0,0,31,P.yellow,'center',7); ctx.restore();}
+    this.chips=[];
+    MEALS.forEach((m,k)=>{const w=124,h=180,x=CX-196+k*134,y=329,sel=this.order.main===m,hot=!this.order.main&&k===this.sel;
+      let pk=S.juice?bo((T-.12-k*.07)/.32):1, cx=x+w/2, cy=y+h/2, rot=0;
+      if(done&&!sel) pk*=1-ei((A-.05-k*.05)/.24); /* the others pop away in turn */
+      if(done&&sel){ /* the pick: a punch, then an arc into the bag node */
+        const f=clamp((A-.12)/.48,0,1), fe=ease(f), tx2=HUDN[2], ty2=36;
+        if(f>=1){ if(!this.flyDone){this.flyDone=true; this.nodeT[2]=Math.max(this.nodeT[2]||0,.8); burst(tx2,ty2,14,P.yellow,'star',true);} return; }
+        pk*=f<=0?1+.08*Math.sin(clamp(A/.12,0,1)*Math.PI):lerp(1.1,.18,fe); cx=lerp(cx,tx2,fe); cy=lerp(cy,ty2,fe)-70*Math.sin(f*Math.PI); rot=-.35*fe; }
+      if(pk<=.01) return;
+      const lift=done?1:hot?1.04:1;
+      ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot); ctx.scale(pk*lift,pk*lift); ctx.translate(-w/2,-h/2);
+      if(sel||hot){ctx.lineWidth=5; ctx.strokeStyle=P.yellow; path(-5,-5,w+10,h+10,24); ctx.stroke();}
+      shade(()=>path(0,0,w,h,20),3,6); rr(0,0,w,h,20,P.white,P.ink,3);
+      const g=ctx.createRadialGradient(w/2,64,6,w/2,64,72); g.addColorStop(0,'#FFF6D8'); g.addColorStop(1,'#FFD966'); rr(8,8,w-16,112,14,g); /* a warm glow behind the photo */
+      const im=ART[m]; if(im){const kk=Math.min((w-26)/im.width,100/im.height); ctx.drawImage(im,(w-im.width*kk)/2,14+(100-im.height*kk)/2,im.width*kk,im.height*kk);} else mealArt(m,8,8,w-16,112);
+      tx(m,w/2,140,18,P.ink,'center',900); tx('MEAL',w/2,162,12.5,'#6B6760','center',800);
+      if(sel){ctx.beginPath(); ctx.arc(w-6,6,15,0,7); ctx.fillStyle=P.yellow; ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle=P.ink; ctx.stroke();
+        ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=3.5; ctx.beginPath(); ctx.moveTo(w-13,6); ctx.lineTo(w-8,11); ctx.lineTo(w+1,1); ctx.stroke(); ctx.lineCap='butt'; ctx.lineJoin='miter';} /* the check badge */
+      ctx.restore();
+      if(!done){this.chips.push({x,y,w,h,label:m}); reg('chip',m,x,y,w,h);}});
+    if(!done&&T>.6){ctx.globalAlpha=.55+.45*Math.sin(S.t*4)**2; dtx('TAP A MEAL',CX,540,15,P.white,'center',4); ctx.globalAlpha=1;} /* the call to act, by opacity (no moving text) */
+    reg('sheet','meal modal',CX-200,250,400,300);
+  },
+  drawHowto(){ /* HOW TO DRIVE (owner 00:18: a cold player dragged the car): FLICK beside DON'T DRAG, looping; one caption; GOT IT */
+    const T=this.howT;
+    frostBack(S.juice?ease(clamp(T/.25,0,1)):1);
+    const bo=t=>{t=clamp(t,0,1); const c=1.7; return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2);};
+    const tk=S.juice?bo((T-.05)/.3):1; ctx.save(); ctx.translate(CX,118); ctx.scale(tk,tk); dtx('HOW TO DRIVE',0,0,32,P.yellow,'center',7); ctx.restore();
+    const PW=188, PH=262, PY=150;
+    [0,1].forEach(i=>{const x=i?CX+8:CX-196, pk=S.juice?bo((T-.12-i*.08)/.32):1; if(pk<=0) return;
+      ctx.save(); ctx.translate(x+PW/2,PY+PH/2); ctx.scale(pk,pk); ctx.translate(-PW/2,-PH/2);
+      shade(()=>path(0,0,PW,PH,20),3,6); rr(0,0,PW,PH,20,'rgba(32,28,24,.94)',i?P.red:P.yellow,3);
+      const xc=PW/2, l0=16, l1=PH-62, lineY=l0+40;
+      rr(xc-36,l0,72,l1-l0,8,'#3B3E44'); ctx.fillStyle='rgba(242,242,238,.7)'; ctx.fillRect(xc-33,l0,2,l1-l0); ctx.fillRect(xc+31,l0,2,l1-l0); /* a mini lane */
+      ctx.fillStyle='rgba(255,199,44,.42)'; ctx.fillRect(xc-31,lineY-12,62,24); ctx.fillStyle=P.ink; ctx.fillRect(xc-31,lineY-1.5,62,3);
+      const u=(T%2.6)/2.6, cy0=l1-34, cyT=lineY+22; let cy=cy0, fy, fa=1;
+      ctx.save(); path(xc-36,l0,72,l1-l0,8); ctx.clip();
+      if(!i){ /* FLICK: a quick swipe and let go; the car glides to the line */
+        const f=clamp((u-.12)/.1,0,1); fy=cy0+30-58*ease(f); fa=u<.12?1:Math.max(0,1-(u-.22)/.12);
+        cy=lerp(cy0,cyT,ease(clamp((u-.2)/.45,0,1)));
+        if(f>0&&f<1){ctx.globalAlpha=.6; const g=ctx.createLinearGradient(0,cy0+30,0,fy); g.addColorStop(0,'rgba(255,199,44,0)'); g.addColorStop(1,'rgba(255,199,44,.9)'); ctx.fillStyle=g; ctx.fillRect(xc-3,fy,6,cy0+30-fy); ctx.globalAlpha=1;}
+      } else { /* DON'T DRAG: a slow drag all the way up; the car barely moves */
+        const f=clamp((u-.1)/.7,0,1); fy=cy0+30-(cy0+30-l0-20)*f; fa=u>.86?Math.max(0,1-(u-.86)/.08):1; cy=cy0-6*ease(clamp((u-.8)/.1,0,1));
+      }
+      const im=ART['car-top']; if(im) ctx.drawImage(im,xc-14,cy-29,28,58); else rr(xc-12,cy-26,24,52,8,P.pearl);
+      ctx.restore();
+      if(fa>0) handAt(xc+3,fy,.62,fa);
+      /* the verdict */
+      const by=PH-31; ctx.beginPath(); ctx.arc(30,by,14,0,7); ctx.fillStyle=i?P.red:P.yellow; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle=P.ink; ctx.stroke();
+      ctx.strokeStyle=i?P.white:P.ink; ctx.lineWidth=3.5; ctx.lineCap='round'; ctx.beginPath();
+      if(i){ctx.moveTo(25,by-5);ctx.lineTo(35,by+5);ctx.moveTo(35,by-5);ctx.lineTo(25,by+5);} else {ctx.moveTo(24,by);ctx.lineTo(28.5,by+4.5);ctx.lineTo(36,by-4.5);}
+      ctx.stroke(); ctx.lineCap='butt';
+      dtx(i?"DON'T DRAG":'FLICK',PW/2+14,by+1,21,P.white,'center',0,null,PW-70);
+      ctx.restore(); reg('sheet',i?'drag demo':'flick demo',x,PY,PW,PH);});
+    if(T>.35){ctx.globalAlpha=clamp((T-.35)/.25,0,1); dtx('A FASTER FLICK GOES FURTHER',CX,440,16,P.white,'center',4); tx('Stop your window on the line',CX,466,14,'#FFE9C9','center',400); ctx.globalAlpha=1;}
+    if(T>.6){const ra=clamp((T-.6)/.3,0,1), pk=S.juice?(ra<1?bo(ra):1+.035*Math.sin(S.t*5)):1, bw=220, bh=60; ctx.save(); ctx.translate(CX,536); ctx.scale(pk,pk);
+      shade(()=>path(-bw/2,-bh/2+4,bw,bh,bh/2),3,6); rr(-bw/2,-bh/2+6,bw,bh,bh/2,'#B87800',P.ink,3); rr(-bw/2,-bh/2,bw,bh,bh/2,P.yellow,P.ink,3);
+      rr(-bw/2+14,-bh/2+5,bw-28,bh*.34,bh*.17,'rgba(255,255,255,.42)'); dtx('GOT IT',0,1,30,P.ink); ctx.restore(); reg('cta','got it',CX-bw/2,506,bw,bh);}
+  },
+  drawReceipt(){
+    ctx.fillStyle='rgba(20,18,15,.6)'; ctx.fillRect(0,0,W,H);
+    const ry=lerp(H/1.5+20,7,ease(this.recT/.45)), m=this.order.main||'Big Mac', n=this.bonus, total=1+n;
+    ctx.save(); ctx.translate(CX,0); ctx.scale(1.5,1.5); ctx.translate(-180,0); VW.ox=OX; /* the paper, x1.5 about the middle: almost the whole frame (owner 23:52) */
+    shade(()=>path(54,ry,252,408,6));
+    rr(54,ry,252,408,6,P.paper);
+    const g=ctx.createLinearGradient(54,0,306,0); g.addColorStop(0,'rgba(0,0,0,.05)'); g.addColorStop(.1,'rgba(0,0,0,0)'); g.addColorStop(.9,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.06)'); rr(54,ry,252,408,6,g);
+    for(let x=54;x<306;x+=12){ctx.beginPath();ctx.moveTo(x,ry+408);ctx.lineTo(x+6,ry+416);ctx.lineTo(x+12,ry+408);ctx.fillStyle=P.paper;ctx.fill();}
+    wordmark(180,ry+27,118,P.ink); /* thermal receipts print the wordmark in black */
+    tx('Drive-thru order',180,ry+56,11,'#6B6760','center',400);
+    mealArt(m,66,ry+67,30,30); tx(`1 × ${m} meal`,104,ry+82,12,P.ink,'left',700); /* the meal you picked: its photo and its name */
+    const dash=yy=>{ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(70,yy);ctx.lineTo(290,yy);ctx.strokeStyle='#9A958B';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);};
+    dash(ry+102);
+    /* the draw ledger: the order is the entry, every perfect stop adds one */
+    tx('Your order',70,ry+120,11.5,P.ink,'left',700); tx('= 1 entry',290,ry+120,11.5,P.ink,'right',800);
+    tx(`PERFECT stops ${'★'.repeat(n)}`,70,ry+140,11.5,P.ink,'left',700); tx(`= +${n}`,290,ry+140,11.5,P.ink,'right',800);
+    rr(66,ry+152,228,24,6,P.yellow); tx('Entries in the car draw',74,ry+164,11.5,P.ink,'left',900); tx(String(total),286,ry+164,14,P.ink,'right',900);
+    wrap('For real: scan your order receipt in the McDonald’s App to enter',180,ry+192,210,10,'#6B6760',400,13,'center'); /* the tap below is an in-game claim, not a scan (owner 2026-10-29): no code on screen invites the camera */
+    const qx=125,qy=ry+218,qs=110; rr(qx,qy,qs,qs,4,P.white);
+    /* a receipt barcode strip (a receipt's look, not a code to scan) */
+    for(let i=0,x=qx+4;x<qx+qs-4;i++){const w=((i*7)%5===0)?3.2:((i*3)%4===0)?2.2:1.2;ctx.fillStyle=P.ink;ctx.fillRect(x,qy+24,w,qs-48);x+=w+((i*5)%3===0?2.6:1.6);}
+    tx(`${String(1000+total*137).padStart(4,'0')} ${String(Math.round(S.t*97)%9000+1000)}`,qx+qs/2,qy+qs-14,8,P.ink,'center',700);
+    if(this.scanT>=0&&this.scanT<.8){const by=qy+(this.scanT/.75)*qs;ctx.fillStyle='rgba(255,199,44,.9)';ctx.fillRect(qx-8,by-2,qs+16,4);}
+    if(this.scanT<0){const k=S.juice?1+.04*Math.sin(S.t*6):1;ctx.save();ctx.translate(180,ry+362);ctx.scale(k,k);rr(-80,-19,160,38,19,P.yellow);tx('TAP TO CLAIM',0,0,13,P.ink,'center',900);ctx.restore();reg('cta','tap to claim',100,ry+343,160,38);}
+    else tx(this.stamped?(total>1?'Entries claimed':'Entry claimed'):'Claiming…',180,ry+362,12,'#6B6760','center',700);
+    if(this.stamped){const k=S.juice?lerp(1.6,1,ease((this.scanT-.75)/.25)):1;ctx.save();ctx.translate(180,ry+273);ctx.rotate(-.18);ctx.scale(k,k);rr(-92,-30,184,60,10,'rgba(255,199,44,.95)',P.ink,3);tx(`+${total} ${total>1?'ENTRIES':'ENTRY'}`,0,-7,22,P.ink,'center',900);tx('into the car draw',0,15,11,P.ink,'center',800);ctx.restore();}
+    reg('receipt','receipt',54,ry,252,416);
+    ctx.restore(); VW.ox=0;
+  },
+  drawDriveoff(){
+    const t=this.revealT, total=1+this.bonus;
+    if(t<.5){ /* the stamped receipt flies into the driver's open window */
+      const k=ease(t/.42);
+      ctx.fillStyle=`rgba(20,18,15,${.6*(1-k)})`; ctx.fillRect(0,0,W,H);
+      const x=lerp(CX,this.sx(LANE_C-22),k), y=lerp(1.5*(7+208),this.scr(this.y),k), sc=lerp(1,.06,k);
+      ctx.save(); ctx.translate(x,y); ctx.scale(sc*1.5,sc*1.5); ctx.rotate(k*.5);
+      rr(-126,-208,252,416,6,P.paper); ctx.save(); ctx.translate(0,54); ctx.rotate(-.18); rr(-92,-30,184,60,10,'rgba(255,199,44,.95)',P.ink,3); tx(`+${total} ${total>1?'ENTRIES':'ENTRY'}`,0,-7,22,P.ink,'center',900); ctx.restore();
+      ctx.restore();
+    }
+    if(t>1.05){ /* brand-red wipe opens from the car into the end card */
+      const k=ease((t-1.05)/.55), cx=this.sx(LANE_C), cy=clamp(this.scr(this.y),0,H);
+      ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,k*800,0,7); ctx.clip(); brandBg(0,0,W,H,0,CX,250); ctx.restore();
+      reg('wipe','red wipe',0,0,W,H);
+    }
+  },
+  drawFail(){ /* the rush got you: one result, one line, one button */
+    const k=ease(this.failT/.35), y=lerp(H+20,FAIL.y,k), b=FAIL.btn, by=b.y-FAIL.y+y;
+    ctx.fillStyle=`rgba(20,18,15,${.55*k})`; ctx.fillRect(0,0,W,H);
+    shade(()=>path(FAIL.x,y,FAIL.w,FAIL.h,22));
+    brandBg(FAIL.x,y,FAIL.w,FAIL.h,22,CX,y+90);
+    dtx('THE RUSH',CX,y+56,32,P.white,'center',7); dtx('GOT YOU',CX,y+96,40,P.yellow,'center',8);
+    dtx(`STOPPED AT ${this.stops[this.i].label.toUpperCase()}`,CX,y+136,15,'#FFE3D9');
+    const pk=S.juice&&this.failT>.6?1+.03*Math.sin(S.t*5):1; ctx.save(); ctx.translate(b.x+b.w/2,by+b.h/2); ctx.scale(pk,pk); rr(-b.w/2,-b.h/2,b.w,b.h,b.h/2,P.yellow,P.ink,2.5); dtx('↻ PLAY AGAIN',0,1,18,P.ink,'center',0,null,b.w-24); ctx.restore();
+    reg('reveal','fail card',FAIL.x,y,FAIL.w,FAIL.h); reg('cta','play again',b.x,by,b.w,b.h);
+  },
+  draw(){
+    this.drawWorld(); this.drawSlow(); drawFX(false); drawSmiles(); this.drawClock();
+    if(this.stage==='order'||this.stage==='orderdone') this.drawOrder();
+    const cine=['receipt','driveoff','fail','howto'].includes(this.stage);
+    if(this.stage==='howto') this.drawHowto();
+    if(!cine){ this.drawHUD(); this.drawGauge(); }
+    if(this.stage==='receipt') this.drawReceipt();
+    if(this.stage==='driveoff') this.drawDriveoff();
+    if(this.stage==='fail') this.drawFail();
+    if(!cine) this.drawBubble();
+    if(this.stage==='aim'&&this.prompt) this.drawPrompt();
+  },
+  stars(){return this.grades.filter(g=>g==='PERFECT'||g==='GOOD').length;}
+};
+
+/* =========================================================
+   SCENES
+   ========================================================= */
+const CARD={x:CX-160,y:186,w:320,h:290};
+const FROST=[document.createElement('canvas'),document.createElement('canvas')];
+function frostBack(a){ /* a modal's backdrop: the GPU ground and the 2D frame so far, down to 1/4 then 1/8, back up smoothed (works where canvas filters don't), dimmed */
+  if(a<=0) return; const B=FROST;
+  if(B[0].width!==cv.width/4){B[0].width=cv.width/4;B[0].height=cv.height/4;B[1].width=cv.width/8;B[1].height=cv.height/8;}
+  const b0=B[0].getContext('2d'), b1=B[1].getContext('2d'); b0.imageSmoothingQuality=b1.imageSmoothingQuality='high';
+  if(GLG) b0.drawImage(GLG.cv,0,0,B[0].width,B[0].height); b0.drawImage(cv,0,0,B[0].width,B[0].height); b1.drawImage(B[0],0,0,B[1].width,B[1].height);
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=a; ctx.imageSmoothingQuality='high'; ctx.drawImage(B[1],0,0,cv.width,cv.height); ctx.restore();
+  ctx.fillStyle=`rgba(24,14,10,${.48*a})`; ctx.fillRect(0,0,W,H);
+}
+function handAt(fx,fy,sc,alpha){ /* the hint's hand (right hand from the back, fingertip at fx,fy), for the tutorial's mini-demos */
+  const parts=[()=>path(-5,0,10,36,5), ()=>path(4,25,9,15,4.5), ()=>path(12,27,9,14,4.5), ()=>path(20,30,8,12,4),
+    ()=>path(-9,30,37,34,11), ()=>{ctx.beginPath();ctx.save();ctx.translate(-6,48);ctx.rotate(-.65);if(ctx.roundRect)ctx.roundRect(-16,-5,20,10,5);else ctx.rect(-16,-5,20,10);ctx.restore();},
+    ()=>path(-6,60,32,14,4)];
+  ctx.save(); ctx.globalAlpha=alpha==null?1:alpha; ctx.translate(fx,fy); ctx.scale(sc,sc);
+  ctx.strokeStyle=P.ink; ctx.lineWidth=4; for(const f of parts){f();ctx.stroke();}
+  for(let i=0;i<parts.length;i++){parts[i](); ctx.fillStyle=i===6?P.yellow:P.white; ctx.fill();}
+  rr(-3,2,6,7,3,'#E6E2D9'); ctx.restore();
+}
+function brandBg(x,y,w,h,r,cx,cy){rr(x,y,w,h,r,P.red);ctx.save();path(x,y,w,h,r);ctx.clip();const g=ctx.createRadialGradient(cx,cy,10,cx,cy,Math.max(w,h)*.8);g.addColorStop(0,'rgba(255,120,80,.45)');g.addColorStop(1,'rgba(120,10,5,.35)');ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.globalAlpha=.06;ctx.fillStyle=P.white;for(let i=0;i<14;i++){ctx.beginPath();ctx.moveTo(cx,cy);const a=i/14*Math.PI*2;ctx.lineTo(cx+Math.cos(a)*600,cy+Math.sin(a)*600);ctx.lineTo(cx+Math.cos(a+.12)*600,cy+Math.sin(a+.12)*600);ctx.closePath();ctx.fill();}ctx.globalAlpha=1;ctx.restore();}
+function drawTeaser(){
+  ctx.fillStyle='#F2F0EB'; ctx.fillRect(0,0,W,H);
+  tx('9:41',30,22,12,P.ink,'left',700); tx('5G',W-30,22,11,P.ink,'right',700);
+  rr(0,42,W,44,0,'#E8E5DE'); rr(14,54,20,20,5,'#C9C4B8'); rr(42,60,110,8,4,'#C9C4B8');
+  rr(14,98,W-28,62,12,P.white); rr(28,114,240,8,4,'#E3DFD7'); rr(28,132,170,8,4,'#E3DFD7');
+  tx('Sponsored',22,175,10,'#6B6760','left',600);
+  const c=CARD; brandBg(c.x,c.y,c.w,c.h,16,c.x+c.w/2,c.y+160);
+  arches(c.x+16,c.y+14,30);
+  tx('YOUR ORDER COULD',c.x+c.w/2,c.y+64,16,P.white,'center',800);
+  tx('WIN YOU A CAR',c.x+c.w/2,c.y+90,26,P.yellow,'center',900);
+  /* mini scene: lane, line, car rolling to a stop */
+  const mx=c.x+c.w/2, my=c.y+112, mh=106;
+  ctx.save(); path(c.x+60,my,c.w-120,mh,10); ctx.clip();
+  ctx.fillStyle=fillOr(PAT.sand,P.sand); ctx.fillRect(c.x+60,my,c.w-120,mh);
+  ctx.fillStyle=fillOr(PAT.asphalt,P.asphalt); ctx.fillRect(mx-6,my,74,mh); ctx.fillStyle=P.paint; ctx.fillRect(mx-4,my,2,mh); ctx.fillRect(mx+64,my,2,mh);
+  ctx.fillStyle=fillOr(PAT.roof,P.roof); ctx.fillRect(c.x+60,my,64,mh); ctx.fillStyle=fillOr(PAT.wood,P.wood); ctx.fillRect(c.x+118,my,6,mh);
+  const line=my+30; ctx.fillStyle=P.yellow; ctx.fillRect(mx,line-2,60,4);
+  const p=(S.t%2.6)/2.6, cy=lerp(my+mh+40,line+22,ease(Math.min(1,p*1.6)));
+  ctx.save(); ctx.translate(mx+31,cy); ctx.scale(.55,.55); carTop(0,0,{brake:p>.35&&p<.62?1:0,noreg:true}); ctx.restore();
+  ctx.restore();
+  const k=S.juice?1+.03*Math.sin(S.t*5):1;
+  ctx.save(); ctx.translate(c.x+c.w/2,c.y+252); ctx.scale(k,k); rr(-122,-21,244,42,21,P.yellow); tx('PULL UP TO ORDER',0,0,14,P.ink,'center',900); ctx.restore();
+  reg('cta','pull up',c.x+38,c.y+231,244,42);
+  rr(14,494,W-28,62,12,P.white); rr(28,510,220,8,4,'#E3DFD7'); rr(28,528,150,8,4,'#E3DFD7'); rr(14,566,W-28,70,12,P.white);
+}
+function drawClose(){ctx.beginPath();ctx.arc(W-26,98,13,0,7);ctx.fillStyle='rgba(39,37,31,.7)';ctx.fill();tx('×',W-26,97,17,P.white,'center',700);}
+const BTN={loc:{x:CX-196,y:470,w:190,h:62},order:{x:CX+6,y:470,w:190,h:62},again:{x:CX-90,y:546,w:180,h:44},start:{x:CX-125,y:H-30-68,w:250,h:68}};
+const FAIL={x:CX-150,y:180,w:300,h:240,btn:{x:CX-90,y:340,w:180,h:48}}; /* the rush-got-you card and its one button (resting position) */
+function showroom(){ /* the lit stage the car parks on (splash and end) */
+  const fg=ctx.createRadialGradient(CX,346,10,CX,346,180); fg.addColorStop(0,'rgba(255,255,255,.28)'); fg.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=fg; ctx.beginPath(); ctx.ellipse(CX,346,176,30,0,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.ellipse(CX,346,156,24,0,0,7); ctx.stroke();
+}
+function demoReset(){G.init();G.demo=true;G.demoT=0;G.demoEnd=0;G.cam=G.camTarget();} /* attract mode: a clean stop-1 run, no clock */
+function demoStep(dt){ /* the bot: the hand shows the flick, the car launches on the hand's swipe at the exact speed for a PERFECT, lands, pops, loops */
+  G.demoT+=dt;
+  if(G.stage==='aim'&&G.demoT>=2.25){const D=(G.y-38)-G.stops[0].y; G.launch(D*ZK/DMAX); G.clockOn=false;}
+  G.update(dt); G.hintT=G.demoT;
+  if(!G.aimish()){G.demoEnd+=dt; if(G.demoEnd>1.7){resetFX(); demoReset();}}
+}
+function chipIcon(k,x,y){ /* splash chip icons: a flick, the mark, a ticket */
+  if(k===0){ctx.fillStyle=P.yellow;ctx.beginPath();ctx.arc(x,y+4,3.2,0,7);ctx.fill();ctx.globalAlpha=.6;rr(x-1.6,y-7,3.2,10,1.6,P.yellow);ctx.globalAlpha=1;}
+  else if(k===1){rr(x-8,y-5,16,10,2,'rgba(255,199,44,.55)');rr(x-8,y-1.2,16,2.4,1,P.ink);rr(x-8,y-1.2,16,2.4,1,null,P.yellow,.8);}
+  else{ticket(x-8,y-5.5,16,11,2.2);ctx.fillStyle=P.yellow;ctx.fill();ctx.fillStyle=P.ink;star(x+2,y,3.6);}
+}
+function logoWord(s,x,y,size,face,side,depth){ /* a game-logo word: a solid extruded side, a thick ink outline, a lit face (top lighter) */
+  ctx.font=DF(size); ctx.letterSpacing=LS(size); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+  ctx.lineWidth=size*.24; ctx.strokeStyle=P.ink; ctx.strokeText(s,x,y+depth);            /* the outline round the whole block */
+  ctx.fillStyle=side; for(let i=depth;i>=1;i--) ctx.fillText(s,x,y+i);                  /* the extruded side */
+  ctx.lineWidth=size*.15; ctx.strokeText(s,x,y);
+  const g=ctx.createLinearGradient(0,y-size*.45,0,y+size*.45); g.addColorStop(0,face[0]); g.addColorStop(.55,face[1]); g.addColorStop(1,face[2]);
+  ctx.fillStyle=g; ctx.fillText(s,x,y); ctx.letterSpacing='0px'; ctx.lineJoin='miter';
+}
+function drawSplash(){ /* attract mode, game style (owner 23:42): the logo lockup, the real game playing itself under a light wash, how-to chips, a 3D PLAY */
+  G.drawWorld(); G.drawSlow(); drawFX(false); drawSmiles();
+  if(G.demoT<3.05) G.drawHint(G.scr(0)); /* the hand shows the swipe over the car, anchored where the car started */
+  let g=ctx.createLinearGradient(0,0,0,300); g.addColorStop(0,'rgba(96,8,4,.92)'); g.addColorStop(.62,'rgba(170,24,16,.55)'); g.addColorStop(1,'rgba(170,24,16,0)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,300);
+  g=ctx.createLinearGradient(0,470,0,H); g.addColorStop(0,'rgba(170,24,16,0)'); g.addColorStop(.5,'rgba(150,18,12,.6)'); g.addColorStop(1,'rgba(90,6,3,.92)'); ctx.fillStyle=g; ctx.fillRect(0,470,W,H-470); /* a shorter wash: only PLAY sits on it */
+  /* the mark leads (owner 00:10: bigger, the focus): centred over the title, 58 tall, on a soft warm glow */
+  const AH=58, aw=ART.mark?AH*272.7/238.5:AH*103.5/90.6, ay=16;
+  {const gl=ctx.createRadialGradient(CX,ay+AH*.55,4,CX,ay+AH*.55,AH*1.3); gl.addColorStop(0,'rgba(255,199,44,.32)'); gl.addColorStop(1,'rgba(255,199,44,0)'); ctx.fillStyle=gl; ctx.fillRect(CX-AH*1.4,ay-AH*.6,AH*2.8,AH*2.3);}
+  arches(CX-aw/2,ay,AH); reg('reveal','splash arches',CX-aw/2,ay,aw,AH);
+  /* the title lockup: pops in with a little overshoot, then breathes */
+  const t=S.splashT, k=S.juice?clamp(t/.45,0,1):1, pop=S.juice?(k<1?.55+.45*ease(k)+.09*Math.sin(k*Math.PI):1+.012*Math.sin(S.t*2.4)):1;
+  ctx.save(); ctx.translate(CX,176); ctx.rotate(-.07); ctx.scale(pop,pop);
+  ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineCap='round';
+  for(const [y0,l,lw] of [[-8,46,6],[10,62,6],[28,40,6]]){ctx.lineWidth=lw; ctx.beginPath(); ctx.moveTo(-122-l,y0); ctx.lineTo(-122,y0); ctx.stroke();} ctx.lineCap='butt'; /* speed lines off DASH */
+  logoWord('DRIVE-THRU',0,-52,38,['#FFFFFF','#FFFFFF','#E9E3D8'],'#8E1810',5);
+  logoWord('DASH',0,10,88,['#FFE680','#FFC72C','#F0A400'],'#A55A00',8);
+  /* the ribbon: WIN A CAR! on red with folded tails behind */
+  const ry=74, rw=232, rh=40;
+  ctx.fillStyle=P.redD; for(const sg of [-1,1]){ctx.beginPath(); ctx.moveTo(sg*(rw/2-10),ry-rh/2+8); ctx.lineTo(sg*(rw/2+26),ry-rh/2+8); ctx.lineTo(sg*(rw/2+14),ry+8); ctx.lineTo(sg*(rw/2+26),ry+rh/2+8); ctx.lineTo(sg*(rw/2-10),ry+rh/2+8); ctx.closePath(); ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle=P.ink; ctx.stroke();}
+  rr(-rw/2,ry-rh/2,rw,rh,8,P.red,P.ink,3); rr(-rw/2+6,ry-rh/2+4,rw-12,rh*.32,6,'rgba(255,255,255,.18)');
+  dtx('WIN A CAR!',0,ry+1,25,P.white,'center',5);
+  /* twinkles */
+  if(S.juice) for(const [sx,sy,ph,r] of [[118,-38,0,9],[-104,-70,1.7,7],[130,34,3.1,6]]){const a=Math.max(0,Math.sin(S.t*3+ph)); if(a<.05) continue; ctx.globalAlpha=a; ctx.fillStyle=P.white; star(sx,sy,r*(.6+.4*a)); ctx.globalAlpha=1;}
+  ctx.restore();
+  reg('title','game logo',CX-150,88,300,190);
+  /* BOTTOM: PLAY (or the loading bar) and T&Cs; no how-to chips (owner 00:09: messy; the attract play and the hand already show the swipe, the game teaches the rest) */
+  const b=BTN.start;
+  const ra=S.readyT==null?0:clamp((S.splashT-S.readyT)/.35,0,1);
+  if(ra<1){ctx.globalAlpha=1-ra; rr(CX-100,b.y+28,200,8,4,'rgba(255,255,255,.25)'); rr(CX-100,b.y+28,200*S.loadP,8,4,P.yellow); ctx.globalAlpha=1; if(ra===0) reg('cta','loading bar',CX-100,b.y+28,200,8);}
+  if(ra>0){const pk=S.juice&&ra>=1?1+.04*Math.sin(S.t*5):1, dy=(1-ease(ra))*14; ctx.save(); ctx.globalAlpha=ra; ctx.translate(CX,b.y+b.h/2+dy); ctx.scale(pk,pk);
+    shade(()=>path(-b.w/2,-b.h/2+4,b.w,b.h,b.h/2),3,6);
+    rr(-b.w/2,-b.h/2+7,b.w,b.h,b.h/2,'#B87800',P.ink,3);               /* the lip: a 3D key */
+    rr(-b.w/2,-b.h/2,b.w,b.h,b.h/2,P.yellow,P.ink,3);
+    rr(-b.w/2+16,-b.h/2+6,b.w-32,b.h*.34,b.h*.17,'rgba(255,255,255,.42)'); /* the gloss */
+    if(S.juice){const ph=(S.t%2.6)/2.6; if(ph<.35){const sx=lerp(-b.w/2-40,b.w/2+40,ph/.35); ctx.save(); path(-b.w/2,-b.h/2,b.w,b.h,b.h/2); ctx.clip(); ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.moveTo(sx-10,-b.h/2); ctx.lineTo(sx+14,-b.h/2); ctx.lineTo(sx-6,b.h/2); ctx.lineTo(sx-30,b.h/2); ctx.closePath(); ctx.fill(); ctx.restore();}} /* a shine sweeps across now and then */
+    ctx.fillStyle=P.ink; ctx.beginPath(); ctx.moveTo(-58,-15); ctx.lineTo(-33,0); ctx.lineTo(-58,15); ctx.closePath(); ctx.fill(); /* the play triangle */
+    dtx('PLAY',14,1,38,P.ink,'center',0,null,130); ctx.restore(); reg('cta','play',b.x-6,b.y-4,b.w+12,b.h+20);}
+  font(11,400); tx('T&Cs apply',CX,H-12,11,'#FFE3D9','center',400); reg('reveal','splash terms',CX-44,H-22,88,18);
+}
+function splashReady(){return S.readyT!=null&&S.splashT>S.readyT+.2;}
+function rise(t0){const a=S.juice?clamp((S.endT-t0)/.3,0,1):1;return {a,dy:(1-ease(a))*14};}
+function block(t0,draw){const r=rise(t0);if(r.a<=0)return;ctx.save();ctx.globalAlpha=r.a;ctx.translate(0,r.dy);draw();ctx.restore();}
+function drawEnd(){ /* minimal and gamified: one big result, one chip, the car, one line, the buttons */
+  brandBg(0,0,W,H,0,CX,300);
+  const T=S.juice?S.endT:9, ARR=.9;
+  arches(22,20,36,true);
+  const perf=G.grades.filter(g=>g==='PERFECT').length, total=1+perf;
+  block(.05,()=>dtx(`${total} ${total===1?'ENTRY':'ENTRIES'}`,CX,112,46,P.yellow,'center',9)); /* the big result: what this drive earned in the car draw */
+  block(.15,()=>{const s=`★ ${perf} PERFECT  ·  ${Math.max(0,Math.ceil(G.left))}s TO SPARE`;font(14,900);const w=ctx.measureText(s).width+32;rr(CX-w/2,143,w,32,16,P.white);tx(s,CX,159,14,P.ink,'center',900);}); /* one chip */
+  /* showroom floor: a lit stage the car parks on */
+  showroom();
+  /* the car you just drove drives in from the left (front faces right), brakes, settles, flashes its lights */
+  const xk=ease(clamp(T/ARR,0,1)), cx=lerp(-200,CX,xk);
+  const after=T-ARR, settle=after>0?Math.exp(-after*6)*Math.sin(after*18):0;
+  const braking=T>ARR*.55&&T<ARR+.35;
+  const blink=after>.15&&after<.75&&Math.floor((after-.15)/.15)%2===0?1:0;
+  if(S.juice&&after>0&&!S.endPuff){S.endPuff=true;burst(cx-110,340,10,'rgba(255,255,255,.8)','dust');burst(cx+60,280,16,P.yellow,'star');}
+  carSide(cx,300,1.85,{spin:(cx+200)/20,pitch:settle*.035,brake:braking,lights:blink,noreg:true});
+  block(ARR,()=>dtx('THIS COULD BE YOURS',CX,398,28,P.white,'center',7));
+  const b1=BTN.loc,b2=BTN.order,b3=BTN.again;
+  block(ARR+.3,()=>{
+    rr(b1.x,b1.y,b1.w,b1.h,31,P.white); tx('Find a drive-thru',b1.x+b1.w/2,b1.y+24,16.5,P.ink,'center',900); tx('2.3 km away',b1.x+b1.w/2,b1.y+44,12.5,'#6B6760','center',650);
+    const pk=S.juice&&after>1.2?1+.03*Math.sin(S.t*5):1; ctx.save(); ctx.translate(b2.x+b2.w/2,b2.y+b2.h/2); ctx.scale(pk,pk); rr(-b2.w/2,-b2.h/2,b2.w,b2.h,31,P.yellow); tx('Order on the App',0,0,16.5,P.ink,'center',900); ctx.restore();
+    tx('↻  Play again',b3.x+b3.w/2,b3.y+b3.h/2,16,P.white,'center',800);
+  });
+  block(ARR+.4,()=>tx('T&Cs apply',CX,614,11,'#FFE3D9','center',600)); /* placeholder: permit no. and full terms go here */
+  reg('cta','find a drive-thru',b1.x,b1.y,b1.w,b1.h); reg('cta','order on the app',b2.x,b2.y,b2.w,b2.h);
+}
+function drawToast(){if(!S.toast)return;ctx.globalAlpha=clamp(Math.min(1,(2.2-S.toast.t)*3),0,1);rr(CX-175,526,350,62,14,'rgba(39,37,31,.95)');wrap(S.toast.text,CX,546,320,13.5,P.white,650,17,'center');ctx.globalAlpha=1;}
+function drawLayers(){
+  const col={ground:'#8a8',road:'#888',decal:'#aaa',stopline:'#E0A800',shadow:'#666',prop:'#6a6',sign:'#3a3',car:'#2563eb',hand:'#a855f7',item:'#c084fc',building:'#78716c',canopy:'#0ea5e9',foliage:'#16a34a',fx:'#f59e0b',hud:'#111',bubble:'#444',sheet:'#555',receipt:'#555',reveal:'#555',cta:'#E0A800',chip:'#E0A800'};
+  ctx.save(); font(8,800); ctx.textAlign='left'; ctx.textBaseline='top';
+  for(const it of V.items){if(it.kind==='label')continue;ctx.setLineDash(it.kind==='canopy'&&it.faded?[3,3]:[]);ctx.strokeStyle=it.bad?'#E11D48':(col[it.kind]||'#999');ctx.lineWidth=it.bad?3:1.2;ctx.strokeRect(it.x,it.y,it.w,it.h);ctx.setLineDash([]);
+    const lbl=`${LAYER[it.kind]} ${it.name}${it.faded?' (faded)':''}`;const w=ctx.measureText(lbl).width+6;ctx.fillStyle=it.bad?'#E11D48':'rgba(17,17,17,.75)';ctx.fillRect(it.x,it.y,w,11);ctx.fillStyle='#fff';ctx.fillText(lbl,it.x+3,it.y+1.5);}
+  ctx.restore();
+}
+
+function finish(){if(S.scene!=='play')return;S.scene='end';S.endT=0;S.endPuff=false;}
+function start(mode){G.init();resetFX();S.toast=null;S.scene=mode||'teaser';S.expand=0;S.endT=0;S.splashT=0;S.readyT=null;S.loadP=0;if(S.scene==='splash')demoReset();} /* the splash runs the game in attract mode; play always starts clean */
+
+/* input */
+function toLocal(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
+const inBox=(p,b)=>p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
+cv.addEventListener('pointerdown',e=>{e.preventDefault();const p=toLocal(e);try{cv.setPointerCapture(e.pointerId);}catch(_){}
+  try{if(window.parent&&window.parent!==window)window.parent.postMessage({iionTap:{x:e.clientX,y:e.clientY}},'*');}catch(_){} /* the creative-mocks phone frame draws a ripple from it */
+  if(S.scene==='splash'){if(splashReady()){start('play');if(QS.has('howto'))G.howto();}return;} /* the scene teaches the flick; ?howto shows the old screen */ /* PLAY, or anywhere on the game: a clean round, tutorial and all */
+  if(S.scene==='teaser'){if(inBox(p,CARD))S.scene='expand';return;}
+  if(S.scene==='play'){G.down(p.x,p.y);return;}
+  if(S.scene==='end'){if(inBox(p,BTN.again))start('play');else exit(inBox(p,BTN.loc)?CONFIG.links.locator:CONFIG.links.order);} /* every end-screen tap is an exit, except Play again */
+});
+const release=()=>{if(S.scene==='play')G.up();};
+cv.addEventListener('pointermove',e=>{if(S.scene==='play'){const p=toLocal(e);G.move(p.x,p.y);}});
+cv.addEventListener('pointerup',release);cv.addEventListener('pointercancel',release);cv.addEventListener('lostpointercapture',release);cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('keydown',e=>{
+  if(S.scene==='play'&&G.stage==='order'&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();G.sel=G.sel<0?0:(G.sel+(e.key==='ArrowLeft'?MEALS.length-1:1))%MEALS.length;return;} /* arrows pick a card, space/enter takes it */
+  if(e.key!==' '&&e.key!=='Enter')return;e.preventDefault();if(e.repeat)return;
+  if(S.scene==='splash'){if(splashReady()){start('play');if(QS.has('howto'))G.howto();}}else if(S.scene==='teaser')S.scene='expand';else if(S.scene==='play'){if(G.stage==='order'){if(G.sel<0)G.sel=0;else G.pick(MEALS[G.sel]);} /* the first press highlights a card, the next takes it: no meal is ever picked by default */else if(G.stage==='fail'){if(G.failT>.5)start('play');}else G.keyDown();}else if(S.scene==='end')start('play');});
+cv.addEventListener('keyup',e=>{if((e.key===' '||e.key==='Enter')&&S.scene==='play')G.keyUp();});
+cv.addEventListener('blur',()=>G.cancel()); document.addEventListener('visibilitychange',()=>{if(document.hidden)G.cancel();}); /* no key-up comes once focus is gone: drop the charge rather than leave it running */
+
+/* checks readout */
+const listEl=document.getElementById('checklist'), sumEl=document.getElementById('checksum');
+function renderChecks(){
+  const rows=[];
+  const iss=[...V.issues.entries()];
+  rows.push({ok:iss.length===0,text:iss.length?`Overlap rules: ${iss.length} broken (${iss.slice(0,3).map(([k])=>k).join('; ')})`:'Overlap rules: nothing covers what it shouldn’t'});
+  rows.push({ok:shadowBad===0&&shadowCalls>0,text:shadowCalls?(shadowBad?'Light: a shadow falls the wrong way':'Light: every shadow falls down and to the right'):'Light: no shadows drawn yet'});
+  for(const [k,a] of Object.entries(V.anat)) rows.push({ok:a.fail===0,text:a.fail?`${k}: ${a.why}`:k});
+  listEl.innerHTML=rows.map(r=>`<li class="${r.ok?'ok':'bad'}"><span>${r.ok?'✓':'✕'}</span><span>${r.text}</span></li>`).join('');
+  const bad=rows.filter(r=>!r.ok).length;
+  sumEl.textContent=`${rows.length} checks across ${V.frames} frames, ${bad} failing.`;
+}
+if(DEBUG) setInterval(renderChecks,600);
+
+/* loop */
+if(QS.has('test')) window.__G=G; /* ?test: the game object for scripted checks (stop landings, the handoff); off by default */
+let last=performance.now();
+function frame(now){
+  if(!S.fontsOK){last=now;requestAnimationFrame(frame);return;} /* nothing draws before Speedee is in */
+  const dt=Math.min(.05,(now-last)/1000); last=now; S.t+=dt;
+  V.items=[]; V.opening=[]; if(GLG) GLG.frameStart();
+  if(S.scene==='expand'){S.expand+=dt/(S.juice?.35:.12);if(S.expand>=1)S.scene='play';}
+  if(S.scene==='play')G.update(dt);
+  if(S.scene==='end')S.endT+=dt;
+  if(S.scene==='splash'){S.splashT+=dt;const lp=Math.min(1,(ART_DONE+FONTS.n)/(ART_FILES.length+2));S.loadP+=(lp-S.loadP)*Math.min(1,dt*8);if(S.readyT==null&&(lp>=1||S.splashT>=4))S.readyT=S.splashT;demoStep(dt);} /* every picture in, or give up after 4 s; the attract loop runs meanwhile */
+  updFX(dt); if(S.toast){S.toast.t+=dt;if(S.toast.t>2.2)S.toast=null;}
+  ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0); ctx.clearRect(0,0,W,H);
+  ctx.save(); if(FX.shake)ctx.translate((Math.random()-.5)*FX.shake,(Math.random()-.5)*FX.shake);
+  if(S.scene==='teaser'||S.scene==='expand')drawTeaser();
+  else if(S.scene==='play'){G.draw();}
+  else if(S.scene==='splash')drawSplash();
+  else drawEnd();
+  if(S.scene==='expand'){const k=ease(S.expand);rr(lerp(CARD.x,0,k),lerp(CARD.y,0,k),lerp(CARD.w,W,k),lerp(CARD.h,H,k),lerp(16,0,k),P.red);}
+  if(S.scene!=='play') drawFX(false);
+  drawFX(true); drawFlash(); ctx.restore(); drawToast(); if(GLG) GLG.frameEnd();
+  if(DEBUG&&(S.scene==='play'||S.scene==='splash')) validate(); /* normal play does no validation work */
+  if(S.layers) drawLayers();
+  requestAnimationFrame(frame);
+}
+
+const tog=(id,key,label)=>{const b=document.getElementById(id);const sync=()=>{b.setAttribute('aria-pressed',String(S[key]));};b.addEventListener('click',()=>{S[key]=!S[key];if(key==='juice'&&!S.juice)resetFX();sync();});sync();};
+tog('juice','juice'); tog('labels','labels'); tog('layers','layers');
+document.getElementById('restart').addEventListener('click',()=>{start('play');cv.focus();});
+document.getElementById('teaser').addEventListener('click',()=>start('teaser'));
+document.getElementById('skip').addEventListener('click',()=>{start('play');G.grades=['PERFECT','GOOD','PERFECT'];G.order={main:'Big Mac',side:'Fries',drink:'Soft drink'};G.bonus=2;G.left=4.2;S.scene='end';S.endT=0;S.endPuff=false;});
+
+/* ?blueprint=Lx / ?explained=Lx: each layer's placeholder at the size and place it takes in the picture, drawn by the game's own code */
+const BPDEF={ /* each layer's footprint silhouette at the origin, drawn by the game's own code; w×h is its extent (world px) */
+ 'roof-units':{w:30,h:22,cell:k=>{const w=k?20:30,h=k?15:22; roofUnit(-w/2,-h/2,w,h);}},
+ canopy:{w:76,h:100,cell:()=>canopy(-38,-50,76,100,1)},
+ speaker:{w:20,h:28,cell:()=>speaker(0,0)},
+ 'menu-board':{w:80,h:104,cell:()=>menuBoard(-40,-52)},
+ palm:{w:50,h:50,cell:()=>palm(0,0,24)},
+ 'car-top':{w:44,h:80,cell:()=>carTop(0,0,{noreg:true})},
+ 'car-side':{w:132,h:66,cell:()=>carSide(-1,3,1,{noreg:true})},
+ bag:{w:20,h:22,cell:()=>{ctx.translate(-18,0);bag();}},
+ crew:{w:40,h:40,cell:()=>{ctx.fillStyle=BP.top;ctx.beginPath();ctx.arc(0,-7,10,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(0,14,17,9,0,Math.PI,0);ctx.fill();}},
+ hands:{w:84,h:34,cell:k=>arm('blueprint arm',-40,0,6,0,P.sleeveCrew,P.skinCrew,-1,[card,bag,null][k>>1])},   /* the whole reach plus the card or bag inside the cell */
+ 'queue-cars':{w:44,h:80,cell:k=>queueCar(0,0,k)},
+ bollard:{w:10,h:10,cell:()=>bollard(0,0)},
+ planter:{w:34,h:70,cell:k=>planter(k?-11:-17,k?-35:-17,k)}};
+function blueprint(){
+  const L=LAYERS.find(l=>l.id===BPL)||LAYERS[0], cw=(L.canvas||[1024,1024])[0], ch=(L.canvas||[1024,1024])[1], ex=QS.has('explained'), D=BPDEF[L.name];
+  cv.width=cw; cv.height=ch; cv.style.cssText=`width:${cw}px;height:${ch}px;aspect-ratio:auto;display:block`; document.body.style.display='block';
+  BP={top:'#8C8C8C',face:'#5C5C5C'};
+  const draw=()=>{ ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle=L.key||'#FFFFFF'; ctx.fillRect(0,0,cw,ch); /* the key colour, white for tiles */
+    const cols=L.cells?L.cells.cols:1, rows=L.cells?L.cells.rows:1, cW=cw/cols, cH=ch/rows, m=.1, k=D?Math.min(cW*(1-2*m)/D.w,cH*(1-2*m)/D.h):0;
+    if(D) for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ctx.save();ctx.translate(cW*(c+.5),cH*(r+.5));ctx.scale(k,k);D.cell(r*cols+c);ctx.restore();} /* one placeholder per cell, centred, 10% margins */
+    if(ex&&S.fontsOK){ const fs=Math.round(cw/(L.cells?44:26)), ink=L.key?P.white:P.ink, ln=L.key?P.ink:null;
+      dtx(`${L.id} · ${L.name.toUpperCase()}`,24,24+fs*.6,fs*1.2,ink,'left',ln?fs*.25:0,ln);
+      dtx(L.type==='tile'?`${L.cam} · SEAMLESS TILE · NOTHING TO PLACE`:L.cam,24,24+fs*2,fs*.7,ink,'left',ln?fs*.18:0,ln);
+      if(D) dtx(`PLACEHOLDER ${Math.round(D.w*k)} × ${Math.round(D.h*k)} PX · CANVAS ${cw} × ${ch}`,24,24+fs*3,fs*.7,ink,'left',ln?fs*.18:0,ln);
+      if(L.cells){ctx.setLineDash([12,10]);ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=3;for(let c=1;c<cols;c++){ctx.beginPath();ctx.moveTo(cW*c,0);ctx.lineTo(cW*c,ch);ctx.stroke();}ctx.setLineDash([]);
+        L.cells.names.forEach((n,i)=>dtx(`CELL ${i+1}: ${n.toUpperCase()}`,cW*(i+.5),ch-30-fs*.5,fs*.75,ink,'center',ln?fs*.2:0,ln));} }
+    requestAnimationFrame(draw); };
+  draw();
+}
+if(GEO){ /* ?geometry: the layer contract as JSON for the pack builder; the game does not start */
+  const pre=document.createElement('pre'); pre.id='geometry';
+  pre.textContent=JSON.stringify({variant:'drive-thru',frame:[640,960],logical:[+W.toFixed(2),H],camera:{view:'straight down (top-down orthographic), polished 3D render; exceptions: L8 front-on billboard, L11 side profile, L13 front-on bust icon; height reads from cast shadows (one light, upper left)',zoom:ZK,offsetX:+ZX.toFixed(2),laneCentreX:+CX.toFixed(2),carY:G.CAR_Y},
+    layers:LAYERS.map(L=>({id:L.id,name:L.name,type:L.type,canvas:L.canvas,key:L.key,camera:L.cam||null,cells:L.cells||null,box:L.box?{world:L.box,logical:L.box.map(v=>+(v*ZK).toFixed(1))}:null,status:L.status||'code'}))},null,1);
+  cv.style.display='none'; document.body.style.display='block'; document.body.appendChild(pre);
+} else if(BPL) blueprint();
+else {
+start('splash'); /* boot into the branded splash; Play again and Restart skip it */
+/* QA (2026-10-29): ?card=splash | order | fail | end opens that screen straight away, as our other playables' ?card= does */
+{const qc=new URLSearchParams(location.search).get('card');
+ if(qc&&qc!=='splash') start('play');
+ if(qc==='order'){G.stage='order';G.sel=-1;G.say('Welcome to McDonald’s! What can I get you?',99);}
+ else if(qc==='fail'){G.timeUp();}
+ else if(qc==='end'){document.getElementById('skip').click();}}
+if(DEBUG) renderChecks();
+requestAnimationFrame(frame);
+}
+})();
+</script>
+<!-- page margins: plain black (#000) from the <style> above; nothing paints outside the 2:3 canvas, so no margin-colour sampling is needed -->
+</body>
+</html>

@@ -28,6 +28,8 @@
   addEventListener('message', e => {
     const t = e.data && e.data.iionTap;
     if (!t || typeof t.x !== 'number' || typeof t.y !== 'number') return;
+    // some delivered units post pixels in their own window (e.g. clientX/clientY) instead of 0..1: scale them by the ad frame
+    if ((t.x > 1 || t.y > 1) && frame && frame.contentWindow) { ripple(t.x / frame.contentWindow.innerWidth, t.y / frame.contentWindow.innerHeight); return; }
     ripple(t.x, t.y);
   });
 })();
