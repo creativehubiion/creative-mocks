@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <title>essence | Wimperstrijd</title>
+  <style>
+    /* ---------------------------------------------------------------------
+       Host page shell. The game renders into #game-container at a fixed 2:3
+       portrait aspect ratio and letterboxes to fit any screen. Keep this
+       generic; per-campaign look lives in the Phaser scenes, not here.
+       --------------------------------------------------------------------- */
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: rgba(255, 255, 255, 0.87);
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Noto Sans ExtraBold (SIL OFL, see assets/fonts/OFL.txt), subset to Latin
+       so it covers the Spanish copy in 15KB. Bundled, never fetched: a
+       playable cannot call out to a font CDN. */
+    @font-face {
+      font-family: "Noto Sans";
+      font-weight: 100 900;
+      src: url("./assets/fonts/NotoSans-ExtraBold.woff2") format("woff2");
+    }
+
+    #game-container {
+      position: relative;
+    }
+
+    /* Some ad networks probe for text nodes; this keeps them happy, invisibly. */
+    .dummy {
+      position: fixed;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .dummy p {
+      opacity: 1;
+    }
+
+    .dummy p:nth-child(1) {
+      font-family: "Noto Sans";
+    }
+
+    /* Full-screen invisible CTA overlay, armed by initCta() on the end screen. */
+    #ctabtn {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      border: 0;
+      background: transparent;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* Optional celebratory confetti layer (canvas-confetti). Safe to remove. */
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: transparent;
+      z-index: 10000;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+      background: transparent;
+    }
+
+    #app #game-container {
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 2 / 3;
+      margin: 0 auto !important;
+    }
+
+    @media (min-aspect-ratio: 1/1) {
+      #app #game-container {
+        width: auto !important;
+        height: 100% !important;
+        aspect-ratio: 2 / 3;
+        margin: 0 auto !important;
+      }
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index.js"></script>
+</head>
+
+<body>
+  <canvas id="confetti-canvas"></canvas>
+  <div class="dummy">
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+    <p>.</p>
+  </div>
+
+  <button id="ctabtn"></button>
+
+  <div id="app">
+    <div id="game-container"></div>
+  </div>
+
+  <!-- Optional confetti library. Delete this line if you don't use confetti. -->
+  
+
+
+  <script>
+    // ============================================================
+    // DV360 BUILD - Praxis playable (third-party HTML5 creative)
+    // Hosted at: https://creativehubiion.github.io/praxis-dv360-playable/
+    // ------------------------------------------------------------
+    // The bundle's end-screen CTA calls window.open(window.landingPageUrl).
+    // CLICK CHAIN:
+    //   DV360 click tracker  -> DV360 registers the click
+    //   -> agency DoubleClick (CM360) trackclk -> CM360 registers the click
+    //   -> redirects to the brand landing page (configured agency-side).
+    //
+    // IMPORTANT: DV360 only substitutes ${...} macros in the TAG it serves,
+    // never in this CDN-hosted file. So the DV360 click tracker is passed
+    // in from the third-party tag as the `clk` query param
+    // (tag has ...?clk=${CLICK_URL_ENC}); we read it from location here.
+    //
+    // No MRAID: direct deal on iion's own publisher supply where
+    // window.open is already proven (the same supply served via PLL).
+    // ============================================================
+    window.option = "";
+    window.bottomtext = "";
+    window.placeNumber = 0;
+    window.language = "";
+    window.country = "MX";
+    window.trackingPath = "./assets/";
+    window.trackingType = ""; // REVIEW COPY: tracking off
+
+    // DV360 click tracker, passed from the tag as ?clk=${CLICK_URL_ENC}.
+    // URLSearchParams.get() decodes it once, recovering the usable click prefix.
+    var clk = "";
+    window.setTracker = clk;
+
+    // Agency-provided destination: DoubleClick (CM360) click tracker.
+    var brandClickTracker = "https://www.essence.eu/nl-nl/"; // REVIEW COPY: brand site, real NL landing URL from ad ops
+
+    window.landingPageUrl = clk
+      ? clk + encodeURIComponent(brandClickTracker)
+      : brandClickTracker;
+  </script>
+</body>
+
+</html>
