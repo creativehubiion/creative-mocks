@@ -22,7 +22,7 @@
     cueSway: 'It sways. Watch it!', cueFan: 'Last one! Toss it high!', yourToss: 'your toss',
     winStamp: 'PROSPER!', failStamp: 'FLOOR OF GOLD!', failLine: 'Well, the floor got the gold this year.',
     yours: 'Your 2027:', stat: 'Tossed {m} m · {n} of 5 lanterns',
-    item: '‘Lohei’ Pizza', itemSub: 'Chinese New Year 2027', photo: 'Lohei Pizza photo (client)', standIn: 'Stand-in photo', prodKick: 'New this Chinese New Year', prodLine: 'Pour on the crackers, lime peel and cereal crunch, then toss it high together for a year of prosperity.',
+    item: '‘Lohei’ Pizza', itemSub: 'Chinese New Year 2027', photo: 'Lohei Pizza photo (client)', standIn: 'Stand-in photo', prodKick: 'New this Chinese New Year', prodLine: 'Pour on the toppings, then toss it high together for a year of prosperity.', addsKick: 'Pour on and toss', adds: [['Pok Cui crackers', ''], ['Lime strip peel', ''], ['Crispy cereal crunch', '']], /* owner 20:20: blessings off until the client gives one for each */
     couponKick: 'Your CNY treat', couponLine: 'Offer from Pizza Hut (to be confirmed)', couponCode: 'Code: ●●●●●●', couponTc: 'T&Cs apply',
     cta: 'Order now', share: 'Share', again: 'Toss again', shareText: 'I tossed my Lohei Pizza {m} m. Prosper! Toss yours:',
     up: '↑ {m} m',
@@ -481,6 +481,11 @@
   .pinfo{flex:1;min-width:0} .kick{display:inline-block;font:800 2.6cqw "Open Sans",sans-serif;color:#7d0000;background:linear-gradient(#FFE27A,#F5B700);padding:.4cqh 2cqw;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
   #end .name{font-size:7.6cqw;margin:.8cqh 0 .6cqh} .pline{margin:0;font:600 3.3cqw/1.35 "Open Sans",sans-serif;color:#4a403b}
   .snd{position:absolute;top:8.6cqh;right:2.6cqw;width:9cqw;height:9cqw;border-radius:50%;border:.6cqw solid #F5C542;background:#fff;box-shadow:0 .5cqh 0 #7d0000,0 .8cqh 1.6cqh #0005;padding:1.6cqw;cursor:pointer;z-index:5} .snd svg{width:100%;height:100%;display:block} .snd .x{display:none} .snd.off .x{display:block} .snd.off .w{display:none}
+  #end .prod{flex-wrap:wrap;row-gap:1.4cqh}
+  .adds{flex:0 0 100%;display:grid;grid-template-columns:repeat(3,1fr);gap:2cqw;border-top:2px dashed #EBCB9F;padding-top:1.3cqh;position:relative}
+  .addk{position:absolute;top:-1.5cqh;left:50%;transform:translateX(-50%);background:#FFF4E6;padding:0 2cqw;font:800 2.4cqw "Open Sans",sans-serif;color:#9a6a2e;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+  .add{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.3cqh} .add i{width:10cqw;height:10cqw;border-radius:50%;background:#fff url(assets/game/toppings.webp) no-repeat;background-size:300% 200%;border:.5cqw solid #F5C542;box-shadow:0 .4cqh .8cqh #0003}
+  .add b{font:800 2.7cqw/1.15 "Open Sans",sans-serif;color:#2b2522} .add span{font:700 2.4cqw "Open Sans",sans-serif;color:#CE0000}
   .logo small{font-weight:600;font-size:2.4cqw;opacity:.8}
   .title{font-family:"Lilita One","Open Sans",sans-serif;font-size:10.5cqw;line-height:.98;text-align:center;color:#FFD23A;-webkit-text-stroke:1.6cqw #5a0000;paint-order:stroke fill;margin:0 0 1.6cqh;text-transform:uppercase}
   .line{font-weight:700;font-size:4.4cqw;text-align:center;margin:0 0 3.4cqh;text-shadow:0 2px 6px #0008}
@@ -515,7 +520,7 @@
       <div id="end" class="card hidden"><div class="sheet" id="sheet"><div class="checker"></div>
         ${NOART ? '' : '<div class="endlogo"><img src="assets/game/logo.svg" alt="Pizza Hut"></div>'}
         <p class="stamp" id="stamp"></p><p class="fortune" id="fortune"></p><p class="stat" id="stat"></p>
-        <div class="prod">${NOART ? `<div class="ph">${C.photo}</div>` : '<div class="pz"><img src="assets/game/pizza-dressed.webp" alt="Lohei Pizza"></div>'}<div class="pinfo"><div class="kick">${C.prodKick}</div><div class="name">${C.item}</div><p class="pline">${C.prodLine}</p></div></div>
+        <div class="prod">${NOART ? `<div class="ph">${C.photo}</div>` : '<div class="pz"><img src="assets/game/pizza-dressed.webp" alt="Lohei Pizza"></div>'}<div class="pinfo"><div class="kick">${C.prodKick}</div><div class="name">${C.item}</div><p class="pline">${C.prodLine}</p></div>${NOART ? '' : `<div class="adds"><div class="addk">${C.addsKick}</div>${C.adds.map((a, k) => `<div class="add"><i style="background-position:${k * 50}% 0"></i><b>${a[0]}</b>${a[1] ? `<span>${a[1]}</span>` : ''}</div>`).join('')}</div>`}</div>
         <div class="row"><button class="btn" id="cta">${C.cta}</button><button class="btn ghost" id="share">${C.share}</button></div>
         <button class="link" id="again">${C.again}</button></div></div>
       ${NOART ? '' : '<button id="snd" class="snd" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#CE0000"/><path class="w" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="#CE0000" stroke-width="2" fill="none" stroke-linecap="round"/><path class="x" d="M16 9l5 6M21 9l-5 6" stroke="#8a807b" stroke-width="2.2" stroke-linecap="round"/></svg></button>'}`);
