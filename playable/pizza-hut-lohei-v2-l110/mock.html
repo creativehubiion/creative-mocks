@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<link rel="icon" href="data:,">
+<title>Pizza Hut · Top your Lohei Pizza</title>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Open+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="core/draw.js"></script><script src="core/layers.js"></script><script src="core/maker-core.js"></script><script src="core/maker-layers.js"></script></head>
+<body><script>
+const VIEW = { id: 'counter', title: 'Counter · a kitchen at an angle', camera: 'from the front of a kitchen counter, ~35 degrees down, the pizza on a turntable on the counter', cx: 320, cy: 620, R: 255, k: 0.55, ps: 1.05, trayX: 320, trayY: 885, ticketY: 120, bg: '#E7DCCF', counter: true, counterY: 430 };
+VIEW.layers = MakerLayers(VIEW);
+MakerCore.run(VIEW);
+</script></body></html>

@@ -22,10 +22,10 @@
     cueSway: 'It sways. Watch it!', cueFan: 'Last one! Toss it high!', yourToss: 'your toss',
     winStamp: 'PROSPER!', failStamp: 'FLOOR OF GOLD!', failLine: 'Well, the floor got the gold this year.',
     yours: 'Your 2027:', stat: 'Tossed {m} m · {n} of 5 lanterns',
-    item: '‘Lohei’ Pizza', itemSub: 'Chinese New Year 2027', photo: 'Lohei Pizza photo (client)', standIn: 'Stand-in photo', prodKick: 'New this Chinese New Year', prodLine: 'Pour on the toppings, then toss it high together for a year of prosperity.', addsKick: 'Pour on and toss', adds: [['Pok Cui crackers', ''], ['Lime strip peel', ''], ['Crispy cereal crunch', '']], /* owner 20:20: blessings off until the client gives one for each */
+    item: '‘Lohei’ Pizza', itemSub: 'Chinese New Year 2027', photo: 'Lohei Pizza photo (client)', standIn: 'Stand-in photo', prodKick: 'New this Chinese New Year', startReward: 'Light all 5 lanterns to unlock a CNY treat', rewardKick: 'Win a CNY treat!', rewardLine: 'Light all 5 lanterns to unlock it', ticketKick: 'CNY treat unlocked!', ticketLine: 'Claim it with your Lohei Pizza order', claim: 'Claim my treat', playAgain: 'Play again', lockedKick: 'So close!', lockedLine: 'Your CNY treat is one toss away', prodLine: 'Pour on the toppings, then toss it high together for a year of prosperity.', addsKick: 'Pour on and toss', adds: [['Pok Cui crackers', ''], ['Lime strip peel', ''], ['Crispy cereal crunch', '']], /* owner 20:20: blessings off until the client gives one for each */
     couponKick: 'Your CNY treat', couponLine: 'Offer from Pizza Hut (to be confirmed)', couponCode: 'Code: ●●●●●●', couponTc: 'T&Cs apply',
     cta: 'Order now', share: 'Share', again: 'Toss again', shareText: 'I tossed my Lohei Pizza {m} m. Prosper! Toss yours:',
-    up: '↑ {m} m',
+    up: '↑ {m} m', tossHere: 'Toss here',
   } };
   const C = STRINGS.en;
   const CONFIG = {
@@ -299,11 +299,14 @@
   }
   function drawTargetBand() {
     if (!(S.phase === 'aim' || S.phase === 'flight' || S.phase === 'regather') || S.i >= CONFIG.lanterns.length || S.mode === 'reveal') return;
-    const i = S.i, h = lanternH(i, S.t), w = halfWin(i), y0 = yOf(h + w), y1 = yOf(h - w), pulse = 0.6 + 0.4 * Math.sin(S.t * 5);
-    ctx.save(); ctx.globalAlpha = 0.55; rr(CX - 150 * V.zoom, y0, 300 * V.zoom, y1 - y0, (y1 - y0) / 2, `rgba(255,205,70,${0.22 * pulse})`);
-    ctx.setLineDash([10, 8]); ctx.strokeStyle = 'rgba(255,190,40,.9)'; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]); ctx.restore();
-    // the aim line: from the heap up to the band (the way, not the strength)
-    if (S.phase === 'aim' && S.mode === 'play') { const top = y1, bot = V.tableY - 40 * V.zoom; if (bot > top) { const g = ctx.createLinearGradient(0, bot, 0, top); g.addColorStop(0, 'rgba(255,255,255,.85)'); g.addColorStop(1, 'rgba(255,255,255,.1)'); ctx.fillStyle = g; for (let y = bot; y > top; y -= 14) ctx.fillRect(CX - 1.5, y - 7, 3, 7); } }
+    const i = S.i, h = lanternH(i, S.t), w = halfWin(i), y0 = yOf(h + w), y1 = yOf(h - w), pulse = 0.5 + 0.5 * Math.sin(S.t * 5), lx = sx(LX[i]);
+    const xa = Math.min(CX - 62, lx - 52), xb = Math.max(CX + 62, lx + 52), r = Math.min(22, (y1 - y0) / 2);   // from the toppings' path to the lantern
+    ctx.save(); ctx.shadowColor = 'rgba(255,190,40,.8)'; ctx.shadowBlur = 18 * pulse; rr(xa, y0, xb - xa, y1 - y0, r, `rgba(255,214,90,${0.18 + 0.14 * pulse})`); ctx.restore();
+    rr(xa, y0, xb - xa, y1 - y0, r, null, '#FFC21F', 3.5);
+    for (const [cx, cy, sx2, sy2] of [[xa, y0, 1, 1], [xb, y0, -1, 1], [xa, y1, 1, -1], [xb, y1, -1, -1]]) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(cx + sx2 * 4, cy + sy2 * 18); ctx.lineTo(cx + sx2 * 4, cy + sy2 * 4); ctx.lineTo(cx + sx2 * 18, cy + sy2 * 4); ctx.stroke(); ctx.lineCap = 'butt'; }   // corner brackets: a target
+    if (S.phase === 'aim' && (S.mode === 'play' || S.mode === 'attract')) { const tx = (CX + (LX[i] < 0 ? xb : xa)) / 2 + (LX[i] < 0 ? -10 : 10); text(C.tossHere, (xa + xb) / 2, y0 - 18, 22, '#FFD23A', { display: true, weight: 400, stroke: 6 }); }
+    // the aim line: chevrons climbing from the pizza into the zone (the way, not the strength)
+    if (S.phase === 'aim' && S.mode === 'play') { const top = y1 + 6, bot = V.tableY - 40 * V.zoom; for (let y = bot - ((S.t * 60) % 26); y > top; y -= 26) { const a = Math.min(1, (bot - y) / 60) * Math.min(1, (y - top) / 40); ctx.globalAlpha = 0.9 * a; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(CX - 9, y + 6); ctx.lineTo(CX, y - 3); ctx.lineTo(CX + 9, y + 6); ctx.stroke(); } ctx.globalAlpha = 1; ctx.lineCap = 'butt'; }
   }
   function drawLanterns() {
     CONFIG.lanterns.forEach((_, i) => {
@@ -486,6 +489,20 @@
   .addk{position:absolute;top:-1.5cqh;left:50%;transform:translateX(-50%);background:#FFF4E6;padding:0 2cqw;font:800 2.4cqw "Open Sans",sans-serif;color:#9a6a2e;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
   .add{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.3cqh} .add i{width:10cqw;height:10cqw;border-radius:50%;background:#fff url(assets/game/toppings.webp) no-repeat;background-size:300% 200%;border:.5cqw solid #F5C542;box-shadow:0 .4cqh .8cqh #0003}
   .add b{font:800 2.7cqw/1.15 "Open Sans",sans-serif;color:#2b2522} .add span{font:700 2.4cqw "Open Sans",sans-serif;color:#CE0000}
+  .reward{display:flex;align-items:center;gap:2cqw;background:#fff;border:.6cqw solid #F5C542;border-radius:999px;padding:1cqh 4cqw 1cqh 2.6cqw;margin:-2.2cqh 0 3.4cqh;box-shadow:0 .6cqh 0 #a86d00,0 1.2cqh 2.4cqh #0006;animation:phpulse 1.6s ease-in-out infinite}
+  .reward svg{width:7cqw;height:7cqw;flex:0 0 7cqw} .reward span{font:800 3.7cqw/1.2 "Open Sans",sans-serif;color:#7d0000}
+  .ticket{display:flex;align-items:center;gap:3cqw;width:100%;margin:0 0 2cqh;padding:1.4cqh 4cqw;border-radius:14px;color:#fff;background:linear-gradient(180deg,#E3140C,#B80000);border:2px dashed #FFE27A;box-shadow:0 .6cqh 0 #6e0000,0 1.2cqh 2.4cqh #0004;position:relative;text-align:left}
+  .ticket i{position:absolute;left:-2.4cqw;top:50%;width:4.8cqw;height:4.8cqw;margin-top:-2.4cqw;border-radius:50%;background:#fff} .ticket::after{content:"";position:absolute;right:-2.4cqw;top:50%;width:4.8cqw;height:4.8cqw;margin-top:-2.4cqw;border-radius:50%;background:#fff}
+  .ticket div{flex:1} .ticket b{display:block;font-family:"Lilita One","Open Sans",sans-serif;font-weight:400;font-size:6cqw;line-height:1;color:#FFE27A;text-shadow:0 .4cqh 0 #6e0000} .ticket span{display:block;font:700 3.2cqw "Open Sans",sans-serif;margin-top:.5cqh}
+  .ticket svg{width:9cqw;height:9cqw;flex:0 0 9cqw;background:#fff;border-radius:50%;padding:1.2cqw}
+  #end:not(.won) .ticket{display:none} #end.won .stat,#end.won .pline{display:none} #end.won .fortune{margin:.4cqh 0 1.6cqh}
+  #end:not(.won) .ticket{display:flex!important;background:linear-gradient(180deg,#9b908b,#7d726d);border-color:#d9d0cb;box-shadow:0 .6cqh 0 #4f4743,0 1.2cqh 2.4cqh #0003} #end:not(.won) .ticket b{color:#fff;text-shadow:0 .4cqh 0 #4f4743} #end:not(.won) .ticket svg{filter:grayscale(1);opacity:.75}
+  #end:not(.won) #share{flex:0 0 38%;font-size:3.8cqw} #end:not(.won) #again{display:none} #end:not(.won) .stat{display:none}
+  .ticket{-webkit-mask:radial-gradient(circle 2.6cqw at 0 50%,#0000 98%,#000) left/51% 100% no-repeat,radial-gradient(circle 2.6cqw at 100% 50%,#0000 98%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 2.6cqw at 0 50%,#0000 98%,#000) left/51% 100% no-repeat,radial-gradient(circle 2.6cqw at 100% 50%,#0000 98%,#000) right/51% 100% no-repeat;box-shadow:none!important;filter:drop-shadow(0 .6cqh 0 #6e0000)} .ticket::after,.ticket i{display:none!important} #end:not(.won) .ticket{filter:drop-shadow(0 .6cqh 0 #4f4743)}
+  .reward.coupon{display:grid;grid-template-columns:auto 1fr;align-items:center;width:78cqw;padding:0;gap:0;border-radius:14px;border:2px dashed #FFE27A;background:linear-gradient(180deg,#E3140C,#B80000);box-shadow:none;margin:-2.4cqh 0 3.6cqh;animation:phpulse 1.6s ease-in-out infinite;
+    -webkit-mask:radial-gradient(circle 2.6cqw at 0 50%,#0000 98%,#000) left/51% 100% no-repeat,radial-gradient(circle 2.6cqw at 100% 50%,#0000 98%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 2.6cqw at 0 50%,#0000 98%,#000) left/51% 100% no-repeat,radial-gradient(circle 2.6cqw at 100% 50%,#0000 98%,#000) right/51% 100% no-repeat;filter:drop-shadow(0 .7cqh 0 #6e0000) drop-shadow(0 1.4cqh 1.6cqh #0006)}
+  .reward.coupon .stub{padding:1.6cqh 3cqw 1.6cqh 5cqw;border-right:2px dashed #FFE27A;display:flex;align-items:center} .reward.coupon .stub svg{width:9cqw;height:9cqw;background:#fff;border-radius:50%;padding:1.3cqw;flex:none}
+  .reward.coupon .ctext{text-align:center;padding:1.3cqh 5cqw 1.3cqh 3cqw} .reward.coupon b{display:block;white-space:nowrap;font:400 5.6cqw/1 "Lilita One","Open Sans",sans-serif;color:#FFE27A;text-shadow:0 .4cqh 0 #6e0000;text-transform:uppercase} .reward.coupon span{display:block;font:700 3.3cqw "Open Sans",sans-serif;color:#fff;margin-top:.5cqh}
   .logo small{font-weight:600;font-size:2.4cqw;opacity:.8}
   .title{font-family:"Lilita One","Open Sans",sans-serif;font-size:10.5cqw;line-height:.98;text-align:center;color:#FFD23A;-webkit-text-stroke:1.6cqw #5a0000;paint-order:stroke fill;margin:0 0 1.6cqh;text-transform:uppercase}
   .line{font-weight:700;font-size:4.4cqw;text-align:center;margin:0 0 3.4cqh;text-shadow:0 2px 6px #0008}
@@ -516,18 +533,18 @@
     const stage = document.getElementById('stage');
     stage.insertAdjacentHTML('beforeend', `
       <div id="start" class="card ${ATTRACT && !has('embed') ? '' : ''}">${NOART ? `<div class="logo">${C.logo}<small>${C.logoNote}</small></div>` : `<div class="logo img"><img src="assets/game/logo.svg" alt="Pizza Hut"></div>`}
-        ${NOART ? '' : `<div class="kicker">${C.itemSub}</div>`}<h1 class="title">${C.startTitle}</h1>${NOART ? `<p class="line">${C.startLine}</p>` : ''}<button class="btn" id="play">${C.play}</button></div>
+        ${NOART ? '' : `<div class="kicker">${C.itemSub}</div>`}<h1 class="title">${C.startTitle}</h1>${NOART ? '' : `<div class="reward coupon"><div class="stub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v4H3zM5 14h14v7H5z" fill="#CE0000"/><path d="M11 10h2v11h-2z" fill="#F5C542"/><path d="M12 10c-1.5-3.5-5-4-5.5-2S9 10 12 10zm0 0c1.5-3.5 5-4 5.5-2S15 10 12 10z" fill="none" stroke="#CE0000" stroke-width="1.6"/></svg></div><div class="ctext"><b>${C.rewardKick}</b><span>${C.rewardLine}</span></div></div>`}${NOART ? `<p class="line">${C.startLine}</p>` : ''}<button class="btn" id="play">${C.play}</button></div>
       <div id="end" class="card hidden"><div class="sheet" id="sheet"><div class="checker"></div>
         ${NOART ? '' : '<div class="endlogo"><img src="assets/game/logo.svg" alt="Pizza Hut"></div>'}
-        <p class="stamp" id="stamp"></p><p class="fortune" id="fortune"></p><p class="stat" id="stat"></p>
+        <p class="stamp" id="stamp"></p><p class="fortune" id="fortune"></p><p class="stat" id="stat"></p>${NOART ? '' : `<div class="ticket"><div><b>${C.ticketKick}</b><span>${C.ticketLine}</span></div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v4H3zM5 14h14v7H5z" fill="#CE0000"/><path d="M11 10h2v11h-2z" fill="#F5C542"/><path d="M12 10c-1.5-3.5-5-4-5.5-2S9 10 12 10zm0 0c1.5-3.5 5-4 5.5-2S15 10 12 10z" fill="none" stroke="#CE0000" stroke-width="1.6"/></svg></div>`}
         <div class="prod">${NOART ? `<div class="ph">${C.photo}</div>` : '<div class="pz"><img src="assets/game/pizza-dressed.webp" alt="Lohei Pizza"></div>'}<div class="pinfo"><div class="kick">${C.prodKick}</div><div class="name">${C.item}</div><p class="pline">${C.prodLine}</p></div>${NOART ? '' : `<div class="adds"><div class="addk">${C.addsKick}</div>${C.adds.map((a, k) => `<div class="add"><i style="background-position:${k * 50}% 0"></i><b>${a[0]}</b>${a[1] ? `<span>${a[1]}</span>` : ''}</div>`).join('')}</div>`}</div>
         <div class="row"><button class="btn" id="cta">${C.cta}</button><button class="btn ghost" id="share">${C.share}</button></div>
         <button class="link" id="again">${C.again}</button></div></div>
       ${NOART ? '' : '<button id="snd" class="snd" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#CE0000"/><path class="w" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="#CE0000" stroke-width="2" fill="none" stroke-linecap="round"/><path class="x" d="M16 9l5 6M21 9l-5 6" stroke="#8a807b" stroke-width="2.2" stroke-linecap="round"/></svg></button>'}`);
     document.getElementById('play').onclick = e => { e.stopPropagation(); SFX.unlock(); document.getElementById('start').classList.add('hidden'); reset('play'); };
     const snd = document.getElementById('snd'); if (snd) { const show = () => snd.classList.toggle('off', SFX.muted); show(); snd.onclick = e => { e.stopPropagation(); SFX.muted = !SFX.muted; SFX.unlock(); show(); }; }
-    document.getElementById('cta').onclick = e => { e.stopPropagation(); exit(CONFIG.ctaUrl); };
-    document.getElementById('share').onclick = e => { e.stopPropagation(); const m = (S && S.best || 2.6).toFixed(1), t = C.shareText.replace('{m}', m);   // synchronous inside the tap (all.md: phones block a window opened after an await)
+    document.getElementById('cta').onclick = e => { e.stopPropagation(); if (!NOART && S && S.mode === 'fail') { document.getElementById('again').click(); return; } exit(CONFIG.ctaUrl); };
+    document.getElementById('share').onclick = e => { e.stopPropagation(); if (!NOART && S && S.mode === 'fail') { exit(CONFIG.ctaUrl); return; } const m = (S && S.best || 2.6).toFixed(1), t = C.shareText.replace('{m}', m);   // synchronous inside the tap (all.md: phones block a window opened after an await)
       if (navigator.share) navigator.share({ text: t, url: CONFIG.ctaUrl }).catch(() => {}); else window.open('https://wa.me/?text=' + encodeURIComponent(t + ' ' + CONFIG.ctaUrl), '_blank'); };
     document.getElementById('again').onclick = e => { e.stopPropagation(); SFX.unlock(); document.getElementById('end').classList.add('hidden'); document.getElementById('end').classList.remove('on'); document.getElementById('sheet').classList.remove('up'); reset('play'); };
     if (!ATTRACT) document.getElementById('start').classList.toggle('hidden', BOT);
@@ -535,7 +552,7 @@
   function exit(url) { const u = window.clickTag || url; if (window.mraid && mraid.open) mraid.open(u); else window.open(u, '_blank'); }
   function showCard(result) {
     const win = result === 'win', n = S.lit.length, last = n ? n - 1 : -1;
-    document.getElementById('stamp').textContent = win ? C.winStamp : C.failStamp;
+    document.getElementById('stamp').textContent = win ? C.winStamp : C.failStamp; document.getElementById('end').classList.toggle('won', win); if (!NOART) { document.getElementById('cta').textContent = win ? C.claim : C.playAgain; document.getElementById('share').textContent = win ? C.share : C.cta; const tk = document.querySelector('.ticket b'), tl = document.querySelector('.ticket span'); if (tk) { tk.textContent = win ? C.ticketKick : C.lockedKick; tl.textContent = win ? C.ticketLine : C.lockedLine; } }
     document.getElementById('fortune').textContent = win ? `${C.yours} ${C.fortunes[4]}` : n ? `${C.yours} ${C.fortunes[last]}` : C.failLine;
     document.getElementById('stat').textContent = C.stat.replace('{m}', Math.max(S.best, 0.1).toFixed(1)).replace('{n}', n);
     S.cardUp = true; document.getElementById('end').classList.remove('hidden'); requestAnimationFrame(() => requestAnimationFrame(() => { document.getElementById('sheet').classList.add('up'); document.getElementById('end').classList.add('on'); }));
