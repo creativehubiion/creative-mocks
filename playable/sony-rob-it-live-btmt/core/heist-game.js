@@ -861,7 +861,7 @@
     let i = 0; endTimers.push(setInterval(() => { const [w, c, m] = L[i++ % L.length], d = document.createElement('div'); d.innerHTML = '<b style="color:' + c + '">' + w + '</b>' + m; box.appendChild(d); if (box.children.length > 6) box.firstChild.remove(); }, 680));
     const cf = document.getElementById('conf'); cf.innerHTML = ''; if (won) for (let k = 0; k < 26; k++) { const e = document.createElement('i'); e.style.left = (Math.random() * 100) + '%'; e.style.background = k % 3 ? '#3BEA1E' : '#FF2FB3'; e.style.animationDelay = (-Math.random() * 3.2) + 's'; e.style.animationDuration = (2.6 + Math.random() * 1.6) + 's'; cf.appendChild(e); }
     const st = document.getElementById('endSticker'); st.style.animation = 'none'; void st.offsetWidth; st.style.animation = ''; }
-  const LOGO = new Image(); LOGO.src = 'assets/logo-title.png'; const LOGOH = new Image(); LOGOH.src = 'assets/logo-horizontal.png';
+  const LOGO = new Image(); LOGO.src = 'assets/logo-title.webp'; const LOGOH = new Image(); LOGOH.src = 'assets/logo-horizontal.png';
   startCard.classList.add('hidden'); begin(Q.has('attract') ? 'attract' : 'play');   // the ad opens IN the game: the first drag is the start (D-041)
   if (Q.has('card')) { startCard.classList.add('hidden'); S.end = Q.get('card') === 'win' ? 'win' : 'busted'; S.endT = 9; S.viewers = 4200000; showEnd(S); }
   if (Q.has('bot')) { startCard.classList.add('hidden'); begin('play'); }

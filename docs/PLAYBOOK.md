@@ -145,4 +145,31 @@ Builds only the formats you give inputs for, plus a showcase for 2+. Pre-roll ga
 python tools/rangeserver.py "<repo folder>" 8767 0.0.0.0
 ```
 A static server with byte ranges (plain `http.server` breaks video seeking). Open `http://127.0.0.1:8767/<format>/<name>/`; with
-`0.0.0.0` it is reachable from phones on the same network. Iterate locally and push when the mock is approved.
+`0.0.0.0` it is reachable from phones on the same network. Iterate locally and push when the mock is approved. For a playable or
+hybrid, section 12 comes before the push.
+
+## 12. Playables and hybrids load from Cloudflare
+
+GitHub keeps the review page, the link and a full copy of the game. Viewers load the game from Cloudflare R2, under
+`mocks/<format>/<name>/`, the same path as the repo. Both must always hold the same game. Claude Code sessions get these steps
+automatically from `.claude/rules/cloudflare-upload.md`.
+
+**A new playable or hybrid:**
+1. In `index.html`, set the iframe `src` and `data-full` to `https://campaign-creatives.iion.media/mocks/<format>/<name>/mock.html`
+   and remove `data-ripple`.
+2. Upload: `python tools/upload-mock.py <format>/<name>` (`--dry-run` shows what it would do).
+3. Open that URL and play it through.
+4. Push the whole folder to GitHub, game files included, always after the upload.
+
+**Updating one:** change the files, run the same upload command (it sends only what changed, `mock.html` last), then push. Cloudflare
+can keep the old files for up to 10 minutes, and a new `?v=` on the link doesn't skip that for code files.
+
+**Credentials:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, in `~/cloudflare-creative-mocks.env` or the environment. Never in this repo.
+
+**Good to know:**
+- Only write under `mocks/`. The rest of the bucket isn't ours to change.
+- Cloudflare has no folder index, so always link the exact file (`.../mock.html`).
+- Testing local changes once a page points at Cloudflare: open `mock.html` directly, because the review page shows the uploaded copy.
+- Existing mocks that still load their own `mock.html` stay on GitHub until someone decides to switch them.
+- Other formats stay on GitHub: their sound buttons call into the game, which needs the page and the game on the same domain.
+- GitHub is a manual backup. If Cloudflare goes down, point `src` and `data-full` back to `mock.html` and push.

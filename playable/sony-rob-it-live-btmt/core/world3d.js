@@ -21,14 +21,19 @@ function resize() { if (window.__capSized) return; const r = canvas.getBoundingC
 new ResizeObserver(resize).observe(canvas); resize();
 
 // ── materials from the Gemini tiles ──
-// the loader screen: progress from three's loading manager; done when the bank, both actors and the environment are in (or after 25 s)
+// the loader screen: progress from three's loading manager; done when the bank, both actors and the environment are in AND no file is still loading.
+// Exits: a failed file ends as "done" in the manager, so 8 quiet seconds move on without it; 120 s is the last resort for a connection that hangs.
 { const bar = document.getElementById('loadBar'), el = document.getElementById('load'), lt = document.getElementById('loadT'), lv = document.getElementById('loadV'); let shown = 0, done = false;
   const LINES = ['Masks on…', 'Casing the bank…', 'Connecting to the stream…']; let li = 0; const cyc = setInterval(() => { if (done || !lt) return; li = (li + 1) % LINES.length; lt.textContent = LINES[li]; }, 900);
   const vt = setInterval(() => { if (!lv) return; const v = Math.round(150000 * Math.min(1, shown * 0.85 + 0.03) + Math.random() * 900); lv.textContent = (v >= 1000 ? Math.round(v / 1000) + 'K' : v) + ' watching'; }, 120);
-  THREE.DefaultLoadingManager.onProgress = (u, a, b) => { shown = Math.max(shown, a / Math.max(1, b)); if (bar) bar.style.width = Math.round(4 + 96 * shown) + '%'; };
+  const M = THREE.DefaultLoadingManager, mStart = M.itemStart, mEnd = M.itemEnd; let busy = 0, busyAt = performance.now();
+  M.itemStart = (u) => { busy++; busyAt = performance.now(); mStart.call(M, u); }; M.itemEnd = (u) => { busy--; busyAt = performance.now(); mEnd.call(M, u); };
+  // the images the 3D loaders don't track: the end-screen poster (only requested when that screen opens otherwise), the tutorial and hack-screen art, the logos
+  window.__preload = ['assets/end/poster_intl.webp', 'assets/logo-title.webp', 'assets/logo-horizontal.png', 'assets/tut_guard.webp', 'assets/tut_t_cam.webp', 'assets/tut_t_tv.webp', 'assets/tut_t_door.webp', 'assets/tex/hand.webp', 'assets/tex/pcb.webp', 'assets/tex/junction.webp', 'assets/tex/remote.webp', 'assets/tex/knob.webp', 'assets/tex/lock.webp'].map(u => { M.itemStart(u); const i = new Image(); i.onload = i.onerror = () => M.itemEnd(u); i.src = u; return i; });
+  M.onProgress = (u, a, b) => { shown = Math.max(shown, a / Math.max(1, b)); if (bar) bar.style.width = Math.round(4 + 96 * shown) + '%'; };
   const finish = () => { if (done || !el) return; done = true; clearInterval(cyc); clearInterval(vt); if (bar) bar.style.width = '100%'; if (lt) { lt.textContent = 'GOING LIVE'; lt.classList.add('live'); } if (lv) lv.textContent = '150K watching'; setTimeout(() => { el.classList.add('done'); if (G.S && G.S.mode === 'play' && !G.S.started && !G.BOT) G.begin('play'); window.__loaded = true; }, 650); };
-  const poll = setInterval(() => { if (window.__bank && window.__actor && window.__guard && window.__env) { clearInterval(poll); finish(); } }, 100);
-  setTimeout(() => { clearInterval(poll); finish(); }, 25000);
+  const poll = setInterval(() => { if (busy > 0) return; const quiet = performance.now() - busyAt, ready = window.__bank && window.__actor && window.__guard && window.__env; if ((ready && quiet > 300) || quiet > 8000) { clearInterval(poll); finish(); } }, 100);
+  setTimeout(() => { clearInterval(poll); finish(); }, 120000);
   if (!el) window.__loaded = true; }
 const TL = new THREE.TextureLoader();
 function tex(name, rx, ry) { const t = TL.load(`assets/tex/${name}.webp`); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = R.capabilities.getMaxAnisotropy(); return t; }
