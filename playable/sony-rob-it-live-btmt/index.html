@@ -24,8 +24,8 @@
 <section class="stage phone-stage">
   <div class="phone">
     <div class="screen interstitial">
-      <!-- production unit: centres its own 2:3 frame on black in any window; it doesn't post iionTap, so data-ripple="pointer" ripples the viewer's taps -->
-      <div class="ad-slot" data-ripple="pointer" data-full="mock.html"><iframe src="mock.html" title="2:3 playable ad" allow="autoplay"></iframe><script>{const v=new URLSearchParams(location.search).get("v"),f=document.currentScript.previousElementSibling;if(v&&f&&f.tagName==="IFRAME")f.src=f.getAttribute("src")+(f.getAttribute("src").includes("?")?"&":"?")+"v="+encodeURIComponent(v);}</script></div>
+      <!-- production unit: centres its own 2:3 frame on black in any window; loads from Cloudflare (same path under mocks/), the copy beside this page is the fallback -->
+      <div class="ad-slot" data-full="https://campaign-creatives.iion.media/mocks/playable/sony-rob-it-live-btmt/mock.html"><iframe src="https://campaign-creatives.iion.media/mocks/playable/sony-rob-it-live-btmt/mock.html" title="2:3 playable ad" allow="autoplay"></iframe><script>{const v=new URLSearchParams(location.search).get("v"),f=document.currentScript.previousElementSibling;if(v&&f&&f.tagName==="IFRAME")f.src=f.getAttribute("src")+(f.getAttribute("src").includes("?")?"&":"?")+"v="+encodeURIComponent(v);}</script></div>
       <div class="ad-close" aria-hidden="true">×</div>
       <div class="statusbar"><span>9:41</span><span class="icons">
         <svg viewBox="0 0 18 12" fill="#fff" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3" width="3" height="9" rx=".8"/><rect x="15" y="0" width="3" height="12" rx=".8"/></svg>
