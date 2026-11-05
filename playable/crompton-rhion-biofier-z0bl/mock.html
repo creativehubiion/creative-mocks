@@ -633,7 +633,7 @@ function init3D(){
     const tokGeo=new THREE.CylinderGeometry(.17,.17,.05,6), tokRimGeo=new THREE.CylinderGeometry(.2,.2,.04,6);
     const tokMat=new THREE.MeshPhysicalMaterial({color:lc('#f2b03a'),emissive:lc('#ff9d00'),emissiveIntensity:.22,metalness:.25,roughness:.3,clearcoat:1,clearcoatRoughness:.15,toneMapped:false});
     const tokRimMat=new THREE.MeshBasicMaterial({color:lc('#fff4d6'),toneMapped:false});
-    const gemMats={}; for (const n in GEMCOL){ const c=GEMCOL[n]; gemMats[n]=new THREE.MeshPhysicalMaterial({color:lc(c[0]),emissive:lc(c[1]),emissiveIntensity:.45,metalness:.15,roughness:.06,clearcoat:1,clearcoatRoughness:.03,envMapIntensity:3,flatShading:true,toneMapped:false}); }
+    const gemMats={}; for (const n in GEMCOL){ const c=GEMCOL[n]; gemMats[n]=new THREE.MeshPhysicalMaterial({color:lc(c[0]),emissive:lc(c[1]),emissiveIntensity:.45,metalness:.15,roughness:.32,clearcoat:.6,clearcoatRoughness:.35,envMapIntensity:1.8,flatShading:true,toneMapped:false}); }
     const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:gtex,color:0xee80ff,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:.6})); scene.add(glow);
     const specks=[]; for (let j=0;j<4;j++){ const sp=new THREE.Mesh(new THREE.SphereGeometry(.02,8,8),new THREE.MeshStandardMaterial({color:lc(DIRT[j%3]),roughness:.8})); scene.add(sp); specks.push(sp); }
     // water column through the middle
@@ -921,6 +921,21 @@ function drawBanner(){
 }
 
 let titleDiscs=null, titleN=0;
+// the pulsing button is one pre-drawn image: canvas text snaps to whole pixels when scaled live, so the label would drift against the pill
+let tapBtn=null, tapBtnFonts=null;
+function drawTapBtn(pulse){
+  const S=3, PAD=40, w=220, h=52;
+  if (!tapBtn||tapBtnFonts!==fontsReady){
+    tapBtnFonts=fontsReady; tapBtn=document.createElement('canvas'); tapBtn.width=(w+2*PAD)*S; tapBtn.height=(h+2*PAD)*S;
+    const main=ctx; ctx=tapBtn.getContext('2d'); ctx.scale(S,S); ctx.translate(PAD,PAD);
+    ctx.save(); ctx.shadowColor='rgba(237,2,140,.55)'; ctx.shadowBlur=44; RR(0,0,w,h,pillGrad(0,0,w,h),h/2); ctx.restore();   // same glow as pill(): this canvas is twice the UI layer's density
+    T('Tap to Play',w/2,h/2+19*.36,19,'#fff','center',600);
+    ctx=main;
+  }
+  const dw=(w+2*PAD)*pulse, dh=(h+2*PAD)*pulse;
+  ctx.imageSmoothingQuality='high'; ctx.drawImage(tapBtn,180-dw/2,(H-72)-dh/2,dw,dh);
+  hits.push({x:70,y:H-98,w,h,fn:startGame});
+}
 function drawTitle(dt){
   tTitle+=dt;
   background(0);
@@ -936,9 +951,8 @@ function drawTitle(dt){
   const tn=Math.floor(tTitle/per); if (tn!==titleN){ titleN=tn; if (tn>0) spawnSplash(titleDiscs[0]); }   // splash each time the demo drop lands
   render3D(titleDiscs,tTitle*.9,0,byT,{boost:false,murky:false,vy:(1-2*p)*900,pole:false,titleGems:true,wobT:p*per});
   // one call to action
-  const pulse=1+.025*Math.sin(tTitle*4);
-  ctx.save(); ctx.translate(180,H-72); ctx.scale(pulse,pulse); ctx.translate(-180,-(H-72));
-  pill('Tap to Play',70,H-98,220,52,startGame,true,19); ctx.restore();
+  const pulse=1+.025*Math.cos(2*Math.PI*p);   // on the drop's bounce: largest as it lands
+  drawTapBtn(pulse);
   hits.push({x:-OX,y:0,w:W,h:H,fn:startGame});
 }
 
