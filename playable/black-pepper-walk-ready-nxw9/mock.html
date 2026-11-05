@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Walk Ready</title>
+<style>
+@font-face{font-family:Montserrat;src:url(assets/montserrat-latin.woff2) format("woff2");font-weight:100 900;font-display:block}
+:root{--ink:#111;--paper:#fff;--sand:#f3efe8;--line:#ddd6ca;--mut:#5c574f;--good:#1f6f6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavior:none;touch-action:none}
+body{display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:min(100vw,calc(100vh*2/3));aspect-ratio:2/3;overflow:hidden;container-type:inline-size;background:#fff;font-family:Montserrat,Arial,sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none}
+@media (min-aspect-ratio:655/960) and (max-aspect-ratio:680/960){#stage{width:100vw;height:100vh;aspect-ratio:auto}}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#load{position:absolute;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4cqw;transition:opacity .45s;z-index:5}
+#load.done{opacity:0;pointer-events:none}
+#load svg{width:60cqw;height:auto}
+#load .bar{width:44cqw;height:.6cqw;background:#eee;overflow:hidden}
+#load .bar i{display:block;height:100%;width:0;background:#111;transition:width .2s}
+#end{position:absolute;top:0;right:0;bottom:0;width:50cqw;background:var(--paper);box-shadow:-.4cqw 0 1.2cqw rgba(20,14,6,.28),-1.6cqw 0 6cqw rgba(20,14,6,.36);transform:translateX(105%);transition:transform .6s cubic-bezier(.2,.9,.25,1);padding:3.4cqw 3.4cqw 2.2cqw;display:flex;flex-direction:column;z-index:4;pointer-events:none}
+#end.show{transform:none;pointer-events:auto}
+#end .mark{width:92%;display:block;margin:0 auto 5.4cqw}
+#end .mark svg{width:100%;height:auto;display:block}
+#endStars{display:flex;justify-content:flex-start;gap:.8cqw;margin-bottom:1.4cqw}
+#endStars img{width:6.4cqw;height:6.4cqw;transform:scale(0);animation:starIn .42s cubic-bezier(.2,1.6,.4,1) forwards}
+#endStars img.off{opacity:.16;filter:grayscale(1)}
+#endStars img:nth-child(1){animation-delay:.45s}#endStars img:nth-child(2){animation-delay:.6s}#endStars img:nth-child(3){animation-delay:.75s}
+@keyframes starIn{to{transform:scale(1)}}
+#end .stamp{font-weight:700;font-size:7.2cqw;line-height:1.02;letter-spacing:-.02em;margin:0}
+#end .sub{font-weight:500;font-size:2.95cqw;line-height:1.35;margin:1.2cqw 0 0;color:var(--mut)}
+#end ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.2cqw;flex:1;min-height:0;justify-content:center}
+#end li{display:flex;align-items:center;gap:1.4cqw;padding:.5cqw 0;opacity:0;transform:translateX(3cqw);transition:opacity .4s,transform .4s}
+#end.show li{opacity:1;transform:none}
+#end.show li:nth-child(1){transition-delay:.35s}#end.show li:nth-child(2){transition-delay:.47s}#end.show li:nth-child(3){transition-delay:.59s}
+#end li span.ph{width:6.6cqw;height:7.4cqw;flex:none;display:flex;align-items:center;justify-content:center}
+#end li img{max-width:6.6cqw;max-height:7.4cqw;display:block}
+#end li b{font-weight:500;font-size:2.85cqw;line-height:1.22;color:#2b2925}
+#end .ask{font-weight:700;font-size:3.6cqw;line-height:1.15;margin:0 0 1.4cqw}
+#end button{font-family:inherit;cursor:pointer;border:0;display:block;width:100%}
+#cta{position:relative;overflow:hidden;background:#111;color:#fff;font-weight:700;font-size:3.7cqw;line-height:1.2;padding:3.6cqw 2cqw;border-radius:1.6cqw;text-align:center;box-shadow:0 .5cqw 1cqw rgba(20,14,6,.4),0 2cqw 4.4cqw rgba(20,14,6,.42)}
+#cta:active{transform:translateY(.4cqw) scale(.985)}
+#cta::after{content:"";position:absolute;top:-30%;bottom:-30%;width:16%;left:-30%;background:linear-gradient(90deg,transparent,rgba(233,215,173,.4),transparent);transform:skewX(-20deg);animation:shine 2.6s 1s infinite}
+@keyframes shine{0%{left:-30%}38%,100%{left:130%}}
+#end .terms{font-size:1.95cqw;font-weight:500;color:var(--mut);margin:1.2cqw 0 .3cqw;line-height:1.25;text-align:center}
+#again{background:none;color:var(--mut);font-weight:500;font-size:2.8cqw;padding:1cqw 0;text-decoration:underline;text-underline-offset:.4cqw}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" width="640" height="960"></canvas>
+  <canvas id="hud" width="640" height="960"></canvas>
+  <div id="end">
+    <div class="mark" id="endMark"></div>
+    <div id="endStars"></div>
+    <h1 class="stamp" id="endStamp"></h1>
+    <div class="sub" id="endSub"></div>
+    <ul id="endList"></ul>
+    <div class="ask">Love this look?</div>
+    <button id="cta">Become a Member and receive $20&nbsp;off*</button>
+    <div class="terms">*On your next order. T&amp;Cs apply.</div>
+    <button id="again">Play again</button>
+  </div>
+  <div id="load"><div id="loadMark"></div><div class="bar"><i id="loadBar"></i></div></div>
+</div>
+<script src="core/logo.js?v=20261106"></script>
+<script src="core/rules.js?v=20261106"></script>
+<script src="core/game.js?v=20261106"></script>
+</body>
+</html>
