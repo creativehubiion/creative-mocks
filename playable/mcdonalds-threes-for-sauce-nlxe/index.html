@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Threes for Sauce</title>
+<style>html,body{height:100%!important;margin:0!important;background:#000!important;overflow:hidden!important}body{display:flex!important;align-items:center!important;justify-content:center!important}</style></head><body>
+<script src="_core/draw.js"></script>
+<script src="_core/layers.js"></script>
+<script src="_core/engine.js"></script>
+<script src="_core/motion.js"></script>
+<script src="_core/threes-for-sauce-931f800a-game.js"></script>
+<script type="module" src="_core/world3.js"></script>
+<script type="module" src="_core/physics.js"></script>
+<script type="module" src="_core/palette.js"></script>
+<script type="module">
+  const G = window.ThreesForSauceGame, C = G.CONFIG, Hc = C.hoop, BD = Hc.board, TB = C.tube, RK = C.rack, BR = C.burger;
+  const BRAND = { colors: [{ hex: '#db0007', type: 'accent' }, { hex: '#8a4b29', type: 'dark' }, { hex: '#fde98a', type: 'light' }] };
+  const R = PALETTE.fromBrand(BRAND, { night: true, product: '#4a1408' });
+  const P = PALETTE.hsl(R.player), Y = PALETTE.hsl(R.reward);
+  const WALL = [PALETTE.hex({ h: P.h, s: 0.7, l: 0.12 }), PALETTE.hex({ h: P.h, s: 0.75, l: 0.26 })];
+  const RIMC = PALETTE.hex({ h: P.h + 14, s: 0.85, l: 0.5 });
+  const BALLC = R.hazard, POSTC = R.silhouette;
+  // court markings, laid flat (canvas top = near the shooter)
+  const CL = { x0: -5, z0: -2, w: 10, d: 12, px: 100 };
+  const lines = document.createElement('canvas'); lines.width = CL.w * CL.px; lines.height = CL.d * CL.px;
+  { const o = lines.getContext('2d'), k = CL.px, U = x => (x - CL.x0) * k, V = z => (z - CL.z0) * k, base = Hc.z + 1.6, ft = base - 5.8;
+    const red = PALETTE.hsl(R.player);
+    o.fillStyle = PALETTE.hex({ h: red.h, s: 0.8, l: 0.34 }); o.globalAlpha = 0.6; o.fillRect(U(-2.45), V(ft), 4.9 * k, 5.8 * k); o.globalAlpha = 1;
+    o.strokeStyle = 'rgba(236,230,214,0.5)'; o.lineWidth = 0.09 * k; o.lineCap = 'round';
+    o.strokeRect(U(-2.45), V(ft), 4.9 * k, 5.8 * k);
+    o.beginPath(); o.arc(U(0), V(ft), 1.8 * k, 0, Math.PI * 2); o.stroke();
+    o.beginPath(); o.moveTo(0, V(base)); o.lineTo(lines.width, V(base)); o.stroke();
+    o.beginPath(); o.arc(U(0), V(Hc.z), 6.75 * k, Math.PI, Math.PI * 2); o.stroke();
+    o.beginPath(); o.arc(U(0), V(Hc.z), 1.25 * k, Math.PI, Math.PI * 2); o.stroke(); }
+  const LEDINK = PALETTE.hex({ h: Y.h, s: 0.95, l: 0.45 });
+  const grey = (ctx, x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+  const layers = [
+    { id: 'L1', name: 'arena-backdrop', type: 'plate', canvas: [2048, 768], key: null,
+      notes: 'Picture. The far wall of a night court in McDonald\'s red, two yellow bands (skyPlate). No logo, words or people.',
+      shape(ctx, x, y, w, h) { grey(ctx, x, y, w, h, WALL[0]); grey(ctx, x, y + h * 0.35, w, h * 0.5, WALL[1]); grey(ctx, x, y + h * 0.52, w, h * 0.04, R.reward); grey(ctx, x, y + h * 0.7, w, h * 0.03, R.reward); } },
+    { id: 'L2', name: 'court-floor', type: 'tile', canvas: [512, 512], key: null,
+      notes: 'Picture, a seamless tile: polished maple court boards, a soft varnish, no painted lines (the lines are code).',
+      shape(ctx, x, y, w, h) { grey(ctx, x, y, w, h, R.ground); for (let i = 0; i < 8; i++) grey(ctx, x + i * w / 8, y, 2, h, R.groundAlt); } },
+    { id: 'L9', name: 'dunked-mccrispy', type: 'model', canvas: [1024, 1024], key: '#4A5A7A',
+      notes: 'Model, the product: the Dunked Korean Sticky BBQ McCrispy (R1): toasted potato bun, crispy fillet glossy with dark sauce, lettuce, mayo. A solid, slot 0.56 by 0.46.',
+      shape(ctx, x, y, w, h) { GB.ell(ctx, x + w / 2, y + h * 0.38, w * 0.36, h * 0.2, '#b8b8c0'); GB.ell(ctx, x + w / 2, y + h * 0.56, w * 0.4, h * 0.08, '#55555c'); GB.ell(ctx, x + w / 2, y + h * 0.68, w * 0.36, h * 0.08, '#8a8a92'); } },
+    { id: 'L10', name: 'arches', type: 'brand', box: { x: 0.03, y: 0.025, w: 0.2, h: 0.075, anchor: 'top-left' },
+      notes: 'The brand\'s own file; top left in play, on every card.',
+      shape(ctx, x, y, w, h) { grey(ctx, x, y, w, h, R.player); } },
+    { id: 'L11', name: 'effects-and-hud', type: 'hud-in-code',
+      notes: 'Code: flick line, ghost ring, pops, court lines, burst, flood, flash, stamp, cues, cards.',
+      shape() {} },
+    { id: 'L12', name: 'product-shot', type: 'supplied', canvas: [760, 580], key: '#FFFFFF',
+      notes: 'Supplied: the client\'s McCrispy on white (R1), cut out; the end cards\' hero.',
+      shape(ctx, x, y, w, h) { GB.ell(ctx, x + w / 2, y + h * 0.35, w * 0.4, h * 0.25, '#b8b8c0'); GB.ell(ctx, x + w / 2, y + h * 0.62, w * 0.45, h * 0.1, '#55555c'); GB.ell(ctx, x + w / 2, y + h * 0.78, w * 0.4, h * 0.1, '#8a8a92'); } },
+  ];
+  const L9 = layers.find(l => l.id === 'L9'), PD = '<img class="pd" src="assets/game/product-shot.webp" alt="">';
+  const live = st => st.mode === 'play' || st.mode === 'attract';
+  const VIEW = { brandLogo: 'assets/brand/logo.png',
+    id: 'threes-shooter', title: 'three-point line, shooter\'s view', canvas: [640, 960], layers, final: true,
+    art: '.brandmark,.card .lockup{border:0;background:none;padding:0}.card .lockup img{height:12cqw}.pd{position:absolute;left:50%;top:6%;width:56cqw;transform:translateX(-50%);filter:drop-shadow(0 2cqw 3cqw rgba(0,0,0,.5))}#failCard .pd{width:42cqw;top:8%}.yb{position:absolute;background:#ffbc0d;height:3.4cqw;width:52cqw;right:-5cqw;top:-1cqw;transform:rotate(-3deg)}.yb.b{right:auto;top:auto;left:-6cqw;bottom:-1.4cqw;width:30cqw}#again2{order:1;background:none;color:var(--ink);box-shadow:none;animation:none;font-size:max(3.2cqw,10px);min-height:max(6cqw,32px);padding:1cqw 3cqw;margin-top:1.6cqw;text-decoration:underline}#cta2{background:var(--accent);color:#fff;font-size:max(4.6cqw,10px);min-height:max(12cqw,32px);padding:2.6cqw 10cqw;margin-top:5cqw;text-decoration:none;box-shadow:0 1cqw 2.4cqw rgba(0,0,0,.3);animation:breathe 2.2s ease-in-out 1s infinite}',
+    artDecor: { start: '<i class="yb"></i><i class="yb b"></i>', win: PD + '<i class="yb"></i><i class="yb b"></i>', fail: PD + '<i class="yb"></i><i class="yb b"></i>' },
+    world: { kind: 'ground', drawDist: 70,
+      camera: { mode: 'perspective', framing: 'throw-first', subject: C.ball.r * 2, follow: 0, turn: 0 },
+      zones: [{ at: 0, sky: WALL, ground: R.ground, surface: { recipe: 'court', scale: 2, size: 512 }, groundTile: 'L2', skyPlate: 'L1', haze: 0.35,
+        backdrop: { recipe: 'stands', colours: [WALL[1], R.reward, R.player, R.key], rows: 7 } }],
+      look: { style: 'arena', heroLight: 0.7 } },
+    hud: { html: '<div class="tfs-balls" id="tfsBalls"></div>',
+      css: '.tfs-balls{position:absolute;left:3cqw;top:17.5cqw;background:#2e1408;color:#ffbc0d;border:.5cqw solid #ffbc0d;font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.04em;font-size:max(4.2cqw,10px);line-height:1.2;border-radius:1.4cqw;padding:.9cqw 3.2cqw;box-shadow:0 .6cqw 1.6cqw rgba(0,0,0,.35)}',
+      update(st, el, h) { const b = el.firstChild, t = h.right || ''; if (b.textContent !== t) b.textContent = t; } },
+    geometry: () => ({ hoop: { x: Hc.x, y: Hc.y, z: Hc.z, r: Hc.r }, tube: TB, rack: RK, throwFrom: C.throw.from, framing: 'throw-first' }),
+    drawFrame(ctx, st, W, FH) {
+      const M = window.MOTION, cam = st.cam.value();
+      if (cam.shake > st.shake) st.shake = cam.shake;
+      WORLD.begin(cam);
+      const hx = G.hoopX(0), sq = st.squash.v, bz = Hc.z + BD.dz;
+      WORLD.picture(lines, null, 0, 0.001, CL.z0 + CL.d / 2, CL.w, CL.d, { flat: true, shadow: false });
+      WORLD.crowd({ id: 'stands', x: 0, y: 0.9, z: 13.2, w: 22, rows: 5, perRow: 28, colours: R.crowd, dark: true, rise: 0.6, depth: 1.1, sway: 0.05, tier: WALL[0] });
+      WORLD.board({ id: 'led', x: 0, y: 0, z: 12.4, w: 18, h: 0.7, text: C.copy.line + '   Dunked Korean Sticky BBQ Chicken', colour: R.ink, ink: LEDINK, speed: 1.1, glow: true });
+      WORLD.board({ id: 'ribbon', x: 0, y: 4.4, z: 19.5, w: 30, h: 0.9, text: C.copy.line, colour: WALL[0], ink: R.key, speed: -0.9, glow: true });
+      for (let i = 0; i < 7; i++) WORLD.shape('lamp', -9 + i * 3, 6.6, 21, 0.34, 0.34, R.key, { shadow: false, contact: false });
+      WORLD.shape('box', hx, Hc.y + BD.y0, bz, BD.w, BD.h, '#efefea', { d: BD.d, material: 'lacquer' });
+      for (const [dx, dy, w, h, c] of [[0, BD.h - 0.07, BD.w, 0.07, R.player], [0, 0, BD.w, 0.07, R.player], [-BD.w / 2 + 0.035, 0, 0.07, BD.h, R.player], [BD.w / 2 - 0.035, 0, 0.07, BD.h, R.player],
+        [0, 0.33, 0.8, 0.05, R.reward], [0, 0.9, 0.8, 0.05, R.reward], [-0.38, 0.33, 0.05, 0.62, R.reward], [0.38, 0.33, 0.05, 0.62, R.reward]])
+        WORLD.shape('box', hx + dx, Hc.y + BD.y0 + dy, bz - BD.d / 2 - 0.01, w, h, c, { d: 0.02, shadow: false, contact: false, material: 'lacquer' });
+      const rimD = (Hc.r + Hc.tube) * 2;
+      WORLD.shape('rim', hx, Hc.y, Hc.z, rimD * (2 - sq), rimD * sq, RIMC, { flat: true, shadow: true });
+      WORLD.target(hx, Hc.y, Hc.z, Hc.r * 2);
+      WORLD.shape('box', hx, Hc.y - 0.05, (Hc.z + Hc.r + bz) / 2, 0.14, 0.08, RIMC, { shadow: false, contact: false, material: 'metal', d: bz - Hc.z - Hc.r });
+      WORLD.shape('net', hx, Hc.y - 0.8, Hc.z, Hc.r * 1.95, 0.8, '#e8e8e2', { shadow: false });
+      if (live(st)) WORLD.shape('lathe', hx, 0, bz + Hc.post.dz, Hc.post.w, Hc.y + BD.y0, POSTC, { material: 'metal', profile: [[0.5, 0], [0.5, 0.04], [0.32, 0.06], [0.32, 1], [0.001, 1]] });
+      if (st.ghost) WORLD.cue({ id: 'ghost', kind: 'ring', x: st.ghost.x, y: Hc.y, z: Hc.z, size: rimD, colour: '#ffffff', alpha: 0.7 * st.ghost.a });
+      const shk = st.tubeShake > 0 ? Math.sin(st.tubeShake * 40) * 0.025 * st.tubeShake : 0, tx = TB.x + shk;
+      WORLD.shape('lathe', tx, 0, TB.z, TB.w * 1.6, TB.y, R.reward, { material: 'lacquer', profile: [[0.5, 0], [0.5, 0.55], [0.34, 1], [0.001, 1]] });
+      WORLD.liquid('fill', { x: tx, y: TB.y, z: TB.z, w: TB.w * 0.9, h: TB.h, level: Math.max(0.002, Math.min(1, st.level.v)), colour: R.product, gloss: 0.85, thick: 1, wave: 0.04 });
+      WORLD.liquid('glass', { x: tx, y: TB.y, z: TB.z, w: TB.w, h: TB.h, colour: '#ffffff', alpha: 0.22 });
+      for (let i = 1; i <= C.notches; i++) WORLD.shape('rim', tx, TB.y + TB.h * i / C.notches - (i === C.notches ? 0.04 : 0), TB.z, TB.w * 1.15, TB.w * 1.15, i <= st.notches ? R.reward : R.player, { flat: true, shadow: false });
+      WORLD.shape('lathe', tx, TB.y + TB.h, TB.z, TB.w * 1.3, 0.16, R.reward, { material: 'lacquer', shadow: false, profile: [[0.5, 0], [0.5, 0.6], [0.3, 1], [0.001, 1]] });
+      const nextIdx = st.shots + (st.loaded ? 1 : 0);
+      WORLD.shape('rounded', 0, 0, RK.z, RK.gap * C.balls + 0.08, RK.h, R.player, { material: 'lacquer', d: 0.18 });
+      for (let j = nextIdx; j < C.balls; j++) WORLD.shape('ball', (j - (C.balls - 1) / 2) * RK.gap, RK.h, RK.z, RK.ball, RK.ball, j === C.balls - 1 ? R.product : BALLC, { shadow: false, contact: false });
+      const T = C.throw, r = C.ball.r, inPlay = live(st);
+      if (inPlay) WORLD.hero(T.from.x, T.from.y - r, T.from.z, r * 2, { kind: 'ball', role: 'rubber' });
+      if (inPlay && st.loaded && st.hand.shown) {
+        const sauced = st.shots === C.balls - 1, y = T.from.y - r - (1 - st.hand.u) * 0.7 + Math.sin(st.elapsed * 2.4) * 0.02;
+        WORLD.shape('ball', T.from.x, y, T.from.z, r * 2, r * 2, sauced ? R.product : BALLC, { shadow: false, spin: st.elapsed * 0.5 });
+      }
+      for (const b of [st.ball, ...st.spent]) if (b && b.live) WORLD.shape('ball', b.x, b.y - r, b.z, r * 2, r * 2, b.sauced ? R.product : BALLC, { spin: b.spin });
+      if (st.spin) {   // the fail: round the rim and out
+        const t = st.spin.t, a = st.spin.a + Math.min(t, 0.9) * 1.3 * Math.PI * 2 / 0.9, out = Math.max(0, t - 0.9);
+        const rr = Hc.r * 0.92 + out * 3, y = Hc.y + 0.05 - out * out * 9;
+        if (y > -0.5) WORLD.shape('ball', st.spin.x + Math.cos(a) * rr, y - r, Hc.z + Math.sin(a) * rr, r * 2, r * 2, R.product, { shadow: false });
+      }
+      if (st.burger) WORLD.layer(L9, 'lathe', st.burger.x, st.burger.y - BR.h / 2, st.burger.z, BR.w, BR.h, '#c98a3e', { body: st.burger, profile: BR.profile, material: 'matte', hero: true });
+      if (st.burst) for (const q of st.burst.parts) if (q.a > 0) WORLD.shape('disc', q.x, q.y - q.s / 2, q.z, q.s, q.s, R.product, { alpha: q.a, shadow: false, contact: false, material: 'lacquer' });
+      WORLD.end();
+      if (st.down && st.aim && st.aim.dy < -0.3) {
+        const reach = M.clamp(1 + (st.aim.len / T.range - 1) * T.reachGain, T.reach[0], T.reach[1]);
+        const v = M.launch(T.from, { x: T.from.x + st.aim.dx * st.aim.len * T.aimAcross, y: Hc.y, z: T.from.z + Hc.z * reach }, { apex: T.apex }, T.g);
+        ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.setLineDash([6, 8]); ctx.lineWidth = 2.5; ctx.beginPath();
+        for (let i = 0; i <= 16; i++) { const t = v.secs * i / 16, s = WORLD.project(T.from.x + v.vx * t, T.from.y + v.vy * t - 0.5 * T.g * t * t, T.from.z + v.vz * t); if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y); }
+        ctx.stroke(); ctx.restore();
+      }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const p of st.pops) {
+        const s = WORLD.project(p.x, p.y + p.t * 0.4, p.z), a = Math.max(0, 1 - p.t / 1.2);
+        ctx.globalAlpha = a; ctx.font = `900 ${Math.round(W * 0.06)}px Inter, system-ui, sans-serif`; ctx.lineWidth = W * 0.012; ctx.strokeStyle = 'rgba(20,6,4,0.85)'; ctx.strokeText(p.text, s.x, s.y); ctx.fillStyle = '#fff'; ctx.fillText(p.text, s.x, s.y); ctx.globalAlpha = 1;
+      }
+      if (st.flash > 0) { ctx.fillStyle = `rgba(255,236,190,${(st.flash * 0.3).toFixed(3)})`; ctx.fillRect(0, 0, W, FH); }
+      if (st.flood) {
+        const top = st.flood.surface(0.5) * FH, gr = ctx.createLinearGradient(0, top, 0, top + FH * 0.25); gr.addColorStop(0, '#62200d'); gr.addColorStop(1, R.product);
+        ctx.save(); st.flood.path(ctx, W, FH); ctx.fillStyle = gr; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,190,140,0.35)'; ctx.lineWidth = W * 0.012; ctx.beginPath(); st.flood.points(32).forEach((q, i) => { const y = q.y * FH + W * 0.012; if (i === 0) ctx.moveTo(q.x * W, y); else ctx.lineTo(q.x * W, y); }); ctx.stroke(); ctx.restore();
+      }
+      if (st.stamp > 0) {
+        const k = Math.min(1, st.stamp / 0.25), s = 1 + 0.4 * (1 - k);
+        ctx.save(); ctx.globalAlpha = k; ctx.translate(W / 2, FH * 0.17); ctx.scale(s, s); ctx.rotate(-0.04);
+        ctx.font = `900 ${Math.round(W * 0.062)}px Inter, system-ui, sans-serif`; ctx.lineWidth = W * 0.014; ctx.strokeStyle = 'rgba(20,6,4,0.9)';
+        for (const [i, line] of ["They dunk hoops.", "Macca's dunks burgers."].entries()) { const y = (i - 0.5) * W * 0.075; ctx.strokeText(line, 0, y); ctx.fillStyle = i ? R.reward : '#fff'; ctx.fillText(line, 0, y); }
+        ctx.restore();
+      }
+    },
+  };
+  VIEW.art = ".brandmark{background:none!important;box-shadow:none!important;border:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}.hint{font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.05em;font-size:max(3.8cqw,10px);background:#db0007;color:#fff;padding:1.4cqw 4.4cqw;box-shadow:0 0 0 .5cqw #ffbc0d,0 .8cqw 1.8cqw rgba(0,0,0,.35)}.hint.cue{background:#fff;color:#2e1408}.card .yb{display:none}.card .btn{display:inline-flex;align-items:center;justify-content:center;font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.06em;font-size:max(5.2cqw,10px);min-height:max(12.5cqw,32px);padding:0 11cqw;margin-top:5cqw;border-radius:999px;border:0;background:#db0007;color:#fff;text-decoration:none;box-shadow:0 0 0 .7cqw #ffbc0d,0 1.2cqw 2.4cqw rgba(0,0,0,.4)}.card .btn.ghost{display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fde98a;border:.5cqw solid #fde98a;box-shadow:none;animation:none;font-size:max(4.2cqw,10px);min-height:max(10.5cqw,32px);padding:0 7cqw;margin-top:4.8cqw;text-decoration:none}@keyframes tfsStamp{0%{opacity:0;transform:rotate(-4deg) scale(1.9)}100%{opacity:1;transform:rotate(-4deg) scale(1)}}@keyframes tfsUp{0%{opacity:0;transform:translateY(3cqw)}100%{opacity:1;transform:none}}@keyframes tfsSlam{0%{opacity:0;transform:scale(1.7)}60%{opacity:1;transform:scale(.96)}100%{opacity:1;transform:scale(1)}}@keyframes tfsDrop{0%{opacity:0;transform:translateY(-6cqw)}100%{opacity:1;transform:none}}#startCard{background:none;padding:0 8cqw 13cqw}#startCard .lockup{position:absolute;left:8.3cqw;top:4.7cqw;margin:0;padding:0;border:0;background:none}#startCard .lockup img{height:9.4cqw}#startCard h1{position:absolute;left:12cqw;right:12cqw;top:17cqw;margin:0;font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;font-size:10.8cqw;line-height:1;letter-spacing:.01em;text-wrap:balance;color:#fff;text-shadow:.5cqw .5cqw 0 #2e1408,-.5cqw .5cqw 0 #2e1408,.5cqw -.5cqw 0 #2e1408,-.5cqw -.5cqw 0 #2e1408,.7cqw 0 0 #2e1408,-.7cqw 0 0 #2e1408,0 .7cqw 0 #2e1408,0 -.7cqw 0 #2e1408,0 1.2cqw 0 #2e1408,0 2cqw 3cqw rgba(0,0,0,.45);animation:tfsDrop .6s cubic-bezier(.2,1.3,.4,1) .1s both}#startCard p{margin:0;max-width:72cqw;font-size:max(3.6cqw,10px);line-height:1.35;font-weight:600;color:#fff;background:rgba(46,20,8,.86);border-radius:1.6cqw;padding:1.8cqw 3.6cqw;box-shadow:0 .8cqw 2cqw rgba(0,0,0,.3);animation:tfsUp .5s ease-out .35s both}#startCard .hand{width:15cqw;height:15cqw;margin:1.5cqw 0 0}#startCard .btn{margin-top:3cqw;animation:tfsUp .45s ease-out .5s both,breathe 2.2s ease-in-out 1.6s infinite}#winCard,#failCard{padding:0 7cqw 6.5cqw}#winCard{background:linear-gradient(177deg,rgba(46,20,8,0) 0,rgba(46,20,8,0) 26%,rgba(46,20,8,.5) 41.6%,#ffbc0d 41.6%,#ffbc0d 42.8%,#2e1408 42.8%,#2e1408 100%)}#failCard{background:linear-gradient(177deg,rgba(46,20,8,0) 0,rgba(46,20,8,0) 24%,rgba(46,20,8,.5) 38%,#ffbc0d 38%,#ffbc0d 39.2%,#2e1408 39.2%,#2e1408 100%)}#winCard .art-deco,#failCard .art-deco{inset:auto;top:16.5cqw;left:0;right:0;height:34.5cqw}#winCard .pd{top:0;width:42cqw}#failCard .pd{top:0;width:40cqw}#winCard .lockup,#failCard .lockup,#winCard .hand,#failCard .hand,#failCard .stamp{display:none}#winCard .stamp{order:0;font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;font-size:8.4cqw;line-height:1;letter-spacing:.05em;color:#db0007;background:#fde98a;border:.9cqw solid #db0007;border-radius:1.4cqw;padding:1.2cqw 4.4cqw;margin:0 0 3cqw;transform:rotate(-4deg);box-shadow:0 1cqw 0 #2e1408;animation:tfsStamp .4s cubic-bezier(.2,1.4,.3,1) both}#winCard h1,#failCard h1{font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;color:#fff;margin:0;letter-spacing:.01em;text-wrap:balance}#winCard h1{order:2;font-size:8.6cqw;line-height:1.04;animation:tfsUp .45s ease-out .55s both}#failCard h1{order:0;font-size:10.5cqw;line-height:1.02;max-width:84cqw;animation:tfsSlam .45s cubic-bezier(.2,1.2,.4,1) .1s both}#winCard p,#failCard p{font-size:max(3.6cqw,10px);line-height:1.35;font-weight:600;color:rgba(255,255,255,.9);max-width:80cqw;text-wrap:balance}#winCard p{order:3;margin:2.2cqw 0 0;animation:tfsUp .45s ease-out .7s both}#failCard p{order:2;margin:4cqw 0 0;animation:tfsUp .45s ease-out .5s both}#winCard .stat,#failCard .stat{display:inline-block;max-width:86cqw;background:#ffbc0d;color:#27251f;border:0;border-radius:999px;font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;font-size:max(4.4cqw,10px);letter-spacing:.04em;line-height:1.2;padding:1.1cqw 4.2cqw;box-shadow:0 .8cqw 0 rgba(0,0,0,.35)}#winCard .stat{order:1;margin:0 0 3.5cqw;animation:tfsUp .4s ease-out .35s both}#failCard .stat{order:1;margin:2.6cqw 0 0;animation:tfsUp .4s ease-out .35s both}#winCard .stat:empty,#failCard .stat:empty{display:none}#winCard .btn{order:4;animation:tfsUp .45s ease-out .85s both,breathe 2.2s ease-in-out 2.2s infinite}#winCard .btn.ghost{order:5;animation:tfsUp .45s ease-out .95s both}#failCard #again2{order:3;display:inline-flex;align-items:center;justify-content:center;background:#db0007;color:#fff;border:0;border-radius:999px;font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.06em;font-size:max(5.2cqw,10px);min-height:max(12.5cqw,32px);padding:0 11cqw;margin-top:5.5cqw;text-decoration:none;box-shadow:0 0 0 .7cqw #ffbc0d,0 1.2cqw 2.4cqw rgba(0,0,0,.4);animation:tfsUp .45s ease-out .7s both,breathe 2.2s ease-in-out 2s infinite}#failCard #cta2{order:4;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fde98a;border:.5cqw solid #fde98a;border-radius:999px;font-family:Anton,Impact,'Arial Narrow',sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.06em;font-size:max(4.2cqw,10px);min-height:max(10.5cqw,32px);padding:0 7cqw;margin-top:4.8cqw;text-decoration:none;box-shadow:none;animation:tfsUp .45s ease-out .8s both}";   // the art director's composition
+  VIEW.artDecor = {"start":"","win":"","fail":""};
+  VIEW.artFonts = ["Anton"];
+  G.run(VIEW);
+  PALETTE.apply(R, document.getElementById('frame'));
+</script></body></html>
