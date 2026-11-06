@@ -841,6 +841,7 @@ window.WORLD = (function () {
     if (o && o.body) { const b = o.body; x = b.x; y = b.y - h / 2; z = b.z; if (o.spin == null) o = Object.assign({}, o, { spin: b.spin }); }   // a slot on a body: where the body is
     const mdl = L && MODELS.get(L.id);
     if (mdl) { placeModel(mdl, L, x, y, z, w, h, o); return; }
+    if (L && L.type === 'model' && MODELS.records[L.id] && !MODELS.records[L.id].error) return;
     const LA = typeof LAYERS !== 'undefined' ? LAYERS : (window.LAYERS || null);
     const img = L && L.type !== 'model' && LA && LA.ART && LA.ART[L.id];
     if (!img || !img.width) { shape(kind, x, y, z, w, h, colour, o); return; }

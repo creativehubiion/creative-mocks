@@ -426,6 +426,7 @@ window.ENGINE = (function () {
     // the world's shape before the game starts, so a sim plays the track the player sees (its path and width)
     if (VIEW.world && window.WORLD && window.WORLD.configure) window.WORLD.configure(VIEW.world);
     if (game.init) game.init(VIEW);
+    if (!SIM && window.MODELS) for (const l of VIEW.layers || []) if (l.type === 'model' && !window.MODELS.records[l.id]) { try { window.MODELS.load(l.id, `assets/models/${l.id}.glb`, { optional: true }); } catch (e) { /* the stand-in stays */ } }
     if (SIM) simOnModels(view, runSim); layerRoutes();
     if (has('embed') || has('full')) document.documentElement.classList.add('embed');
     mount();
