@@ -1,198 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <link rel="icon" type="image/png" href="./favicon.png" />
-  <title>essence | Clash of the Lash</title>
-  <style>
-    /* ---------------------------------------------------------------------
-       Host page shell. The game renders into #game-container at a fixed 2:3
-       portrait aspect ratio and letterboxes to fit any screen. Keep this
-       generic; per-campaign look lives in the Phaser scenes, not here.
-       --------------------------------------------------------------------- */
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-      color: rgba(255, 255, 255, 0.87);
-    }
-
-    #app {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    /* Noto Sans ExtraBold (SIL OFL, see assets/fonts/OFL.txt), subset to Latin
-       so it covers the Spanish copy in 15KB. Bundled, never fetched: a
-       playable cannot call out to a font CDN. */
-    @font-face {
-      font-family: "Noto Sans";
-      font-weight: 100 900;
-      src: url("./assets/fonts/NotoSans-ExtraBold.woff2") format("woff2");
-    }
-
-    /* Noto Kufi Arabic ExtraBold (SIL OFL), for the Arabic build: the Arabic
-       subset (46KB) and the Latin subset (11KB, the digits and the product
-       names), split by unicode-range the way Google Fonts serves them. Only
-       the build whose window.language is "ar" asks for them. */
-    @font-face {
-      font-family: "Noto Kufi Arabic";
-      font-weight: 100 900;
-      src: url("./assets/fonts/NotoKufiArabic-ExtraBold-arabic.woff2") format("woff2");
-      unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC;
-    }
-
-    @font-face {
-      font-family: "Noto Kufi Arabic";
-      font-weight: 100 900;
-      src: url("./assets/fonts/NotoKufiArabic-ExtraBold-latin.woff2") format("woff2");
-      unicode-range: U+0000-00FF, U+2000-206F;
-    }
-
-    #game-container {
-      position: relative;
-    }
-
-    /* Some ad networks probe for text nodes; this keeps them happy, invisibly. */
-    .dummy {
-      position: fixed;
-      inset: 0;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .dummy p {
-      opacity: 1;
-    }
-
-    .dummy p:nth-child(1) {
-      font-family: "Noto Sans";
-    }
-
-    .dummy p:nth-child(2) {
-      font-family: "Noto Kufi Arabic";
-    }
-
-    /* Full-screen invisible CTA overlay, armed by initCta() on the end screen. */
-    #ctabtn {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      opacity: 0;
-      border: 0;
-      background: transparent;
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    /* Optional celebratory confetti layer (canvas-confetti). Safe to remove. */
-    #confetti-canvas {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background: transparent;
-      z-index: 10000;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: auto !important;
-      background: transparent;
-    }
-
-    #app #game-container {
-      width: 100% !important;
-      height: auto !important;
-      aspect-ratio: 2 / 3;
-      margin: 0 auto !important;
-    }
-
-    @media (min-aspect-ratio: 1/1) {
-      #app #game-container {
-        width: auto !important;
-        height: 100% !important;
-        aspect-ratio: 2 / 3;
-        margin: 0 auto !important;
-      }
-    }
-  </style>
-  <script type="module" crossorigin src="./assets/index.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="../../shared/mobile.js?v=7"></script>
+<meta name="robots" content="noindex,nofollow">
+<title>iion · essence Lash Princess mobile playable (KSA, Arabic)</title>
+<link rel="icon" type="image/png" sizes="32x32" href="../../shared/favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="../../shared/favicon-64.png"><link rel="apple-touch-icon" href="../../shared/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../../shared/page.css?v=11">
+<link rel="stylesheet" href="../../shared/phone.css?v=8">
 </head>
-
 <body>
-  <canvas id="confetti-canvas"></canvas>
-  <div class="dummy">
-    <p>.</p>
-    <p>ا.</p>
-    <p>.</p>
-    <p>.</p>
+<nav class="nav"><img src="../../shared/iion-logo.png?v=2" alt="iion"></nav>
+
+<section class="hero">
+  <div class="eyebrow">Playable · essence Lash Princess · Arabic (KSA)</div>
+  <h1>Clash of the Lash.</h1>
+  <p>A 2:3 playable for essence Lash Princess, Arabic version for Saudi Arabia: pick your mascara (PARTY or false lash effect), swipe between lanes to collect items and dodge the walls, and the mascara that gets furthest in 30 seconds wins. Review copy: tracking off, the button opens essence.eu.</p>
+</section>
+
+<section class="stage phone-stage">
+  <div class="phone">
+    <div class="screen interstitial">
+      <!-- production unit: centres its own 2:3 canvas in any window; no data-ripple -->
+      <div class="ad-slot" data-full="mock.html"><iframe src="mock.html" title="2:3 playable ad" allow="autoplay"></iframe></div>
+      <div class="ad-close" aria-hidden="true">×</div>
+      <div class="statusbar"><span>9:41</span><span class="icons">
+        <svg viewBox="0 0 18 12" fill="#fff" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3" width="3" height="9" rx=".8"/><rect x="15" y="0" width="3" height="12" rx=".8"/></svg>
+        <svg viewBox="0 0 17 12" fill="#fff" aria-hidden="true"><path d="M8.5 11.6L5.95 9.05A3.6 3.6 0 0 1 11.05 9.05ZM3.27 6.37A7.4 7.4 0 0 1 13.73 6.37L12.04 8.06A5.0 5.0 0 0 0 4.96 8.06ZM0.58 3.68A11.2 11.2 0 0 1 16.42 3.68L14.72 5.38A8.8 8.8 0 0 0 2.28 5.38Z"/></svg>
+        <svg viewBox="0 0 27 12" fill="none" aria-hidden="true"><rect x=".5" y=".5" width="23" height="11" rx="3.2" stroke="#fff" stroke-opacity=".5"/><rect x="2" y="2" width="18" height="8" rx="2" fill="#fff"/><path d="M25 4v4c.8-.3 1.3-1.1 1.3-2S25.8 4.3 25 4z" fill="#fff" fill-opacity=".5"/></svg>
+      </span></div>
+      <div class="island"></div>
+      <div class="homebar"></div>
+    </div>
+    <i class="hw hw-action"></i><i class="hw hw-vol1"></i><i class="hw hw-vol2"></i><i class="hw hw-power"></i>
+    <div class="floor"></div>
   </div>
+</section>
 
-  <button id="ctabtn"></button>
-
-  <div id="app">
-    <div id="game-container"></div>
-  </div>
-
-  <!-- Optional confetti library. Delete this line if you don't use confetti. -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
-
-  <script>
-    // ============================================================
-    // DV360 BUILD - Praxis playable (third-party HTML5 creative)
-    // Hosted at: https://creativehubiion.github.io/praxis-dv360-playable/
-    // ------------------------------------------------------------
-    // The bundle's end-screen CTA calls window.open(window.landingPageUrl).
-    // CLICK CHAIN:
-    //   DV360 click tracker  -> DV360 registers the click
-    //   -> agency DoubleClick (CM360) trackclk -> CM360 registers the click
-    //   -> redirects to the brand landing page (configured agency-side).
-    //
-    // IMPORTANT: DV360 only substitutes ${...} macros in the TAG it serves,
-    // never in this CDN-hosted file. So the DV360 click tracker is passed
-    // in from the third-party tag as the `clk` query param
-    // (tag has ...?clk=${CLICK_URL_ENC}); we read it from location here.
-    //
-    // No MRAID: direct deal on iion's own publisher supply where
-    // window.open is already proven (the same supply served via PLL).
-    // ============================================================
-    window.option = "";
-    window.bottomtext = "";
-    window.placeNumber = 0;
-    // THE LANGUAGE SWITCH. "" or "es" = the Spanish (Mexico) build; "ar" = the
-    // Arabic (Saudi Arabia) build: Arabic copy, Arabic art under
-    // assets/images/ar/, Noto Kufi Arabic. ?lang=ar on the URL overrides it.
-    // See src/copy.js.
-    window.language = "ar";
-    window.country = "SA";
-    window.trackingPath = "./assets/";
-    window.trackingType =
-      "";
-
-    // DV360 click tracker, passed from the tag as ?clk=${CLICK_URL_ENC}.
-    // URLSearchParams.get() decodes it once, recovering the usable click prefix.
-    var clk = "";
-    // clk stays "": a ?clk= prefix would turn the CTA into an open redirect on a public page.
-    window.setTracker = clk;
-
-    // Agency-provided destination: DoubleClick (CM360) click tracker.
-    var brandClickTracker = "https://www.essence.eu/";
-
-    window.landingPageUrl = clk
-      ? clk + encodeURIComponent(brandClickTracker)
-      : brandClickTracker;
-  </script>
+<script src="../../shared/touch.js?v=4"></script>
+<script src="../../shared/theme.js?v=6"></script>
 </body>
-
 </html>
