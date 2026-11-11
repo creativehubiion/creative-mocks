@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex,nofollow">
+<title>McDonald's · Find Your Summer Sip · Mobile Hybrid Mock</title>
+<link rel="preload" href="assets/poster.jpg" as="image">
+<style>
+/* Hybrid playable (320×480, 2:3): the drinks film 37% on top, always playing · a one-tap flavour poll 63% below
+   (choice screen → results with the viewer's pick → CTA). Every size inside the frame is cqw (1cqw = 1% of frame width). */
+:root{
+  /* EDIT ME ▸ brand tokens */
+  --red:#dc0018; --yellow:#ffcc00; --ink:#080808; --paper:#fff; --letterbox:#000;
+  --f-ui:Arial,Helvetica,sans-serif; --f-head:"Arial Black",Arial,Helvetica,sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1); --spring:cubic-bezier(.2,.9,.3,1.4);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{width:100%;height:100%;background:#0f0f10;color:var(--paper);font-family:var(--f-ui);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+button{font:inherit;cursor:pointer}button:disabled{cursor:default}
+button:focus-visible{outline:.5cqw solid #236cff;outline-offset:.6cqw}
+img{display:block;max-width:100%}
+.page{min-height:100%;display:grid;place-items:center;padding:24px}
+
+/* 2:3 ad frame */
+.screen{position:relative;width:min(320px,90vw);aspect-ratio:2/3;overflow:hidden;display:flex;flex-direction:column;background:var(--red);container-type:inline-size}
+
+/* ── VIDEO (37%) ── */
+.video-area{height:37%;flex:none;position:relative;overflow:hidden;background:#492c59;isolation:isolate}
+.video-area video,.video-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.video-area video{z-index:0}
+.video-poster{z-index:1;transition:opacity .6s ease}
+.video-area.is-playing .video-poster{opacity:0;pointer-events:none}
+.mute-btn{position:absolute;top:2.2cqw;right:2.2cqw;z-index:3;width:7cqw;height:7cqw;border-radius:50%;border:0;background:rgba(0,0,0,.5);display:grid;place-items:center;transition:transform .15s}
+.mute-btn:active{transform:scale(.9)}
+.mute-btn svg{width:3.6cqw;height:3.6cqw;fill:#fff}
+
+/* ── GAME (63%) ── */
+.game-area{height:63%;position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;padding:4cqw 3.4cqw 3.2cqw;touch-action:manipulation;
+  background:radial-gradient(ellipse at 48% 65%,#fa0923 0,#e00019 52%,#be0015 100%)}
+.brand-arches{position:absolute;z-index:2;left:3.6cqw;top:4.5cqw;width:7cqw;height:6.7cqw}
+.view{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+
+/* Choice screen */
+.choice-heading{text-align:center}
+.choice-heading h1{font-family:var(--f-head);font-size:9.06cqw;line-height:.96;letter-spacing:-.055em;font-weight:900;margin-bottom:1.4cqw;white-space:nowrap}
+.question{font-size:3.44cqw;font-weight:800;letter-spacing:-.045em;line-height:1.2}
+.hint{margin:.8cqw 0 2.4cqw;font-size:2.81cqw;line-height:1.2}
+.choices{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr);gap:1.9cqw}
+.choice{position:relative;min-width:0;min-height:0;padding:0 .5cqw 1.6cqw;color:var(--ink);background:#fff1d9;border:.47cqw solid transparent;border-radius:4.2cqw;overflow:hidden;display:flex;flex-direction:column;align-items:center;transition:transform .2s,border-color .2s,opacity .2s,box-shadow .2s}
+.choice-strawberry{background:linear-gradient(#ffc0c6,#fff4dc)}
+.choice-mango{background:linear-gradient(#ffe69a,#fff6dd)}
+.choice-blackberry{background:linear-gradient(#e0b6ec,#fff4de)}
+.choice img{flex:1 1 0;min-height:0;width:100%;object-fit:contain;margin-top:1.1cqw;transform:scale(1.06);transform-origin:50% 65%;pointer-events:none}
+.drink-name{display:block;font-size:2.66cqw;font-weight:900;letter-spacing:-.045em;line-height:1.03;text-align:center;white-space:nowrap;margin:.6cqw 0 1.2cqw}
+.choice-indicator{flex:none;width:4.2cqw;height:4.2cqw;border:.3cqw solid var(--ink);border-radius:50%;display:grid;place-items:center;font-size:2.66cqw;font-weight:800;line-height:1;margin-top:auto;transition:background .2s,border-color .2s,transform .3s var(--spring)}
+.choice[aria-pressed=true]{border-color:var(--yellow);box-shadow:0 0 0 .3cqw var(--yellow),0 0 4.4cqw #ffc7009c;transform:translateY(-.5cqw)}
+.choice[aria-pressed=true] .choice-indicator{color:#fff;background:#e0001b;border-color:#e0001b;transform:scale(1.15)}
+.choice[aria-pressed=true] .choice-indicator::after{content:'✓'}
+.choices.has-selection .choice:not([aria-pressed=true]){opacity:.55}
+.choice:hover:not(:disabled){transform:translateY(-.5cqw)}
+.choice:active:not(:disabled),.choice.press{transform:scale(.97)}
+.summer-decoration{flex:none;height:3.4cqw;display:flex;justify-content:space-between;align-items:center;color:#ffdc77;padding:.6cqw 1.1cqw 0;font-size:2.7cqw;opacity:.7}
+.summer-decoration span:nth-child(2){font-size:1.6cqw;opacity:.45}
+
+/* Results screen */
+.result-heading{text-align:center;margin-bottom:2.2cqw}
+.result-heading h2{font-family:var(--f-head);font-size:7.66cqw;font-weight:900;line-height:1;letter-spacing:-.055em;margin-bottom:1.1cqw;padding-left:4.4cqw;white-space:nowrap;outline:0}
+.result-heading p{font-size:2.66cqw;font-weight:700;letter-spacing:-.035em;line-height:1.25}
+.results{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr);gap:.5cqw;background:radial-gradient(ellipse at 50% 55%,#fffefa,#fff1d5);border-radius:4.4cqw;color:var(--ink);padding:5cqw 1.25cqw 1.6cqw}
+.result{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+.result img{flex:1 1 0;min-height:0;width:100%;object-fit:contain;transform-origin:50% 90%;transition:transform .4s}
+.result.is-picked img{transform:scale(1.08)}
+.your-pick{position:absolute;top:-4cqw;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--yellow);color:#050505;border-radius:3.1cqw;font-size:2.03cqw;font-weight:900;padding:.8cqw .95cqw;z-index:2}
+.your-pick span{display:inline-grid;place-items:center;background:var(--red);color:#fff;border-radius:50%;width:2.2cqw;height:2.2cqw;font-size:1.56cqw;margin-left:.15cqw}
+.percentage{display:inline-block;position:relative;z-index:2;font-size:7.66cqw;font-weight:900;letter-spacing:-.07em;line-height:1.1;margin:.6cqw 0 .5cqw;padding:.15cqw 1.25cqw;border-radius:4.7cqw;font-variant-numeric:tabular-nums}
+.percentage span{font-size:.86em}
+.result.is-picked .percentage{background:var(--yellow)}
+.result h3{font-size:2.66cqw;font-weight:900;letter-spacing:-.05em;line-height:1.05;white-space:nowrap}
+.sample-notice{text-align:center;font-size:2.19cqw;font-weight:500;margin:1.4cqw 0 1.6cqw}
+.cta{flex:none;border:0;color:var(--ink);background:linear-gradient(#ffdc14,#ffca00);display:flex;align-items:center;justify-content:center;gap:1.4cqw;border-radius:6.25cqw;min-height:8.1cqw;padding:1.9cqw;margin:0 2.7cqw;box-shadow:inset 0 .3cqw .15cqw #ffffff45;font-weight:900;font-size:4.22cqw;letter-spacing:-.04em;white-space:nowrap;text-transform:uppercase;transition:background .2s,transform .15s}
+.cta svg{width:3.9cqw;height:3.4cqw;stroke:currentColor;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.cta:hover{background:#ffe353}
+.cta:active,.cta.press{transform:scale(.97)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ── Motion: entrance stagger → idle float → pick feedback → drinks morph to results → count-up → CTA pulse ── */
+.brand-arches{animation:pop .5s .05s var(--spring) backwards}
+.choice-heading h1{animation:rise .55s .08s var(--ease) backwards}
+.question{animation:rise .5s .2s var(--ease) backwards}
+.hint{animation:rise .5s .28s var(--ease) backwards}
+.choice{animation:rise .55s var(--ease) backwards}
+.choice:nth-child(1){animation-delay:.36s}.choice:nth-child(2){animation-delay:.44s}.choice:nth-child(3){animation-delay:.52s}
+.summer-decoration{animation:fade .6s .7s backwards}
+.summer-decoration span{animation:twinkle 2.6s ease-in-out infinite}
+.summer-decoration span:nth-child(2){animation-delay:-.9s}.summer-decoration span:nth-child(3){animation-delay:-1.7s}
+.choice img{animation:float 3.6s ease-in-out infinite}
+.choice:nth-child(2) img{animation-delay:-1.2s}.choice:nth-child(3) img{animation-delay:-2.4s}
+.choices .choice[aria-pressed=true]{animation:pick .5s var(--spring)}
+.choices.has-selection .choice img{animation-play-state:paused}
+.hint.is-confirmed{animation:pop .35s var(--spring);font-weight:800}
+.choice-view.leaving{animation:leave .22s ease-in forwards}
+.view.reveal{animation:reveal .35s ease-out}
+/* View Transitions: each drink keeps its name across both screens, so it glides from its card into the results row.
+   The film is taken out of the cross-fade so it keeps playing live. */
+.video-area{view-transition-name:film}
+.choice-strawberry img,.result[data-result=strawberry] img{view-transition-name:drink-strawberry}
+.choice-mango img,.result[data-result=mango] img{view-transition-name:drink-mango}
+.choice-blackberry img,.result[data-result=blackberry] img{view-transition-name:drink-blackberry}
+::view-transition-old(film){display:none}
+::view-transition-new(film){animation:none}
+::view-transition-group(drink-strawberry),::view-transition-group(drink-mango),::view-transition-group(drink-blackberry){animation-duration:.6s;animation-timing-function:var(--ease)}
+::view-transition-old(drink-strawberry),::view-transition-new(drink-strawberry),::view-transition-old(drink-mango),::view-transition-new(drink-mango),::view-transition-old(drink-blackberry),::view-transition-new(drink-blackberry){height:100%;object-fit:contain}
+::view-transition-old(root){animation-duration:.3s}
+::view-transition-new(root){animation-duration:.45s}
+.result-heading h2{animation:rise .5s .05s var(--ease) backwards}
+.result-heading p{animation:rise .5s .14s var(--ease) backwards}
+.result .percentage{animation:pop .45s var(--spring) backwards}
+.result h3{animation:rise .4s var(--ease) backwards}
+.result:nth-child(1) .percentage{animation-delay:.25s}.result:nth-child(2) .percentage{animation-delay:.34s}.result:nth-child(3) .percentage{animation-delay:.43s}
+.result:nth-child(1) h3{animation-delay:.33s}.result:nth-child(2) h3{animation-delay:.42s}.result:nth-child(3) h3{animation-delay:.51s}
+.your-pick{animation:badge .5s .75s var(--spring) backwards}
+.sample-notice{animation:fade .5s .8s backwards}
+.cta{animation:rise .5s .85s var(--ease) backwards,cta-pulse 2.6s 2s ease-out infinite}
+.cta svg{animation:arrow 1.3s 2s ease-in-out infinite}
+@keyframes fade{from{opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(2.2cqw)}}
+@keyframes pop{from{opacity:0;transform:scale(.6)}}
+@keyframes leave{to{opacity:0;transform:translateY(-1.25cqw)}}
+@keyframes reveal{from{opacity:0;transform:translateY(1.25cqw)}}
+@keyframes float{0%,100%{transform:scale(1.06) translateY(0)}50%{transform:scale(1.06) translateY(-2.2%)}}
+@keyframes twinkle{0%,100%{transform:scale(1)}50%{transform:scale(.6) rotate(20deg)}}
+@keyframes pick{0%{transform:translateY(0) scale(1)}45%{transform:translateY(-1.1cqw) scale(1.05)}100%{transform:translateY(-.5cqw) scale(1)}}
+@keyframes badge{from{opacity:0;transform:translateX(-50%) scale(.4)}}
+@keyframes cta-pulse{0%{box-shadow:inset 0 .3cqw .15cqw #ffffff45,0 0 0 0 #ffcc00b0}70%,100%{box-shadow:inset 0 .3cqw .15cqw #ffffff45,0 0 0 2.2cqw #ffcc0000}}
+@keyframes arrow{0%,100%{transform:translateX(0)}50%{transform:translateX(.8cqw)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<!-- ?embed=1 = only the screen (inside the review page's phone) · ?full=1 = full screen at 2:3 with black bars (how it serves in-app) -->
+<script>{const q=new URLSearchParams(location.search); if(q.has('embed')||q.has('full'))document.documentElement.classList.add('embed'); if(q.has('full'))document.documentElement.classList.add('full');}</script>
+<style>
+html.embed,html.embed body{background:var(--letterbox);overflow:hidden}
+html.embed .page{display:block;padding:0;min-height:0;height:100%}
+html.embed .screen{position:fixed;inset:0;width:100vw;height:100vh;aspect-ratio:auto}
+html.full .screen{inset:0;margin:auto;width:min(100vw,calc(100dvh * 2 / 3));height:auto;aspect-ratio:2/3}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="screen" id="screen">
+
+    <div class="video-area" id="video">
+      <img class="video-poster" src="assets/poster.jpg" alt="">
+      <button class="mute-btn" id="muteBtn" type="button" aria-label="Unmute video">
+        <svg id="muteIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3 2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z"/></svg>
+        <svg id="unmuteIcon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.8-1-3.3-2.5-4v8c1.5-.7 2.5-2.2 2.5-4zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.9-5 6.7v2.1c4-.9 7-4.5 7-8.8s-3-7.9-7-8.8z"/></svg>
+      </button>
+    </div>
+
+    <div class="game-area" id="game" aria-label="Choose your summer flavour">
+      <img class="brand-arches" src="assets/arches.svg" alt="McDonald’s">
+
+      <div id="choiceView" class="view choice-view">
+        <header class="choice-heading">
+          <h1>FIND YOUR<br>SUMMER SIP</h1>
+          <p class="question">What’s your summer flavour?</p>
+          <p id="choiceHint" class="hint">Tap your favourite.</p>
+        </header>
+        <div class="choices" id="choices" role="group" aria-label="Pick one drink">
+          <button class="choice choice-strawberry" data-drink="strawberry" type="button" aria-label="Choose Strawberry and Watermelon" aria-pressed="false">
+            <img src="assets/strawberry-watermelon.webp" alt="" draggable="false">
+            <span class="drink-name">Strawberry &amp;<br>Watermelon</span>
+            <span class="choice-indicator" aria-hidden="true"></span>
+          </button>
+          <button class="choice choice-mango" data-drink="mango" type="button" aria-label="Choose Mango and Pineapple" aria-pressed="false">
+            <img src="assets/mango-pineapple.webp" alt="" draggable="false">
+            <span class="drink-name">Mango &amp;<br>Pineapple</span>
+            <span class="choice-indicator" aria-hidden="true"></span>
+          </button>
+          <button class="choice choice-blackberry" data-drink="blackberry" type="button" aria-label="Choose Blackberry and Passion Fruit" aria-pressed="false">
+            <img src="assets/blackberry-passionfruit.webp" alt="" draggable="false">
+            <span class="drink-name">Blackberry &amp;<br>Passion Fruit</span>
+            <span class="choice-indicator" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="summer-decoration" aria-hidden="true"><span>✦</span><span>✧</span><span>✦</span></div>
+      </div>
+
+      <div id="resultView" class="view result-view" hidden>
+        <header class="result-heading">
+          <h2 id="resultTitle" tabindex="-1">GOOD TASTE!</h2>
+          <p>Thanks for voting. Here’s the flavour split.</p>
+        </header>
+        <div class="results" role="list" aria-label="Illustrative flavour vote results">
+          <article class="result" data-result="strawberry" role="listitem">
+            <span class="your-pick" hidden>YOUR PICK <span aria-hidden="true">✓</span></span>
+            <img src="assets/strawberry-watermelon.webp" alt="Strawberry and Watermelon refresher">
+            <strong class="percentage" data-percent="0">32<span>%</span></strong>
+            <h3>Strawberry &amp;<br>Watermelon</h3>
+          </article>
+          <article class="result" data-result="mango" role="listitem">
+            <span class="your-pick" hidden>YOUR PICK <span aria-hidden="true">✓</span></span>
+            <img src="assets/mango-pineapple.webp" alt="Mango and Pineapple refresher">
+            <strong class="percentage" data-percent="1">45<span>%</span></strong>
+            <h3>Mango &amp;<br>Pineapple</h3>
+          </article>
+          <article class="result" data-result="blackberry" role="listitem">
+            <span class="your-pick" hidden>YOUR PICK <span aria-hidden="true">✓</span></span>
+            <img src="assets/blackberry-passionfruit.webp" alt="Blackberry and Passion Fruit refresher">
+            <strong class="percentage" data-percent="2">23<span>%</span></strong>
+            <h3>Blackberry &amp;<br>Passion Fruit</h3>
+          </article>
+        </div>
+        <p class="sample-notice">Illustrative results · Not live votes</p>
+        <button class="cta" id="ctaBtn" type="button"><span id="ctaLabel">Explore the range</span><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M19 2l10 10-10 10"/></svg></button>
+      </div>
+      <p id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const screenEl=$('screen'), choicesEl=$('choices'), choiceView=$('choiceView'), resultView=$('resultView');
+
+/* ══ EDIT ME ▸ copy & tuning ══ */
+const CONFIG={
+  videoSrc:'assets/video.mp4',   // the drinks film (cover-cropped into the 37% strip, loops)
+  videoVolume:0.35,              // the first tap on the poll unlocks sound at this volume
+  ctaLabel:'Explore the range', ctaUrl:'https://www.mcdonalds.com/ie/en-ie/menu/milkshakes-and-cold-drinks.html',
+  drinks:{strawberry:'Strawberry & Watermelon',mango:'Mango & Pineapple',blackberry:'Blackberry & Passion Fruit'},
+  results:[32,45,23],            // MOCK share shown after voting, in card order (must add up to 100)
+  selectionDelay:650,            // how long the pick is shown before the results
+  autoPick:'mango',              // the drink the autopilot demo taps
+};
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* contract: tell the host page where the finger touched (0..1 of the ad unit) → shared/touch.js ripple */
+function emitTap(x,y){ try{ parent.postMessage({iionTap:{x,y}},'*'); }catch(e){} }
+function tapEl(el){ const s=screenEl.getBoundingClientRect(), r=el.getBoundingClientRect(); emitTap((r.left+r.width/2-s.left)/s.width,(r.top+r.height/2-s.top)/s.height); }
+function tapEvent(e){ const s=screenEl.getBoundingClientRect(); emitTap((e.clientX-s.left)/s.width,(e.clientY-s.top)/s.height); }
+
+/* ══ video (always on top, always playing) ══ */
+const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
+let vid=null;
+if(CONFIG.videoSrc){ vid=document.createElement('video'); vid.src=bust(CONFIG.videoSrc); vid.muted=true; vid.defaultMuted=true; vid.setAttribute('muted',''); vid.playsInline=true; vid.setAttribute('playsinline',''); vid.autoplay=true; vid.loop=true; vid.preload='auto';
+  vid.addEventListener('playing',()=>$('video').classList.add('is-playing'));   // the poster cross-fades into the film
+  $('video').prepend(vid); }
+function paintMute(){ const m=!vid||vid.muted; $('muteIcon').hidden=!m; $('unmuteIcon').hidden=m; $('muteBtn').setAttribute('aria-label',m?'Unmute video':'Mute video'); }
+function setSound(on){ if(!vid) return; vid.muted=!on; vid.volume=CONFIG.videoVolume; if(on){ const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); } paintMute(); }
+$('muteBtn').addEventListener('click',e=>{ tapEvent(e); takeOver(); soundUnlocked=true; setSound(!vid||vid.muted); });
+// no pause control: pause with the tab, resume when it comes back
+document.addEventListener('visibilitychange',()=>{ if(!vid) return; if(document.hidden) vid.pause(); else { const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); } });
+
+/* ══ slot timeline (autopilot demo) ══ */
+const SLOT_MS=15000, T_AUTO_PICK=5000, T_AUTO_CTA=4200;   // autopilot taps a drink at 5 s, the CTA 4.2 s after the results; the slot loops with the 15 s film
+const autoBox={checked:true};
+let selected=null, pickedBy=null, soundUnlocked=false, run=0;
+const timers=[];
+const later=(fn,ms)=>{ const id=run; timers.push(setTimeout(()=>{ if(id===run) fn(); },ms)); };
+
+function takeOver(){ autoBox.checked=false; }
+function unlockSound(){ if(soundUnlocked) return; soundUnlocked=true; setSound(true); }      // the viewer's first tap on the poll unlocks the sound
+
+/* ══ poll ══ */
+function chooseDrink(id,by){
+  if(selected || !Object.hasOwn(CONFIG.drinks,id)) return;
+  selected=id; pickedBy=by;
+  choicesEl.classList.add('has-selection');
+  choicesEl.querySelectorAll('.choice').forEach(b=>{ b.setAttribute('aria-pressed',String(b.dataset.drink===id)); b.disabled=true; });
+  $('choiceHint').textContent='Nice pick!'; $('choiceHint').classList.add('is-confirmed');
+  if(by==='viewer') $('announcement').textContent=`You picked ${CONFIG.drinks[id]}.`;
+  later(showResults,reducedMotion?0:CONFIG.selectionDelay);
+}
+// percentages count up from 0 once the results are on screen
+function countUp(){
+  if(reducedMotion) return;
+  document.querySelectorAll('[data-percent]').forEach((el,i)=>{
+    const target=CONFIG.results[Number(el.dataset.percent)], num=el.firstChild, t0=performance.now()+250+i*90, dur=850, id=run;
+    num.nodeValue='0';
+    const tick=now=>{ if(id!==run) return; const p=Math.min(1,Math.max(0,(now-t0)/dur)); num.nodeValue=String(Math.round(target*(1-Math.pow(1-p,3)))); if(p<1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+}
+function showResults(){
+  const byViewer=pickedBy==='viewer';
+  const swap=()=>{
+    document.querySelectorAll('.result').forEach(r=>{ const picked=r.dataset.result===selected; r.classList.toggle('is-picked',picked); r.querySelector('.your-pick').hidden=!picked; });
+    choiceView.hidden=true; resultView.hidden=false;
+    $('game').setAttribute('aria-label','Your flavour vote results');
+    if(byViewer) $('resultTitle').focus({preventScroll:true});
+    countUp();
+  };
+  // preferred: a View Transition morphs each drink from its card into the results row · fallback: fade out, then reveal · reduced motion: instant
+  if(reducedMotion) swap();
+  else if(document.startViewTransition){ const t=document.startViewTransition(swap); t.ready?.catch(()=>{}); }
+  else{ const id=run; choiceView.classList.add('leaving'); setTimeout(()=>{ if(id!==run) return; resultView.classList.add('reveal'); swap(); },220); }
+  const r=CONFIG.results;
+  if(byViewer) $('announcement').textContent=`Thanks for voting. Your pick: ${CONFIG.drinks[selected]}. Illustrative results: Strawberry and Watermelon ${r[0]} percent, Mango and Pineapple ${r[1]} percent, Blackberry and Passion Fruit ${r[2]} percent.`;
+  if(autoBox.checked) later(()=>{ if(!autoBox.checked) return; tapEl($('ctaBtn')); $('ctaBtn').classList.add('press'); setTimeout(()=>$('ctaBtn').classList.remove('press'),180); },T_AUTO_CTA);
+}
+
+choicesEl.querySelectorAll('.choice').forEach(b=>b.addEventListener('click',e=>{ tapEvent(e); takeOver(); unlockSound(); chooseDrink(b.dataset.drink,'viewer'); }));
+$('ctaBtn').addEventListener('click',e=>{ e.stopPropagation(); tapEvent(e); takeOver(); try{ window.open(window.clickTag||CONFIG.ctaUrl,'_blank'); }catch(_){} });
+// a viewer who touches the results the autopilot produced gets the poll back, to vote for themselves
+resultView.addEventListener('click',e=>{ if(pickedBy==='auto' && !e.target.closest('.cta')){ tapEvent(e); unlockSound(); reset(false); } });
+$('ctaLabel').textContent=CONFIG.ctaLabel;
+
+function reset(auto){
+  run++; timers.splice(0).forEach(clearTimeout);
+  selected=null; pickedBy=null; autoBox.checked=auto;
+  choicesEl.classList.remove('has-selection');
+  choicesEl.querySelectorAll('.choice').forEach(b=>{ b.setAttribute('aria-pressed','false'); b.disabled=false; b.classList.remove('press'); });
+  $('choiceHint').textContent='Tap your favourite.'; $('choiceHint').classList.remove('is-confirmed');
+  document.querySelectorAll('[data-percent]').forEach(el=>{ el.firstChild.nodeValue=String(CONFIG.results[Number(el.dataset.percent)]); });
+  choiceView.classList.remove('leaving'); resultView.classList.remove('reveal'); $('ctaBtn').classList.remove('press');
+  resultView.hidden=true; choiceView.hidden=false;
+  $('game').setAttribute('aria-label','Choose your summer flavour');
+  if(auto){
+    later(()=>{ if(!autoBox.checked || selected) return; const b=choicesEl.querySelector(`[data-drink="${CONFIG.autoPick}"]`); tapEl(b); b.classList.add('press'); setTimeout(()=>{ b.classList.remove('press'); if(autoBox.checked) chooseDrink(CONFIG.autoPick,'auto'); },160); },T_AUTO_PICK);
+    later(()=>{ if(autoBox.checked) start(); },SLOT_MS);                      // the demo loops; a viewer who took over keeps their result
+  }
+}
+function start(){
+  reset(true);
+  if(vid){ try{ vid.currentTime=0; const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} }
+  paintMute();
+}
+
+window.DEMO={ start, slotMs:SLOT_MS, setAuto:v=>{autoBox.checked=!!v;}, setSound:on=>setSound(on) };
+start();
+</script>
+</body>
+</html>
