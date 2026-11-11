@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="robots" content="noindex,nofollow">
-<title>McDonald's · Find Your Summer Sip · Mobile Hybrid Mock</title>
+<title>McDonald's · Summer Drinks 2027 · Mobile Hybrid Mock</title>
 <link rel="preload" href="assets/poster.jpg" as="image">
 <style>
 /* Hybrid playable (320×480, 2:3): the drinks film 37% on top, always playing · a one-tap flavour poll 63% below
@@ -228,7 +228,7 @@ const screenEl=$('screen'), choicesEl=$('choices'), choiceView=$('choiceView'), 
 /* ══ EDIT ME ▸ copy & tuning ══ */
 const CONFIG={
   videoSrc:'assets/video.mp4',   // the drinks film (cover-cropped into the 37% strip, loops)
-  videoVolume:0.35,              // the first tap on the poll unlocks sound at this volume
+  videoVolume:0.35,              // volume once the viewer unmutes with the speaker button (taps on the poll never start the audio)
   ctaLabel:'Explore the range', ctaUrl:'https://www.mcdonalds.com/ie/en-ie/menu/milkshakes-and-cold-drinks.html',
   drinks:{strawberry:'Strawberry & Watermelon',mango:'Mango & Pineapple',blackberry:'Blackberry & Passion Fruit'},
   results:[32,45,23],            // MOCK share shown after voting, in card order (must add up to 100)
@@ -248,21 +248,21 @@ let vid=null;
 if(CONFIG.videoSrc){ vid=document.createElement('video'); vid.src=bust(CONFIG.videoSrc); vid.muted=true; vid.defaultMuted=true; vid.setAttribute('muted',''); vid.playsInline=true; vid.setAttribute('playsinline',''); vid.autoplay=true; vid.loop=true; vid.preload='auto';
   vid.addEventListener('playing',()=>$('video').classList.add('is-playing'));   // the poster cross-fades into the film
   $('video').prepend(vid); }
-function paintMute(){ const m=!vid||vid.muted; $('muteIcon').hidden=!m; $('unmuteIcon').hidden=m; $('muteBtn').setAttribute('aria-label',m?'Unmute video':'Mute video'); }
+function paintMute(){ const m=!vid||vid.muted; $('muteIcon').toggleAttribute('hidden',!m); $('unmuteIcon').toggleAttribute('hidden',m);   /* SVG elements have no .hidden property, so the attribute is set directly */ $('muteBtn').setAttribute('aria-label',m?'Unmute video':'Mute video'); }
 function setSound(on){ if(!vid) return; vid.muted=!on; vid.volume=CONFIG.videoVolume; if(on){ const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); } paintMute(); }
-$('muteBtn').addEventListener('click',e=>{ tapEvent(e); takeOver(); soundUnlocked=true; setSound(!vid||vid.muted); });
+// the speaker button is the only thing that turns the audio on or off
+$('muteBtn').addEventListener('click',e=>{ tapEvent(e); takeOver(); setSound(!vid||vid.muted); });
 // no pause control: pause with the tab, resume when it comes back
 document.addEventListener('visibilitychange',()=>{ if(!vid) return; if(document.hidden) vid.pause(); else { const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); } });
 
 /* ══ slot timeline (autopilot demo) ══ */
 const SLOT_MS=15000, T_AUTO_PICK=5000, T_AUTO_CTA=4200;   // autopilot taps a drink at 5 s, the CTA 4.2 s after the results; the slot loops with the 15 s film
 const autoBox={checked:true};
-let selected=null, pickedBy=null, soundUnlocked=false, run=0;
+let selected=null, pickedBy=null, run=0;
 const timers=[];
 const later=(fn,ms)=>{ const id=run; timers.push(setTimeout(()=>{ if(id===run) fn(); },ms)); };
 
 function takeOver(){ autoBox.checked=false; }
-function unlockSound(){ if(soundUnlocked) return; soundUnlocked=true; setSound(true); }      // the viewer's first tap on the poll unlocks the sound
 
 /* ══ poll ══ */
 function chooseDrink(id,by){
@@ -302,10 +302,10 @@ function showResults(){
   if(autoBox.checked) later(()=>{ if(!autoBox.checked) return; tapEl($('ctaBtn')); $('ctaBtn').classList.add('press'); setTimeout(()=>$('ctaBtn').classList.remove('press'),180); },T_AUTO_CTA);
 }
 
-choicesEl.querySelectorAll('.choice').forEach(b=>b.addEventListener('click',e=>{ tapEvent(e); takeOver(); unlockSound(); chooseDrink(b.dataset.drink,'viewer'); }));
+choicesEl.querySelectorAll('.choice').forEach(b=>b.addEventListener('click',e=>{ tapEvent(e); takeOver(); chooseDrink(b.dataset.drink,'viewer'); }));
 $('ctaBtn').addEventListener('click',e=>{ e.stopPropagation(); tapEvent(e); takeOver(); try{ window.open(window.clickTag||CONFIG.ctaUrl,'_blank'); }catch(_){} });
 // a viewer who touches the results the autopilot produced gets the poll back, to vote for themselves
-resultView.addEventListener('click',e=>{ if(pickedBy==='auto' && !e.target.closest('.cta')){ tapEvent(e); unlockSound(); reset(false); } });
+resultView.addEventListener('click',e=>{ if(pickedBy==='auto' && !e.target.closest('.cta')){ tapEvent(e); reset(false); } });
 $('ctaLabel').textContent=CONFIG.ctaLabel;
 
 function reset(auto){
