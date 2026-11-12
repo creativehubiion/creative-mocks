@@ -85,7 +85,8 @@ def strip_redirect(s):
 
 def notify_bot(folders):
     """Tell the Creative Hub bot these mocks are on creative-mocks.iion.media (it drafts them in #bot-review; same signed call as the
-    Mock Builder's publish). Only for folders named on the command line, never for a full port, so a re-copy can't mass-report.
+    Mock Builder's publish). Only for named folders that were NOT live before this upload (new mocks, never updates: an update made a
+    duplicate RealTruck draft, 2026-11-12), and never for a full port, so a re-copy can't mass-report.
     Off unless BOT_PUBLISHED_URL and MOCK_BUILDER_WEBHOOK_SECRET are set. The bot ignores a folder it has already drafted."""
     import hashlib, hmac, json, datetime, urllib.request
     vals = dict(os.environ)
@@ -123,6 +124,13 @@ def main():
     e = env()
     s3 = boto3.client('s3', endpoint_url=e['R2_ENDPOINT'], aws_access_key_id=e['R2_ACCESS_KEY_ID'], aws_secret_access_key=e['R2_SECRET_ACCESS_KEY'], region_name='auto')
 
+    # which named mock folders are new to the bucket: only those are announced to the bot (an update to a live mock is not a new mock)
+    folders = sorted({'/'.join(f.split('/')[:2]) for f in files if f.split('/')[0] in FORMATS})
+    def is_live(folder):
+        try: s3.head_object(Bucket=e['R2_BUCKET'], Key=folder + '/index.html'); return True
+        except Exception: return False
+    new_folders = [x for x in folders if not is_live(x)] if args else []
+
     def put(f):
         p = REPO / f; body = p.read_bytes()
         if p.suffix == '.html': body = folder_links(strip_redirect(body.decode('utf-8'))).encode('utf-8')
@@ -136,7 +144,8 @@ def main():
             done += 1
             if done % 100 == 0: print(f'  {done}/{len(files)}')
     print(f'uploaded {done} files to {DOMAIN}')
-    if args: notify_bot(sorted({'/'.join(f.split('/')[:2]) for f in files if f.split('/')[0] in FORMATS}))
+    if new_folders: notify_bot(new_folders)
+    elif args: print('updated mocks that were already live: the bot is not told (it only drafts new mocks)')
 
     if redirect:
         n = 0
