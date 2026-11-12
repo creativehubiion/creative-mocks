@@ -16,7 +16,12 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="../../shared/page.css?v=11">
 <link rel="stylesheet" href="../../shared/laptop.css?v=5">
-<style>.laptop .screen iframe{pointer-events:auto}   /* a game to play, not a video to watch */</style>
+<style>.laptop .screen iframe{pointer-events:auto}   /* a game to play, not a video to watch */
+/* no rounded clipping around the game: the game's soft-edge blur layers are masked, and Chrome drops those masks under a rounded
+   overflow:hidden ancestor, blurring the whole picture (found by the pipeline session, 2026-11-12). The game fills the screen exactly,
+   so nothing needs clipping; the screen's ~1% corner rounding goes square inside the black bezel. */
+.laptop .bezel,.laptop .screen{overflow:visible}
+.laptop .screen{border-radius:0}</style>
 </head>
 <body>
 <nav class="nav"><img src="../../shared/iion-logo.png?v=2" alt="iion"></nav>
