@@ -109,11 +109,12 @@ def main():
     if redirect:
         n = 0
         for f in pages:
-            p = REPO / f; s = p.read_text(encoding='utf-8')
+            p = REPO / f; s = p.read_bytes().decode('utf-8')                      # bytes: keep the file's own line endings
             if MARK in s: continue
             m = re.search(r'<head[^>]*>', s, re.I)
             if not m: print('  no <head> in', f); continue
-            p.write_text(s[:m.end()] + '\n' + REDIRECT + s[m.end():], encoding='utf-8', newline='')
+            nl = '\r\n' if '\r\n' in s else '\n'
+            p.write_bytes((s[:m.end()] + nl + REDIRECT + s[m.end():]).encode('utf-8'))
             n += 1
         print(f'redirect added to {n} page(s) here (commit and push to switch the GitHub links over)')
 

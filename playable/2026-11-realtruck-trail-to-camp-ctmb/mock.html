@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Trail to Camp | RealTruck</title>
+<link rel="icon" href="data:,">
+<meta name="robots" content="noindex,nofollow">
+<script>window.TC_RELEASE = true;</script>
+<link rel="stylesheet" href="ui/ui-kit.css">
+<link rel="stylesheet" href="ui/fonts.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #2a1e2c; overflow: hidden; }
+  #c { position: fixed; inset: 0; display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; z-index: 0; }
+  #status { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #f0dcc4; font: 500 13px/1.4 system-ui, sans-serif; letter-spacing: .04em; padding-bottom: 10px; --p: 0%; z-index: 30; }
+  #status:not(:empty)::after { content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: #ffc600; border-radius: 2px; transition: width .3s; }
+  #stats { position: fixed; left: 8px; top: 8px; margin: 0; padding: 6px 8px; background: rgba(0,0,0,.55); color: #f0ecd8; font: 11px/1.35 ui-monospace, Consolas, monospace; border-radius: 3px; pointer-events: none; z-index: 40; }
+  #rt-cv { background: transparent !important; z-index: 1; }
+  body.tc-noui .rt, body.tc-noui #rt-bar, body.tc-noui #tc-ub { display: none !important; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js", "postprocessing": "./vendor/postprocessing/postprocessing-6.38.3.min.js" } }</script>
+<script src="rt-core2.js"></script>
+</head><body>
+<canvas id="c"></canvas><div id="status">loading</div>
+<script type="module" src="game3.js"></script>
+</body></html>

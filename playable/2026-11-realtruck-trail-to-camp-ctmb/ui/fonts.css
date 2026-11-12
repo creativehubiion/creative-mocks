@@ -1,0 +1,4 @@
+/* Trail to Camp UI kit: fonts. Oswald 700 is vendored with the style test; the game build points this at its own copy
+   (assets/fonts/oswald-latin-700-normal.woff2). Body text uses the system sans (Roboto on Android, SF on iOS). */
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 700; font-display: swap; src: url("../assets/fonts/oswald-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: 'Oswald Fallback'; src: local('Arial Narrow Bold'), local('Arial Bold'), local('Arial'); size-adjust: 82%; ascent-override: 118%; }

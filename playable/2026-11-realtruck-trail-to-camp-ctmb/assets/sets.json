@@ -1,0 +1,73 @@
+{
+ "sets": {
+  "clean": [
+   "bed-divider.glb",
+   "cargo-bars.glb",
+   "cargo-carrier.glb",
+   "gear-esky.glb",
+   "gear-firewood.glb",
+   "gear-jerrycan.glb",
+   "gear-swag.glb",
+   "ladder-rack.glb",
+   "roll-cover-closed.glb",
+   "roll-cover-open.glb",
+   "roll-cover.glb",
+   "tub-rack-accessory.glb",
+   "tub-rack-adventure.glb",
+   "tub-slide-open.glb",
+   "tub-slide.glb",
+   "ute.glb"
+  ],
+  "chunky": [
+   "bed-divider.glb",
+   "cargo-bars.glb",
+   "cargo-carrier.glb",
+   "gear-esky.glb",
+   "gear-firewood.glb",
+   "gear-jerrycan.glb",
+   "gear-swag.glb",
+   "ladder-rack.glb",
+   "roll-cover-closed.glb",
+   "roll-cover-open.glb",
+   "roll-cover.glb",
+   "tub-rack-accessory.glb",
+   "tub-rack-adventure.glb",
+   "tub-slide-open.glb",
+   "tub-slide.glb",
+   "ute.glb"
+  ],
+  "stylised": [
+   "bed-divider.glb",
+   "cargo-bars.glb",
+   "cargo-carrier.glb",
+   "gear-esky.glb",
+   "gear-firewood.glb",
+   "gear-jerrycan.glb",
+   "gear-swag.glb",
+   "ladder-rack.glb",
+   "roll-cover-closed.glb",
+   "roll-cover-open.glb",
+   "roll-cover.glb",
+   "tub-rack-accessory.glb",
+   "tub-rack-adventure.glb",
+   "tub-slide-open.glb",
+   "tub-slide.glb",
+   "ute.glb"
+  ]
+ },
+ "gear": {
+  "gear-esky.glb": "clean/gear-esky.glb",
+  "gear-firewood.glb": "clean/gear-firewood.glb",
+  "gear-jerrycan.glb": "clean/gear-jerrycan.glb",
+  "gear-swag.glb": "clean/gear-swag.glb"
+ },
+ "gameGear": [
+  "esky.glb",
+  "jerry.glb",
+  "swag.glb",
+  "wood.glb"
+ ],
+ "camp": true,
+ "glass": true,
+ "logo": "realtruck-logo-horz-light.svg"
+}
