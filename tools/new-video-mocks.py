@@ -12,6 +12,9 @@ Example (the VOXI set):
       --rewarded-ad "D:/DOWNLOADS/voxi-mobile.mp4" --rewarded-preroll asphalt-legends \
       --endcard "D:/DOWNLOADS/voxi-banner.jpg" --endcard-preroll geometry-dash --click-url https://www.voxi.co.uk/
 
+  Rewarded formats are portrait (vertical only, user 2026-11-12): the vertical video in a 9:16 box after a portrait game pre-roll
+  (tools/video-library/preroll-portrait/), and the end card is the 2:3 display image. --landscape builds the old landscape versions.
+
   Only the formats you give inputs for are built:  --ctv-ad -> CTV,  --rewarded-ad -> rewarded,
   --endcard -> rewarded + end card (its ad is --endcard-ad, or --rewarded-ad if not given),
   --rp-ad + --rp-playable -> rewarded video + playable end card (portrait: a video that is not vertical is letterboxed in the 9:16 box, never cropped;
@@ -106,9 +109,10 @@ def main():
     a.add_argument('--suffix', help='4-char URL suffix (default: random); reuse one to add formats to an existing set')
     a.add_argument('--headline', default='', help='header title for every format (each can override)')
     a.add_argument('--ctv-ad'); a.add_argument('--ctv-headline')
-    a.add_argument('--rewarded-ad'); a.add_argument('--rewarded-headline'); a.add_argument('--rewarded-preroll', default='asphalt-legends')
+    a.add_argument('--rewarded-ad'); a.add_argument('--rewarded-headline'); a.add_argument('--rewarded-preroll', help='default: subway-surfer (portrait) or asphalt-legends (--landscape)')
     a.add_argument('--endcard', help='end card image (jpg/png)'); a.add_argument('--endcard-ad'); a.add_argument('--endcard-headline')
-    a.add_argument('--endcard-preroll', default='geometry-dash')
+    a.add_argument('--endcard-preroll', help='default: subway-surfer (portrait) or geometry-dash (--landscape)')
+    a.add_argument('--landscape', action='store_true', help='rewarded and rewarded + end card in the old landscape phone (16:9 video)')
     a.add_argument('--rp-ad', help='rewarded + playable end card: the brand video (vertical; anything else is letterboxed)')
     a.add_argument('--rp-playable', help='rewarded + playable end card: the playable folder to show as the end card')
     a.add_argument('--rp-preroll', default='subway-surfer'); a.add_argument('--rp-headline')
@@ -128,6 +132,8 @@ def main():
     built = []
     for k in want:
         tpl, fmt, label, icon, hid = FORMATS[k]
+        portrait = k in ('rewarded', 'endcard') and not o.landscape
+        if portrait: tpl, icon = f'{fmt}/_template-portrait', ('phone' if k == 'rewarded' else 'phoneImg')
         dst = os.path.join(ROOT, fmt, name)
         if os.path.exists(dst):
             if not o.force: sys.exit(f'{fmt}/{name} exists (use --force)')
@@ -150,10 +156,23 @@ def main():
         elif k == 'ctv':
             transcode(o.ctv_ad, ad); secs = duration(ad)
             page(dst, o.brand, o.ctv_headline or o.headline, f'A {secs}-second {o.brand} spot in a CTV ad break, with the countdown to the programme.')
+        elif portrait:
+            vertical(o.rewarded_ad if k == 'rewarded' else (o.endcard_ad or o.rewarded_ad), ad); secs = duration(ad)
+            name_pre = (o.rewarded_preroll if k == 'rewarded' else o.endcard_preroll) or 'subway-surfer'
+            src = os.path.join(LIB, 'preroll-portrait', name_pre + '.mp4')
+            if not os.path.exists(src): sys.exit(f'no portrait pre-roll "{name_pre}" in {os.path.dirname(src)}')
+            shutil.copy(src, os.path.join(dst, 'assets', 'game-preroll.mp4'))
+            mock = os.path.join(dst, 'mock.html'); s = rd(mock)
+            if o.click_url: s = re.sub(r"clickUrl: '',\s*//", lambda m: f"clickUrl: '{js(o.click_url)}',  //", s, count=1)
+            wr(mock, s)
+            if k == 'endcard': interstitial(o.endcard, os.path.join(dst, 'assets', 'endcard.webp'))
+            head = (o.rewarded_headline if k == 'rewarded' else o.endcard_headline) or o.headline
+            extra = ', then the 2:3 end card' if k == 'endcard' else ''
+            page(dst, o.brand, head, f'A portrait rewarded video: the game, then the {secs}-second {o.brand} video with the reward countdown{extra}.')
         else:
             transcode(o.rewarded_ad if k == 'rewarded' else (o.endcard_ad or o.rewarded_ad), ad); secs = duration(ad)
             mock = os.path.join(dst, 'mock.html')
-            preroll(dst, o.rewarded_preroll if k == 'rewarded' else o.endcard_preroll, mock)
+            preroll(dst, (o.rewarded_preroll or 'asphalt-legends') if k == 'rewarded' else (o.endcard_preroll or 'geometry-dash'), mock)
             s = rd(mock)
             if o.click_url: s = re.sub(r"clickUrl: '',\s*//", lambda m: f"clickUrl: '{js(o.click_url)}',  //", s, count=1)
             if k == 'endcard':

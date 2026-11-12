@@ -1,0 +1,13 @@
+/* In-game and Roblox ad scenes (shared/ingame.js). The scene is drawn in its own units and scaled to fit. */
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+#stage { position: fixed; inset: 0; overflow: hidden; background: #000; }
+.scene { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+.scene > .bg, .scene > .mask, .scene > .overlay { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: fill; pointer-events: none; }
+.slot { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #000; overflow: hidden; backface-visibility: hidden; }
+.slot img, .slot video { width: 100%; height: 100%; display: block; object-fit: contain; }
+/* ?round (set by the phone page): the unit rounds its own corners to the phone screen's radius, because Safari ignores the
+   parent page's clip on video inside an iframe (same trick as the rewarded units). */
+html.round, html.round body, html.round #stage { background: transparent; }
+html.round #stage { border-radius: 13.2% / 6.1%; overflow: hidden; isolation: isolate; transform: translateZ(0);
+  -webkit-mask-image: -webkit-radial-gradient(white, black); mask-image: radial-gradient(white, black); }
+html.round.land #stage { border-radius: 6.1% / 13.2%; }

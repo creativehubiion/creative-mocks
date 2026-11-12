@@ -14,6 +14,9 @@ page shell is in `shared/`, and each format has a `_template/` to start from.
 
 ## 2. Formats
 
+**Rewarded is vertical only (2026-11-12):** one vertical video, and the end card is the same 2:3 image as the display interstitial (or the playable). The
+landscape templates stay for older mocks; `new-video-mocks.py --landscape` still builds them.
+
 | Format | Folder | Template | Device | What plays |
 |---|---|---|---|---|
 | Interactive CTV | `ctv/` | an existing interactive brand | TV + animated remote | an L-band playable in a TV ad break, driven by the remote |
@@ -21,10 +24,14 @@ page shell is in `shared/`, and each format has a `_template/` to start from.
 | Hybrid playable | `hybrid/` | `hybrid/_template/` | portrait phone | 320×480 in-app interstitial: video on top, game below |
 | Playable | `playable/` | `playable/_template/` | portrait phone | 320×480 in-app interstitial: game only, end card with CTA |
 | Display interstitial | `display-interstitial/` | `display-interstitial/_template/` | portrait phone | the playable's phone and 2:3 slot with a static image (640×960) instead of the game; a tap opens the click URL |
-| Rewarded video | `rewarded/` | `rewarded/_template/` | landscape phone | game pre-roll → the ad with the reward countdown |
-| Rewarded video + end card | `rewarded-endcard/` | `rewarded-endcard/_template/` | landscape phone | as above, then a clickable end card |
+| Rewarded video | `rewarded/` | `rewarded/_template-portrait/` (landscape: `_template/`) | portrait phone | a portrait game pre-roll → the brand's vertical video (9:16) with the reward countdown → back to the game |
+| Rewarded video + end card | `rewarded-endcard/` | `rewarded-endcard/_template-portrait/` (landscape: `_template/`) | portrait phone | as above, then the 2:3 display image as a clickable end card with a close button |
 | Rewarded video + playable end card | `rewarded-playable/` | `rewarded-playable/_template/` | portrait phone | a portrait game pre-roll full screen → the brand's vertical video (9:16, full width) with the reward countdown → the brand's playable, live, as the end card in the 2:3 slot with black bars and a close button |
 | Away from the game video | `afg-video/` (+ `afg-video-mobile/`) | `afg-video/_template/`, `afg-video-mobile/_template/` | MacBook (mobile web on a phone) | a publisher's article; the spot plays as the pre-roll in the site's own video player |
+| In-game display | `ingame-display/` | `ingame-display/_template/` | portrait or landscape phone (the scene's shape) | a mobile game screenshot with the brand's image on its billboards (§13) |
+| In-game video | `ingame-video/` | `ingame-video/_template/` | portrait or landscape phone | gameplay video (or a screenshot) with the brand's video playing on the billboard (§13) |
+| Roblox billboard | `roblox-billboard/` | `roblox-billboard/_template/` | MacBook | a Roblox world with the brand's image on an in-experience billboard, Roblox's Ad icon on top (§13) |
+| Roblox video | `roblox-video/` | `roblox-video/_template/` | MacBook | a Roblox video screen (static or animated world) playing the brand's video, with Roblox's mute, expand and Ad icons (§13) |
 | Several mocks, one link | `showcase/` | `showcase/_template/` | the mocks' own pages | one page with a tab (or menu) per mock |
 
 Never call a hybrid a "playable" or the other way round: a hybrid is video + game, a playable is game only.
@@ -173,3 +180,39 @@ can keep the old files for up to 10 minutes, and a new `?v=` on the link doesn't
 - Existing mocks that still load their own `mock.html` stay on GitHub until someone decides to switch them.
 - Other formats stay on GitHub: their sound buttons call into the game, which needs the page and the game on the same domain.
 - GitHub is a manual backup. If Cloudflare goes down, point `src` and `data-full` back to `mock.html` and push.
+
+## 13. In-game and Roblox ads (from the screenshot generator)
+
+Two categories, each with a static and a video format. The scenes come from the team's ad-banner-screenshot-generator
+(`data/games*.json`, `public/screenshots`, `public/gameplay-videos`) and live in `tools/ingame-library/` (`scenes.json` + one
+background per scene). Re-import with `python tools/build-ingame-library.py <clone of the generator>` when it gets new games.
+
+| Category | Format | Scenes | Device |
+|---|---|---|---|
+| In-game | In-game display | 59 mobile game screenshots (32 games), 1 or 2 billboards each | portrait or landscape phone, from the scene's shape |
+| In-game | In-game video | 2 gameplay videos (Stealth Master, SimCity), plus any screenshot as a fallback | portrait or landscape phone |
+| Roblox | Roblox billboard | 2 billboard types (static) | MacBook |
+| Roblox | Roblox video | a static scene and an animated scene (background video) | MacBook |
+
+**One command.** Give it the creative; it ranks every scene of that format and builds on the one with the fewest black bars:
+```
+python tools/new-ingame-mock.py --format ingame-display --brand "Brand" --creative banner.png
+python tools/new-ingame-mock.py --format roblox-video --brand "Brand" --creative spot.mp4
+```
+`--list` only prints the ranking; `--scene <id>` or `--game "Dragon City"` picks another scene; `--suffix` and `--headline` as elsewhere.
+
+**How a scene is drawn** (`shared/ingame.js`, `shared/ingame.css`): background (image, or video) → the creative on every billboard,
+letterboxed on black (never cropped or stretched) and warped onto the billboard's four corners with an exact perspective transform
+(CSS `matrix3d`) → masks (things standing in front of a billboard, redrawn from the background) → overlay (Roblox's UI). The scene fills
+the device when it is nearly the same shape, otherwise it sits inside it on black. A video creative keeps its sound behind the page's
+"Turn sound on" button.
+
+**Gameplay video loops (2026-11-12).** On a gameplay-video scene (SimCity and Stealth Master 10 s, Roblox animated 7.4 s) the video
+creative is cut to the gameplay's loop (`--trim-start` picks which part), and the page uses the gameplay as the clock: both start on
+the same frame and go back to the start together, so the game never jumps back while the ad plays on. An ad shorter than the loop
+repeats inside it. A screenshot scene (or the static Roblox video scene) keeps the full-length ad.
+
+**Picking the scene.** The share of a billboard left black is `1 − min(creative ratio / billboard ratio, billboard ratio / creative ratio)`,
+averaged over the scene's billboards. Lowest wins; a scene that doesn't fit the device adds a little; for in-game video a real gameplay
+video wins a near tie. Billboard shapes run from tall (0.49) to long strips (6.8), so most creatives find a slot under 10%.
+

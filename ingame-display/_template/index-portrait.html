@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="../../shared/mobile.js?v=7"></script>
+<meta name="robots" content="noindex,nofollow">
+<title>iion · Brand in-game display ad</title>
+<link rel="icon" type="image/png" sizes="32x32" href="../../shared/favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="../../shared/favicon-64.png"><link rel="apple-touch-icon" href="../../shared/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../../shared/page.css?v=11">
+<link rel="stylesheet" href="../../shared/phone.css?v=8">
+<style>
+/* in-game: the game fills the phone's screen (the scene draws its own fit); .fill keeps mobile.js from snapping the slot to 2:3 */
+.phone .ad-slot.fill{inset:0;top:0;aspect-ratio:auto;transform:none}
+</style>
+</head>
+<body>
+<nav class="nav"><img src="../../shared/iion-logo.png?v=2" alt="iion"></nav>
+
+<section class="hero">
+  <div class="eyebrow">In-game display · Brand</div>
+  <h1>Headline.</h1>
+  <p>One line about the mock (not shown on the page).</p>
+</section>
+
+<section class="stage phone-stage">
+  <div class="phone" data-qr="Scan to see it on your phone">
+    <div class="screen">
+      <!-- the game fills the screen: no SDK close button, the ad is part of the game's world -->
+      <div class="ad-slot fill" data-full="mock.html?full=1"><iframe src="mock.html?embed=1&amp;round" title="in-game display ad" allow="autoplay"></iframe><script>{const v=new URLSearchParams(location.search).get("v"),f=document.currentScript.previousElementSibling;if(v&&f&&f.tagName==="IFRAME")f.src=f.getAttribute("src")+"&v="+encodeURIComponent(v);}</script></div>
+      <div class="island"></div>
+      <div class="homebar"></div>
+    </div>
+    <i class="hw hw-action"></i><i class="hw hw-vol1"></i><i class="hw hw-vol2"></i><i class="hw hw-power"></i>
+    <div class="floor"></div>
+  </div>
+</section>
+
+<script src="../../shared/touch.js?v=4"></script>
+<script src="../../shared/theme.js?v=6"></script>
+</body>
+</html>

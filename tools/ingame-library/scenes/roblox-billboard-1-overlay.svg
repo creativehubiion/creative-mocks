@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="Layer_2" data-name="Layer 2" viewBox="0 0 1921 1081">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        font-family: DMSans-Light, 'DM Sans';
+        font-size: 15.74px;
+        font-variation-settings: 'opsz' 14, 'wght' 300;
+        font-weight: 300;
+      }
+
+      .cls-3 {
+        fill: none;
+      }
+
+      .cls-4 {
+        letter-spacing: -.03em;
+      }
+    </style>
+  </defs>
+  <g id="Banner_1" data-name="Banner 1">
+    <g id="BG_IMAGE" data-name="BG IMAGE">
+      </g>
+    <g id="Ad_Icon" data-name="Ad Icon">
+      <polygon points="1113 428.12 1068.94 428.04 1069 405.03 1113.94 405.03 1113 428.12" />
+      <g>
+        <path class="cls-1" d="M1109.52,422.77c-3.26,3.28-8.57,3.26-11.81-.05-1.56-1.59-2.4-3.73-2.36-5.96.09-4.53,3.8-8.16,8.34-8.13,4.58.03,8.26,3.76,8.24,8.34-.01,2.18-.87,4.26-2.41,5.81ZM1108.92,422.03c2.76-2.86,2.74-7.41-.03-10.25-2.72-2.79-7.18-2.95-10.1-.38-3.16,2.79-3.33,7.66-.39,10.67s7.64,2.93,10.51-.04Z" />
+        <path class="cls-1" d="M1103.41,415.55c.78-.13,1.49.4,1.61,1.16s-.39,1.46-1.14,1.59-1.48-.38-1.61-1.14.36-1.47,1.14-1.6Z" />
+        <path class="cls-1" d="M1107.72,415.55c.78-.13,1.48.4,1.6,1.16s-.39,1.46-1.14,1.59-1.48-.38-1.61-1.14.37-1.48,1.14-1.61Z" />
+        <path class="cls-1" d="M1099.09,415.55c.78-.14,1.49.39,1.61,1.15s-.39,1.47-1.14,1.59-1.47-.38-1.6-1.14.36-1.47,1.13-1.61Z" />
+      </g>
+      <text class="cls-2" transform="translate(1073.51 422.05)"><tspan class="cls-4" x="0" y="0">A</tspan><tspan x="9.84" y="0">d</tspan></text>
+    </g>
+  </g>
+</svg>
