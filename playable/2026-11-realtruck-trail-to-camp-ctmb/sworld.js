@@ -49,7 +49,7 @@ THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: AA === 'msaa' && !HI, powerPreference: 'high-performance', stencil: false });
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.CustomToneMapping;
-const SHADOW_MAP = Q.get('shadow') === 'map' ? true : Q.get('shadow') === 'decal' ? false : !LOW, DYN_OFF = Q.get('dyn') === '0' || Q.has('scale'); let BADW = 0;
+const SHADOW_MAP = Q.get('shadow') === 'map' ? true : Q.get('shadow') === 'decal' ? false : HI, DYN_OFF = Q.get('dyn') === '0' || Q.has('scale'); let BADW = 0;
 renderer.shadowMap.enabled = SHADOW_MAP; renderer.shadowMap.type = HI ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; renderer.info.autoReset = false;
 const DPR = Q.has('dpr') ? Math.max(1, Math.min(3, +Q.get('dpr') || 1)) : Math.min(window.devicePixelRatio || 1, LOW ? 1.5 : 2);
 let SCALE = Q.has('scale') ? Math.max(0.5, Math.min(1, +Q.get('scale') || 1)) : 1; const SCALE_MIN = 0.7;
@@ -610,7 +610,7 @@ blob.rotation.order = 'YXZ'; blob.renderOrder = 1; scene.add(blob);
 const castTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 128; const x = c.getContext('2d'); x.shadowColor = 'rgba(56,34,64,0.6)'; x.shadowBlur = 9; x.shadowOffsetX = 200; x.fillStyle = '#000'; x.fillRect(14 - 200, 14, 36, 100);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const cast = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 6.0).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: castTex, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3 }));
-cast.renderOrder = 2; cast.visible = !SHADOW_MAP; scene.add(cast);
+cast.renderOrder = 2; cast.visible = !SHADOW_MAP; cast.userData.on = !SHADOW_MAP; scene.add(cast);
 const castC = document.createElement('canvas'), castS = document.createElement('canvas'); castC.width = castS.width = 96; castC.height = castS.height = 192;
 const castBox = { cx: 0, cz: 0, bx: 2.6, bz: 6, d: null, look: null };
 function freeBuild() {

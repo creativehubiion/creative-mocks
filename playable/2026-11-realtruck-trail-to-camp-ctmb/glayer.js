@@ -307,7 +307,7 @@ function poseUte() {
   SW.UU.uUteF.value.set(ws(IP[PS]), R.position.x, R.position.z, th); UT.UU.uUteF.value.set(ws(IP[PS]), R.position.x, R.position.z, th);
   SW.blob.position.set(R.position.x, (ARR.on ? ARR.gy : IP[PBASE]) + 0.03, R.position.z); SW.blob.rotation.set(-L.S.veh.gPitch * (1 - PARK.k), R.rotation.y, L.S.veh.gRoll * (1 - PARK.k));
   const cast = SW.cast, cb = SW.castBox;
-  if (cast && PARK.k > 0) cast.visible = false;
+  if (cast) cast.visible = !!cast.userData.on && !(PARK.k > 0);
   if (cast && cast.visible) { const sd = U.uSunDir.value, c = Math.cos(IP[PYAW]), sn = Math.sin(IP[PYAW]), d = cb.d;
     if (SW.UTEDATA.alt[SW.look] && cb.look !== SW.look) SW.buildCast(SW.look);
     if (cb.d && cb.tex) SW.placeCast(IP[PX], IP[PBASE], IP[PZ], IP[PYAW]); }

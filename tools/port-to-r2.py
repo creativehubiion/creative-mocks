@@ -5,6 +5,8 @@
   python tools/port-to-r2.py playable/hvhl ...  only these folders (after updating a mock here, re-run it for that folder)
   ... --dry-run                                 list what would go, upload nothing
   ... --redirect                                then add the GitHub -> creative-mocks.iion.media redirect to each page here
+  ... --local                                   upload the named folders from disk, untracked files too (a mock that lives only on
+                                                creative-mocks.iion.media, never pushed to GitHub); tells the bot like the rest
 
 What goes: exactly the files git tracks (never local-only notes such as SOURCES.md), templates (_template*) left out.
 On the way, pages are fixed for a bucket, which has no folder index: links that end in a folder ("../../showcase/x/",
@@ -49,8 +51,11 @@ def env():
     return {k: vals[k] for k in need}
 
 
-def tracked(prefixes):
-    files = subprocess.run(['git', 'ls-files', '-z'], cwd=REPO, capture_output=True, check=True).stdout.decode('utf-8').split('\0')
+def tracked(prefixes, local=False):
+    if local:   # straight from disk, for the named folders only (a mock that lives only on creative-mocks.iion.media)
+        files = [p.relative_to(REPO).as_posix() for pre in prefixes for p in (REPO / pre).rglob('*') if p.is_file()]
+    else:
+        files = subprocess.run(['git', 'ls-files', '-z'], cwd=REPO, capture_output=True, check=True).stdout.decode('utf-8').split('\0')
     out = []
     for f in filter(None, files):
         parts = f.split('/')
@@ -78,10 +83,36 @@ def strip_redirect(s):
     return re.sub(r'<script id="' + MARK + r'">.*?</script>', '', s, flags=re.S)
 
 
+def notify_bot(folders):
+    """Tell the Creative Hub bot these mocks are on creative-mocks.iion.media (it drafts them in #bot-review; same signed call as the
+    Mock Builder's publish). Only for folders named on the command line, never for a full port, so a re-copy can't mass-report.
+    Off unless BOT_PUBLISHED_URL and MOCK_BUILDER_WEBHOOK_SECRET are set. The bot ignores a folder it has already drafted."""
+    import hashlib, hmac, json, datetime, urllib.request
+    vals = dict(os.environ)
+    f = REPO.parent / 'mock-builder' / '.env.local'
+    if f.exists():
+        for line in f.read_text(encoding='utf-8').splitlines():
+            if '=' in line and not line.startswith('#'):
+                k, v = line.split('=', 1); vals.setdefault(k, v)
+    url, secret = vals.get('BOT_PUBLISHED_URL'), vals.get('MOCK_BUILDER_WEBHOOK_SECRET')
+    if not (url and secret and folders): return
+    page = (REPO / folders[0] / 'index.html')
+    m = re.search(r'class="eyebrow">[^<·]*·\s*([^<]+)<', page.read_text(encoding='utf-8')) if page.exists() else None
+    body = json.dumps({'id': 'port-' + hashlib.sha1('|'.join(folders).encode()).hexdigest()[:16], 'folders': folders,
+                       'brand': m.group(1).strip() if m else '', 'publishedAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}).encode()
+    sig = 'sha256=' + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(url, data=body, method='POST', headers={'Content-Type': 'application/json', 'x-signature-256': sig}), timeout=10)
+        print(f'told the Creative Hub bot ({r.status}): {", ".join(folders)}')
+    except Exception as e:
+        print(f'note: could not reach the Creative Hub bot ({e}); the mock is up anyway')
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    dry, redirect = '--dry-run' in sys.argv, '--redirect' in sys.argv
-    files = tracked(args)
+    dry, redirect, local = '--dry-run' in sys.argv, '--redirect' in sys.argv, '--local' in sys.argv
+    if local and not args: sys.exit('--local needs the folders to upload')
+    files = tracked(args, local)
     pages = [f for f in files if f.endswith('/index.html') or f == 'index.html']
     size = sum((REPO / f).stat().st_size for f in files)
     print(f'{len(files)} files, {size / 1e6:.1f} MB, {len(pages)} pages')
@@ -105,6 +136,7 @@ def main():
             done += 1
             if done % 100 == 0: print(f'  {done}/{len(files)}')
     print(f'uploaded {done} files to {DOMAIN}')
+    if args: notify_bot(sorted({'/'.join(f.split('/')[:2]) for f in files if f.split('/')[0] in FORMATS}))
 
     if redirect:
         n = 0
