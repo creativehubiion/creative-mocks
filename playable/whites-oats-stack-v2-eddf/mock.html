@@ -229,7 +229,7 @@ const CONFIG={
   sfxVolume:0.35,          // sound is opt-in via the sound button
   brandName:'White\u2019s Oats',
   logo:'assets/whites-logo.svg', // official vector paths, brand-red lettering for light start/end cards
-  ctaLabel:'Explore the range', ctaUrl:'https://www.whitesoats.co.uk/products',
+  ctaLabel:'Explore the range', ctaUrl:'https://www.whitesoats.co.uk/',
   winLine:'A tower of flavour. Discover your favourite White\u2019s Toasted Oats.',
   loseLine:'Good things stack up. Try again or explore the White\u2019s range.',
 
@@ -237,6 +237,7 @@ const CONFIG={
   roundMs:30000,           // round length; the end card comes up at the goal or when time runs out
   gameplayZoom:1.2,        // 20% larger gameplay; cards and HUD keep their original size
   packH:24,                // pack height; the width follows each pack shot's own shape
+  aimGap:24,               // minimum clear space below a hanging pack: one full pack height
   packAspect:0.8,          // width ÷ height of a placeholder pack (no image yet)
   palletW:46,              // the base the first pack lands on
 
@@ -352,7 +353,6 @@ const R=Math.PI/180, TAU=Math.PI*2;
 function arenaH(){ return arena.clientHeight/(arena.clientWidth/100*CONFIG.gameplayZoom||1); }
 const groundY=()=>arenaH()-17/CONFIG.gameplayZoom;           // retain the tabletop position after zooming
 const pivotY=()=>16-CONFIG.ropeLen;                         // inset keeps the rotated clamp clear of the HUD
-const anchorY=60/CONFIG.gameplayZoom;                        // preserve the aiming line while enlarging the packs
 const armLen=()=>CONFIG.ropeLen+CONFIG.packH/2;
 const thetaMax=()=>Math.asin(Math.min(.95,safeSwingAmp/armLen()));
 function fitSwing(){
@@ -368,11 +368,20 @@ function phiAt(t){ let a=swayAmp*Math.sin(t/CONFIG.swayMs*TAU); const k=t-kick.a
 function tw(lx,ly,t){ const f=phiAt(t===undefined?clock:t), oy=groundY()+cam; return {x:50+(lx-50)*Math.cos(f)+ly*Math.sin(f), y:oy+(lx-50)*Math.sin(f)-ly*Math.cos(f)}; }   // tower frame → screen
 const support=()=>tower.length?tower[tower.length-1]:{x:50,w:CONFIG.palletW};
 const topY=()=>tower.length*CONFIG.packH;
+function aimingCameraTarget(){
+  // Bound the full-sized hanging pack over its entire swing, not its small spawn animation.
+  const halfW=Math.max(...deck().map(packW))/2;
+  const hangingBottom=pivotY()+Math.hypot(CONFIG.ropeLen+CONFIG.packH,halfW);
+  // Radial corner bounds keep the gap safe even when an off-centre tower leans or kicks.
+  const rise=tower.reduce((high,b,i)=>Math.max(high,Math.hypot((i+1)*CONFIG.packH,Math.abs(b.x-50)+b.w/2)),0);
+  return Math.max(0,hangingBottom+CONFIG.aimGap+rise-groundY());
+}
 
 function resetTower(){ tower=[]; hang=null; fall=null; debris=[]; particles=[]; rings=[]; impactAt=-1e9; comboUntil=0; $('comboBadge').hidden=true; err=0; combo=0; perfects=0; misses=0; cam=0; zoom=1; swayAmp=0; kick={a:0,at:-1e9}; winAt=0; botMissed={}; spawnAt=clock; }
-function spawnHang(){ const d=deck(), def=d[tower.length%d.length]; hang={def, w:packW(def), bornAt:clock, passes:0, prevX:hangPos().x}; }
+function spawnHang(){ cam=Math.max(cam,aimingCameraTarget());const d=deck(), def=d[tower.length%d.length]; hang={def, w:packW(def), bornAt:clock, passes:0, prevX:hangPos().x}; }
 function drop(atX){
   if(mode!=='play' || !hang) return false;
+  cam=Math.max(cam,aimingCameraTarget()); // an immediate tap or resize must retain full-size release clearance
   const h=hangPos(), sp=armLen()*Math.cos(h.th)*thetaMax()*Math.cos(phase)*TAU/swingPeriod()*1000;      // sideways swing speed, units per second
   fall={def:hang.def, w:hang.w, x:atX===undefined?h.x:atX, y:h.y, vx:sp*CONFIG.carry, vy:0, rot:-h.th,trail:[]}; hang=null; sfx(300,.08,'sine',.6);
   return true;
@@ -496,7 +505,9 @@ function step(dt){
     const p=Math.max(0,Math.min(1,(clock-winAt-250)/800)), e=p*p*(3-2*p), fit=Math.min(1,(groundY()-10)/(topY()+4));
     zoom=reducedMotion()?fit:1+(fit-1)*e; cam=reducedMotion()?0:camWin*(1-e);
   }else{
-    cam+=(Math.max(0,topY()-(groundY()-anchorY))-cam)*Math.min(1,s*6);              // keep the tower top at the anchor once it gets there
+    const target=aimingCameraTarget();
+    cam+=(target-cam)*Math.min(1,s*14); // lower the tower smoothly between landings
+    if(hang)cam=Math.max(cam,target);  // every available drop retains the minimum aiming gap
   }
 }
 
