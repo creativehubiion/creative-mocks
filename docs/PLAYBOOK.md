@@ -200,6 +200,7 @@ python tools/new-ingame-mock.py --format ingame-display --brand "Brand" --creati
 python tools/new-ingame-mock.py --format roblox-video --brand "Brand" --creative spot.mp4
 ```
 `--list` only prints the ranking; `--scene <id>` or `--game "Dragon City"` picks another scene; `--suffix` and `--headline` as elsewhere.
+Roblox billboard is the exception: it always uses `roblox-billboard-2` (the player seated on a stool, three-quarter view) unless `--scene roblox-billboard-1` asks for the wide shot.
 
 **How a scene is drawn** (`shared/ingame.js`, `shared/ingame.css`): background (image, or video) → the creative on every billboard,
 letterboxed on black (never cropped or stretched) and warped onto the billboard's four corners with an exact perspective transform

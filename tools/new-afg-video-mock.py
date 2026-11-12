@@ -73,7 +73,9 @@ def snapshot(url, out_png, player_sel, dev):
     W, H = dev['w'], dev['h']
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch(channel='chrome', headless=True)
+        try: b = p.chromium.launch(channel='chrome', headless=True)          # the installed Chrome (this machine)
+        except Exception:                                                     # a server without Chrome (the Mock Builder worker)
+            b = p.chromium.launch(headless=True, executable_path=os.environ.get('AFG_CHROMIUM') or None)
         pg = b.new_page(viewport={'width': W, 'height': H}, device_scale_factor=2, locale='en-GB', **dev['ctx'])
         pg.route('**/*', lambda r: r.abort() if any(h in r.request.url for h in BLOCK) else r.continue_())
         def load(u):
@@ -84,9 +86,9 @@ def snapshot(url, out_png, player_sel, dev):
             return pg.evaluate(FIND_PLAYER, player_sel)
         found, used = load(url), url
         if not found:   # a listing page: try its articles
-            host = urlparse(url).netloc
+            host = urlparse(pg.url).netloc.removeprefix('www.')   # where the page landed (moneyweek.com drops the www.)
             links = pg.evaluate('''host => [...new Set([...document.querySelectorAll('main a[href], article a[href], a[href]')]
-              .map(a => a.href.split('#')[0]).filter(h => { try { const u = new URL(h); return u.host === host && u.pathname.split('/').filter(Boolean).length >= 2 &&
+              .map(a => a.href.split('#')[0]).filter(h => { try { const u = new URL(h); return u.host.replace(/^www\./, '') === host && u.pathname.split('/').filter(Boolean).length >= 2 &&
               /[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+/.test(u.pathname) } catch (e) { return false } }))].slice(0, 10)''', host)
             for u in links:
                 print('  no player there, trying', u)

@@ -7,7 +7,7 @@
 <title>Brand · Away from the game video</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&family=Inter:wght@500&display=swap">
-<script>{const q=new URLSearchParams(location.search);if(q.has('embed'))document.documentElement.classList.add('embed');if(q.has('full'))document.documentElement.classList.add('full');}</script>
+<script>{const q=new URLSearchParams(location.search);if(q.has('embed'))document.documentElement.classList.add('embed');if(q.has('full'))document.documentElement.classList.add('full');if(q.has('round'))document.documentElement.classList.add('round');}</script>
 <style>
 /* Away from the game video: a publisher's article, our spot playing as the pre-roll in the site's own video player.
    The site is a snapshot (assets/site.webp at 2x, other ads removed) made by _work/new-afg-video-mock.py, which also writes SITE
@@ -27,6 +27,11 @@ html{clip-path:inset(0)}
 .screen{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;overflow:hidden;container-type:size;
   clip-path:inset(0)}
 html.embed .screen,html.full .screen{width:100vw;height:100vh}
+/* ?round (set by the phone page): the unit rounds its own corners to the phone screen's radius. Safari (and Chrome with the blurred bars,
+   the video and the scrolling page on their own layers) ignores the parent page's rounded clip on an iframe; same trick as the rewarded units */
+html.round,html.round body{background:transparent}
+html.round .screen{border-radius:13.2% / 6.1%;overflow:hidden;isolation:isolate;clip-path:inset(0 round 13.2% / 6.1%);
+  -webkit-mask-image:-webkit-radial-gradient(white,black);mask-image:radial-gradient(white,black)}
 .site{--px:calc(100cqw / var(--w,1440));position:absolute;left:0;top:0;width:100cqw;transform:translateY(calc(var(--y,0) * -1 * var(--px)))}   /* no will-change: as its own layer Chrome drew it onto the phone rim above the frame */
 .site img{display:block;width:100%;height:auto}
 .slot{position:absolute;margin-top:var(--band,0px);background:#000;overflow:hidden;opacity:0;transition:opacity .25s}

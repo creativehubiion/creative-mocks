@@ -9,7 +9,7 @@
 {const u=(document.querySelector('meta[name="iion-mobile"]')||{}).content,q=new URLSearchParams(location.search),ua=navigator.userAgent||'';
  const phone=(navigator.userAgentData&&navigator.userAgentData.mobile)||/iPhone|iPod|Android.+Mobile|Windows Phone|Mobile Safari/i.test(ua)&&!/iPad|Tablet/i.test(ua);
  if(u&&phone&&!q.has('laptop')){const v=q.get('v'),vv=v?'v='+encodeURIComponent(v):'';
-  location.replace(q.has('desktop')?u+'?desktop'+(vv?'&'+vv:''):u+'mock.html?full=1'+(vv?'&'+vv:''));}}</script>
+  const f=u.replace(/index\.html$/,'');location.replace(q.has('desktop')?f+'index.html?desktop'+(vv?'&'+vv:''):f+'mock.html?full=1'+(vv?'&'+vv:''));}}</script>
 <meta name="robots" content="noindex,nofollow">
 <title>iion · Brand away from the game video</title>
 <link rel="icon" type="image/png" sizes="32x32" href="../../shared/favicon-32.png"><link rel="icon" type="image/png" sizes="64x64" href="../../shared/favicon-64.png"><link rel="apple-touch-icon" href="../../shared/favicon-180.png">

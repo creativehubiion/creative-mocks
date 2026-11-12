@@ -244,6 +244,8 @@ def main():
             add(entry, bg_png=png)
 
     (OUT / "scenes.json").write_text(json.dumps({"source": "creativehubiion/ad-banner-screenshot-generator", "scenes": scenes}, indent=1) + "\n", encoding="utf-8")
+    # games are played full screen: drop the black safe-area strips some screenshots carry (tools/trim-scene-bars.py)
+    subprocess.run([sys.executable, str(Path(__file__).with_name("trim-scene-bars.py"))], check=True)
     total = sum(p.stat().st_size for p in OUT.rglob("*") if p.is_file())
     print(f"{len(scenes)} scenes, {total / 1e6:.1f} MB in {OUT.relative_to(REPO)}")
 

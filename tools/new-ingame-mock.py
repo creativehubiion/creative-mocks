@@ -6,7 +6,7 @@
   python tools/new-ingame-mock.py --format roblox-billboard --brand "Brand" --creative banner.jpg
   python tools/new-ingame-mock.py --format roblox-video   --brand "Brand" --creative spot.mp4
   ... --list                       only rank the scenes for this creative, build nothing
-  ... --scene ingame-boom-karts    use this scene instead of the best one (ids from --list or tools/ingame-library/scenes.json)
+  ... --scene ingame-boom-karts    use this scene instead of the best one (roblox-billboard always uses roblox-billboard-2 unless set) (ids from --list or tools/ingame-library/scenes.json)
   ... --game "Dragon City"         only consider this game's scenes
 
 The creative is letterboxed on black inside each billboard (never cropped or stretched), so the scene whose billboard shape
@@ -22,11 +22,14 @@ REPO = Path(__file__).resolve().parent.parent
 LIB = REPO / "tools" / "ingame-library"
 FORMATS = {
     "ingame-display": {"category": "ingame", "formats": ["display"], "label": "In-game display"},
-    "ingame-video": {"category": "ingame", "formats": ["video", "display"], "label": "In-game video"},
+    "ingame-video": {"category": "ingame", "formats": ["video"], "label": "In-game video"},   # moving gameplay only, never a still (user, 2026-11-12)
     "roblox-billboard": {"category": "roblox", "formats": ["display"], "label": "Roblox billboard"},
     "roblox-video": {"category": "roblox", "formats": ["video"], "label": "Roblox video"},
 }
 VIDEO_EXT = {".mp4", ".mov", ".webm", ".m4v"}
+# formats that always use one scene unless --scene says otherwise (user, 2026-11-12: Roblox billboards are one room from two
+# angles; use the one with the player sitting on a stool, three-quarter view)
+DEFAULT_SCENE = {"roblox-billboard": "roblox-billboard-2"}
 
 
 def creative_ratio(path):
@@ -83,6 +86,7 @@ def main():
     ap.add_argument("--brand")
     ap.add_argument("--headline", default="")
     ap.add_argument("--suffix")
+    ap.add_argument("--slug", help="folder name before the suffix (default: the brand, lower-case, dashes)")
     ap.add_argument("--scene")
     ap.add_argument("--game")
     ap.add_argument("--list", action="store_true")
@@ -103,11 +107,13 @@ def main():
               + ("  (gameplay video)" if s.get("bgVideo") else ""))
     if a.list: return
 
-    scene = next((s for s in scenes if s["id"] == a.scene), None) if a.scene else ranked[0][2]
-    if not scene: sys.exit(f"unknown scene {a.scene}")
+    pick = a.scene or DEFAULT_SCENE.get(a.format)
+    scene = next((s for s in scenes if s["id"] == pick), None) if pick else ranked[0][2]
+    if not scene: sys.exit(f"unknown scene {pick}")
+    if not a.scene and pick: print(f"using {pick}, the fixed scene for {a.format} (--scene to change)")
     if not a.brand: sys.exit("--brand is needed to build a mock")
     sfx = a.suffix or "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(4))
-    dest = REPO / a.format / f"{slug(a.brand)}-{sfx}"
+    dest = REPO / a.format / f"{a.slug or slug(a.brand)}-{sfx}"
     if dest.exists() and not a.force: sys.exit(f"{dest.relative_to(REPO)} exists (use --force to rebuild)")
     if dest.exists(): shutil.rmtree(dest)
     tpl = REPO / a.format / "_template"

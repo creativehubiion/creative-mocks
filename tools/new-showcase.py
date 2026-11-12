@@ -25,6 +25,10 @@ KINDS = [
     ('hybrid', None, 'Hybrid playable', 'Hybrid', 'phone', 'hybrid'),
     ('playable', None, 'Playable', 'Playable', 'phone', 'playable'),
     ('display-interstitial', None, 'Display interstitial', 'Display', 'phoneImg', 'display'),
+    ('ingame-display', None, 'In-game display', 'In-game', 'billboard', 'ingame'),
+    ('ingame-video', None, 'In-game video', 'In-game video', 'billboardPlay', 'ingame-video'),
+    ('roblox-billboard', None, 'Roblox billboard', 'Roblox', 'roblox', 'roblox'),
+    ('roblox-video', None, 'Roblox video', 'Roblox video', 'roblox', 'roblox-video'),
 ]
 
 def rd(p): return io.open(p, encoding='utf-8').read()
@@ -46,6 +50,8 @@ def main():
                 inter = re.search(r'class="eyebrow">\s*Interactive CTV', rd(os.path.join(base, d, 'index.html'))) is not None
                 if inter != (how == 'interactive'): continue
             seen.add((folder, d))
+            if folder in ('rewarded', 'rewarded-endcard') and 'phone land' not in rd(os.path.join(base, d, 'index.html')):
+                icon = 'phone' if folder == 'rewarded' else 'phoneImg'
             n = sum(1 for r in rows if r[5].startswith(hid))
             rows.append((folder, d, label + (f' {n + 1}' if n else ''), short, icon, hid + (f'-{n + 1}' if n else '')))
     if len(rows) < 2: sys.exit(f'found {len(rows)} mock(s) with suffix -{o.suffix}; a showcase needs 2+')

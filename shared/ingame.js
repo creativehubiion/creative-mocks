@@ -4,13 +4,19 @@
    Layers: background (image or video) > the creative on each billboard (letterboxed on black, warped onto the four corners
    with an exact perspective transform) > masks (things standing in front of the billboard, redrawn from the background)
    > overlay (Roblox's Ad icon, mute and expand buttons). The scene keeps its own units (image pixels or the SVG viewBox)
-   and is scaled to fit the window: cover when the window is nearly the same shape, otherwise contain on black.
+   and always fills the window (cover), keeping every billboard whole.
    window.DEMO = { setSound } so the page's sound button works for a video creative. */
 (function () {
   const S = window.SCENE, C = window.CREATIVE, Q = new URLSearchParams(location.search);
   const bust = u => { const v = Q.get('v'); return v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };
   const stage = document.getElementById('stage');
-  if (Q.has('round')) document.documentElement.classList.add('round', innerWidth > innerHeight ? 'land' : 'port');
+  if (Q.has('round')) {
+    const r = document.documentElement;
+    r.classList.add('round', innerWidth > innerHeight ? 'land' : 'port');
+    // square corners while the page shows the ad full screen (shared/fullscreen.js sets .fs on it), as the rewarded units do
+    try { const ph = parent.document.documentElement, sync = () => r.classList.toggle('round', !ph.classList.contains('fs'));
+      new MutationObserver(sync).observe(ph, { attributes: true, attributeFilter: ['class'] }); sync(); } catch (e) {}
+  }
   const scene = document.createElement('div'); scene.className = 'scene';
   scene.style.width = S.w + 'px'; scene.style.height = S.h + 'px';
   stage.appendChild(scene);
@@ -50,11 +56,29 @@
   if (S.overlay) { const o = new Image(); o.src = bust(S.overlay); o.className = 'overlay'; o.alt = ''; scene.appendChild(o); }
 
   // fit the scene to the window
+  /* games are played full screen (user, 2026-11-12): the scene always fills the screen (cover), centred, then moved just enough
+     that every billboard stays whole. A billboard wider than the cropped view keeps the crop centred on it. ?contain = old fit. */
+  const xs = S.quads.flat().map(p => p[0]), ys = S.quads.flat().map(p => p[1]);
+  const box = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  const keep = (t, lo, hi, view, size, k) => {          // t = offset; keep [lo, hi] (scene units) inside [0, view]
+    const min = view - size * k, a = view - hi * k, b = -lo * k; // allowed offsets: [min, 0]; billboard visible: [a, b]
+    if (a <= b) t = Math.min(Math.max(t, a), b); else t = view / 2 - (lo + hi) / 2 * k;
+    return Math.min(0, Math.max(min, t));
+  };
   function fit() {
-    const W = stage.clientWidth, H = stage.clientHeight, sa = S.w / S.h, wa = W / H;
-    const near = Math.abs(Math.log(wa / sa)) < 0.09 && !Q.has('contain');
-    const k = near ? Math.max(W / S.w, H / S.h) : Math.min(W / S.w, H / S.h);
-    scene.style.transform = `translate(${(W - S.w * k) / 2}px, ${(H - S.h * k) / 2}px) scale(${k})`;
+    const W = stage.clientWidth, H = stage.clientHeight;
+    if (Q.has('contain')) {
+      const k = Math.min(W / S.w, H / S.h);
+      scene.style.transform = `translate(${(W - S.w * k) / 2}px, ${(H - S.h * k) / 2}px) scale(${k})`; return;
+    }
+    /* fill only when the screen is held the way the game is played (same shape, e.g. a sideways phone for a sideways game);
+       otherwise show the whole game on black, like CTV in full screen: an upright phone gets the sideways game whole, with the
+       "turn your phone sideways" hint, and fills once turned (user, 2026-11-12) */
+    const sameShape = Math.abs(Math.log((W / H) / (S.w / S.h))) < 0.5;
+    const k = sameShape ? Math.max(W / S.w, H / S.h) : Math.min(W / S.w, H / S.h);
+    const tx = sameShape ? keep((W - S.w * k) / 2, box.x0, box.x1, W, S.w, k) : (W - S.w * k) / 2;
+    const ty = sameShape ? keep((H - S.h * k) / 2, box.y0, box.y1, H, S.h, k) : (H - S.h * k) / 2;
+    scene.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
   }
   addEventListener('resize', fit); new ResizeObserver(fit).observe(stage); fit();
 
@@ -66,10 +90,15 @@
     bgVideo.loop = false;
     vids.forEach(v => { v.loop = false; v.addEventListener('loadedmetadata', () => { if (bgVideo.duration && v.duration < bgVideo.duration - .25) v.loop = true; }); });
     const all = [bgVideo, ...vids];
-    const restart = () => all.forEach(v => { v.currentTime = 0; v.play().catch(() => {}); });
+    let started = false;
+    const restart = () => { started = true; all.forEach(v => { v.currentTime = 0; const p = v.play(); if (p) p.catch(() => {}); }); };
     bgVideo.addEventListener('ended', restart);
-    let ready = 0;   // start both on the same frame once each can play
-    all.forEach(v => { v.pause(); v.addEventListener('canplay', () => { if (++ready === all.length) restart(); }, { once: true }); });
+    /* start both on the same frame: let them autoplay (muted), and once each is actually playing put both back to 0 together.
+       Never pause them to wait: iPhone Safari doesn't load a paused video, so "canplay" never came and both stayed frozen
+       (user, 2026-11-12). A timer starts them together anyway if one never reports playing. */
+    let ready = 0;
+    all.forEach(v => v.addEventListener('playing', () => { if (!started && ++ready === all.length) restart(); }, { once: true }));
+    setTimeout(() => { if (!started) restart(); }, 2500);
   }
 
   function media(tag, src) {
