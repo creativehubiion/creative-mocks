@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="robots" content="noindex,nofollow">
+<title>White's Oats · Stack the Oats v2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap">
+<style>
+/* White's Oats playable (320×480, 2:3) — v2. Clean, minimal UI in the brand's colours; the packs are the real pack shots (whole, never cut).
+   Stack-the-tower: a pack swings from a hook, tap drops it, it lands whole where it falls. Dead centre = PERFECT;
+   off-centre stays crooked and makes the tower sway; too far over the edge and the pack tips off.
+   UI: one slim line on top (count · progress · seconds), a start card, an end card. Sound is muted until the user enables it. */
+:root{
+  /* EDIT ME ▸ brand tokens — every colour in the unit (UI and canvas) comes from these. Six-digit hex only. */
+  --brand:#c51e35;                 /* accent: progress, buttons, PERFECT */
+  --ink:#3a2416;                   /* text, rope, pallet */
+  --ink-mid:rgba(58,36,22,.62);    /* secondary text (ink at 62%) */
+  --ink-soft:rgba(58,36,22,.12);   /* hairlines, progress track (ink at 12%) */
+  --cream:#fbf6ec;                 /* background, top · cards */
+  --oat:#f0e4cf;                   /* background, bottom */
+  --gold:#eda62c;
+  --arena-top:22cqw;
+  --veil:rgba(251,246,236,.82);    /* start card over the attract demo (cream at 82%) */
+  --paper:#ffffff; --letterbox:#000;
+  --f-ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{width:100%;height:100%;background:#0f0f10;color:var(--ink);font-family:var(--f-ui);-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.page{min-height:100%;display:grid;place-items:center;padding:24px}
+
+/* 2:3 ad frame — everything inside is cqw (1cqw = 1% of frame width) */
+.screen{position:relative;width:min(320px,90vw);aspect-ratio:2/3;overflow:hidden;display:flex;flex-direction:column;background:var(--letterbox);container-type:inline-size}
+
+/* ── GAME (full unit) ── */
+.game-area{height:100%;position:relative;overflow:hidden;touch-action:none;color:var(--ink);background:linear-gradient(180deg,var(--cream) 0%,var(--oat) 100%)}
+.hud{position:absolute;left:5cqw;right:5cqw;top:4cqw;height:6cqw;display:flex;align-items:center;gap:3.2cqw;z-index:2;pointer-events:none;font-variant-numeric:tabular-nums}
+.hud b{font-size:4.4cqw;font-weight:800}
+.hud span{font-size:3cqw;font-weight:600;color:var(--ink-mid);margin-left:.5cqw}
+.bar{flex:1;position:relative;height:1.2cqw;border-radius:1cqw;overflow:hidden;background:#e4dccf}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:inherit;background:var(--brand);transition:width .25s}
+.arena{position:absolute;left:0;right:0;top:12cqw;bottom:0}
+.arena canvas{position:absolute;left:0;top:calc(-1 * var(--arena-top));width:100%;height:calc(100% + var(--arena-top));display:block}
+.hint{position:absolute;left:50%;bottom:5cqw;translate:-50% 0;z-index:2;background:var(--paper);color:var(--ink);font-weight:700;font-size:3cqw;padding:1.4cqw 3.6cqw;border-radius:10cqw;white-space:nowrap;pointer-events:none;box-shadow:0 .6cqw 2cqw var(--ink-soft);animation:bob 1.4s ease-in-out infinite}
+@keyframes bob{50%{translate:-50% -.8cqw}}
+
+/* Start card — sound remains muted until the sound control is enabled. */
+.start{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3cqw;padding:8cqw;text-align:center;cursor:pointer;background:var(--veil)}
+.brand-name{font-family:Georgia,serif;font-size:10cqw;font-weight:700;color:#a51c30;letter-spacing:-.5cqw}
+.range-shots{display:flex;align-items:flex-end;justify-content:center;width:100%;height:36cqw;margin:1cqw 0 2cqw}
+.range-shots img{width:27%;height:100%;object-fit:contain;filter:drop-shadow(0 1cqw 1cqw #3a241622);margin:0 -1cqw}
+.range-shots img:nth-child(2){height:112%;z-index:1}
+.range-shots img:nth-child(3){height:105%}
+.end-range{height:48cqw}
+.btn:disabled{opacity:.6;cursor:wait;animation:none}
+.start h2{font-size:8.8cqw;font-weight:800;line-height:1.05;letter-spacing:-.2cqw;text-wrap:balance}
+.start p{font-size:3.6cqw;font-weight:600;color:var(--ink-mid)}
+
+/* End card — the full unit: logo · pack shot · result · CTA */
+.card{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:13cqw 8cqw 9cqw;text-align:center;background:var(--cream);animation:pop .3s ease-out both}
+@keyframes pop{from{opacity:0}}
+.card-logo{height:12cqw;display:grid;place-items:center;font-size:5.4cqw;font-weight:800;letter-spacing:-.1cqw}
+.brand-name img,.card-logo img{display:block;width:100%;height:auto;object-fit:contain}
+.pack-shot{width:52cqw;height:44cqw;background:center/contain no-repeat}
+.result{display:flex;flex-direction:column;align-items:center;gap:1.6cqw}
+.card .big{font-size:11cqw;font-weight:800;line-height:1.05;letter-spacing:-.2cqw;font-variant-numeric:tabular-nums}
+.card .big em{font-style:normal;color:var(--brand)}
+.card p{font-size:3.6cqw;font-weight:500;line-height:1.4;color:var(--ink-mid);max-width:72cqw;text-wrap:balance}
+.btns{display:flex;flex-direction:column;align-items:center;gap:1.6cqw;width:100%}
+.btn{font:inherit;white-space:nowrap;border:0;cursor:pointer;transition:translate .08s}
+.btn.primary{background:var(--brand);color:var(--paper);font-weight:800;font-size:4.2cqw;padding:3.8cqw 10cqw;border-radius:10cqw;min-width:56cqw}
+.btn.ghost{background:none;color:var(--ink-mid);font-weight:700;font-size:3.4cqw;padding:1.6cqw 4cqw}
+.btn:active,.btn.press{translate:0 .5cqw}
+.start .btn{margin-top:2cqw;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{scale:1.04}}
+@media (prefers-reduced-motion:reduce){.hint,.start .btn{animation:none}}
+
+/* Breakfast art direction: independent backgrounds, props, and accessible live UI. */
+.game-area,.start,.card{background:var(--cream) url('assets/countryside.webp') center/100% 100% no-repeat}
+.table-layer,.start::before,.card::before{position:absolute;inset:auto 0 0;height:26cqw;background:url('assets/tabletop.webp') center bottom/100% 100% no-repeat;pointer-events:none}
+.start::before,.card::before{content:'';z-index:0}
+.start>*:not(.oat-scene),.card>*:not(.confetti):not(.oat-scene){position:relative;z-index:1}
+.hud{right:17cqw;top:5cqw}.bar{height:2cqw}.arena{top:var(--arena-top)}
+.sound-toggle{position:absolute;z-index:5;right:2cqw;top:1.5cqw;width:14cqw;height:14cqw;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:var(--ink);cursor:pointer}
+.sound-toggle svg{width:6cqw;height:6cqw;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.start{padding:9cqw 7cqw 7cqw;gap:0;justify-content:flex-start;cursor:default}
+.brand-name{display:grid;place-items:center;width:60cqw;aspect-ratio:223/85;flex-shrink:0;line-height:1;color:var(--brand);margin-bottom:4cqw}
+.start h2,.card .big{font-family:Georgia,serif;font-weight:900;font-size:11cqw;line-height:1.02;letter-spacing:-.5cqw}
+.gold-swoosh{width:31cqw;height:3cqw;border-top:1cqw solid #eda62c;border-radius:50%;margin:3cqw auto}
+.start p{font-size:3.5cqw;color:var(--ink)}
+.start .range-shots{margin:auto 0 2cqw;height:46cqw;flex-shrink:0;isolation:isolate}
+.start .range-shots img{position:absolute;bottom:0;width:46%;height:100%;margin:0;object-position:center bottom}
+.start .range-shots img:first-child{left:0}
+.start .range-shots img:last-child{right:0}
+.start .range-shots img.oaty-bar{left:50%;translate:-50% 0;bottom:-2cqw;width:36%;height:auto;z-index:2}
+.start .btn{margin-top:2cqw;width:100%;animation:none}
+.btn.primary{background:linear-gradient(#dd2842,#b9122a);min-height:13cqw;font-size:4.7cqw;padding:3.4cqw 6cqw;box-shadow:0 1cqw 2cqw #82242118}
+.btn:focus-visible,.sound-toggle:focus-visible{outline:3px solid #3a2416;outline-offset:3px}
+/* Decorative oats stay at the edges, behind the packs, copy and controls. */
+.oat-scene{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.oat-scene::before,.oat-scene::after{content:'';position:absolute;width:34cqw;height:44cqw;background:url('assets/oat-sprig.webp') center/contain no-repeat;opacity:.5;transform-origin:50% 90%;transform:scaleX(var(--sprig-flip,1)) rotate(var(--sprig-angle));animation:oatSway 9s -2s ease-in-out infinite alternate}
+.oat-scene::before{left:-17cqw;top:24cqw;--sprig-angle:18deg}
+.oat-scene::after{right:-15cqw;bottom:29cqw;--sprig-flip:-1;--sprig-angle:12deg;animation-duration:11s;animation-delay:-7s}
+.oat-scatter{position:absolute;inset:0;opacity:.44}
+.oat-scatter i{position:absolute;width:var(--flake-size,7cqw);aspect-ratio:1;background:url('assets/oat-flake.webp') center/contain no-repeat;animation:oatDrift var(--drift-time,12s) var(--drift-delay,0s) ease-in-out infinite alternate}
+.oat-scatter i:nth-child(1){left:4%;top:8%;--drift-time:11s;--drift-delay:-3s}
+.oat-scatter i:nth-child(2){right:0;top:24%;--flake-size:10cqw;--drift-time:14s;--drift-delay:-10s;animation-direction:alternate-reverse}
+.oat-scatter i:nth-child(3){left:7%;top:50%;--flake-size:6cqw;--drift-time:13s;--drift-delay:-7s}
+.oat-scatter i:nth-child(4){right:3%;top:62%;--flake-size:8cqw;--drift-time:10s;--drift-delay:-5s;animation-direction:alternate-reverse}
+.oat-scatter i:nth-child(5){left:1%;top:82%;--flake-size:9cqw;--drift-time:15s;--drift-delay:-12s}
+.oat-scatter i:nth-child(6){right:0;top:91%;--flake-size:6cqw;--drift-time:12s;--drift-delay:-8s;animation-direction:alternate-reverse}
+.oat-scene--play::before{top:48cqw;left:-21cqw;opacity:.24}
+.oat-scene--play::after{right:-21cqw;bottom:18cqw;opacity:.24}
+.oat-scene--play .oat-scatter{opacity:.24}
+.oat-scene--play .oat-scatter i:nth-child(1){left:0;top:18%}
+.oat-scene--play .oat-scatter i:nth-child(2){right:-1%;top:34%}
+.oat-scene--play .oat-scatter i:nth-child(3){left:1%;top:54%}
+.oat-scene--play .oat-scatter i:nth-child(4){right:0;top:70%}
+.oat-scene--play .oat-scatter i:nth-child(5){left:0;top:87%}
+.oat-scene--play .oat-scatter i:nth-child(6){right:-1%;top:94%}
+.card .oat-scene::before{top:30cqw;--sprig-angle:8deg}
+.card .oat-scene::after{bottom:21cqw;--sprig-angle:22deg}
+@keyframes oatSway{from{transform:scaleX(var(--sprig-flip,1)) rotate(calc(var(--sprig-angle) - 2deg))}to{transform:scaleX(var(--sprig-flip,1)) rotate(calc(var(--sprig-angle) + 2deg))}}
+@keyframes oatDrift{from{transform:translate3d(-.6cqw,1.5cqw,0) rotate(-12deg)}to{transform:translate3d(.8cqw,-1.8cqw,0) rotate(10deg)}}
+.card{padding:7cqw 6cqw 5cqw;gap:2cqw;justify-content:flex-start}
+.card-logo{font-family:Georgia,serif;font-size:9cqw;color:var(--brand);width:54cqw;height:auto;aspect-ratio:223/85;flex-shrink:0}
+.result{gap:0}.card .score-line{font-weight:700;font-size:4cqw;color:var(--ink)}
+.card #winLine{font-size:3cqw;max-width:75cqw;margin-top:2cqw}
+.end-range{margin:auto 0 0;height:39cqw;flex-shrink:0;width:112%;max-width:100cqw}
+.end-range img.lineup{width:100%;height:100%;margin:0;object-fit:contain}
+.card .btns{gap:0}.card .btn.primary{width:100%}.btn.ghost{min-height:10cqw;font-size:3.6cqw;text-decoration:underline}
+.hint{background:var(--brand);color:white;font-size:3.5cqw;padding:2.5cqw 6cqw;bottom:4cqw}
+.confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.confetti i{position:absolute;top:-14cqw;width:7cqw;height:9cqw;background:url('assets/oat-flake.webp') center/contain no-repeat;animation:oatFall 3.8s linear both;animation-delay:var(--delay);left:var(--left)}
+@keyframes oatFall{to{transform:translate(8cqw,170cqw) rotate(460deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){.confetti{display:none}.hint{animation:none}}
+
+/* Small, quick responses make each drop feel tactile. Cards retain their layout. */
+.btn{transition:transform .16s ease,filter .16s ease,box-shadow .16s ease}
+.btn.primary{position:relative;overflow:hidden}
+.btn.primary::after{content:'';position:absolute;inset:-60% auto -60% -40%;width:25%;background:linear-gradient(90deg,transparent,#ffffff35,transparent);transform:skewX(-20deg);pointer-events:none;animation:buttonGleam 4s 1.4s infinite}
+.btn:active{transform:scale(.96)}
+.start{animation:cardReveal .5s cubic-bezier(.2,.8,.2,1) both}
+.start .brand-name,.start h2,.start .range-shots,.start .btn{animation:riseIn .55s cubic-bezier(.2,.8,.2,1) both}
+.start h2{animation-delay:.08s}.start .range-shots{animation-delay:.16s}.start .btn{animation-delay:.24s}
+.start .range-shots img{animation:packFloat 3.4s .8s ease-in-out infinite alternate}
+.start .range-shots img:nth-child(2){animation-delay:1.2s}
+.start .range-shots img:nth-child(3){animation-delay:1.6s}
+.card{animation:cardReveal .48s cubic-bezier(.2,.8,.2,1) both}
+.card .card-logo,.card .result,.card .end-range,.card .btns{animation:riseIn .5s cubic-bezier(.2,.8,.2,1) both}
+.card .result{animation-delay:.08s}.card .end-range{animation-delay:.16s}.card .btns{animation-delay:.24s}
+.start.leaving,.card.leaving{animation:cardLeave .28s ease-in both;pointer-events:none}
+.hud-enter{animation:hudEnter .35s ease-out both}
+#popVal{display:inline-block;transform-origin:center}.score-pop{animation:scorePop .4s cubic-bezier(.2,.8,.2,1)}
+.bar i{transition:width .35s cubic-bezier(.2,.8,.2,1);box-shadow:0 0 2cqw #eda62c66}
+.hud.urgent #timeVal{color:var(--brand);animation:timerBeat 1s ease-in-out infinite}
+.combo-badge{position:absolute;top:13cqw;left:50%;translate:-50% 0;z-index:2;pointer-events:none;border:1px solid #e9ce94;border-radius:10cqw;padding:1cqw 3cqw;background:#fff8e9;color:var(--ink);font-size:2.7cqw;font-weight:900;letter-spacing:.12cqw;white-space:nowrap;box-shadow:0 .8cqw 3cqw #b77b1620}
+.combo-badge.pop{animation:badgePop .4s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cardReveal{from{opacity:0;transform:translateY(4cqw) scale(.98)}to{opacity:1;transform:none}}
+@keyframes cardLeave{to{opacity:0;transform:translateY(-6cqw) scale(1.035)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(4cqw)}to{opacity:1;transform:none}}
+@keyframes packFloat{to{transform:translateY(-1cqw) rotate(-1deg)}}
+@keyframes hudEnter{from{opacity:0;transform:translateY(-2cqw)}to{opacity:1;transform:none}}
+@keyframes scorePop{35%{transform:scale(1.45);color:var(--brand)}70%{transform:scale(.96)}to{transform:scale(1)}}
+@keyframes badgePop{from{opacity:0;transform:scale(.8)}55%{opacity:1;transform:scale(1.06)}to{transform:scale(1)}}
+@keyframes timerBeat{50%{opacity:.6}}
+@keyframes buttonGleam{0%,60%{left:-40%}90%,100%{left:125%}}
+@media(prefers-reduced-motion:reduce){
+  .game-area *,.game-area *::before,.game-area *::after{animation:none!important;transition:none!important}
+  .btn.primary::after{display:none}
+}
+
+</style>
+<script>{const q=new URLSearchParams(location.search); if(q.has('embed')||q.has('full'))document.documentElement.classList.add('embed'); if(q.has('full'))document.documentElement.classList.add('full');}</script>
+<style>
+html.embed,html.embed body{background:var(--letterbox);overflow:hidden}
+html.embed .page{display:block;padding:0;min-height:0;height:100%}
+html.embed .screen{position:fixed;inset:0;width:100vw;height:100vh;aspect-ratio:auto}
+html.full .screen{inset:0;margin:auto;width:min(100vw,calc(100dvh * 2 / 3));height:auto;aspect-ratio:2/3}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="screen" id="screen">
+
+    <div class="game-area" id="game">
+      <div class="oat-scene oat-scene--play" aria-hidden="true"><div class="oat-scatter"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <button class="sound-toggle" id="soundBtn" type="button" aria-label="Enable sound" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="soundWaves" d="m17 9 5 6m0-6-5 6"/></svg></button>
+      <div class="table-layer" aria-hidden="true"></div>
+      <div class="hud">
+        <div><b id="popVal">0</b><span>/ <i id="goalVal" style="font-style:normal">8</i></span></div>
+        <div class="bar"><i id="scoreBar"></i></div>
+        <div><b id="timeVal">30</b><span>s</span></div>
+      </div>
+      <div class="arena" id="arena"><canvas id="cv"></canvas></div>
+      <div class="hint" id="hint" hidden>Tap anywhere to drop</div>
+      <div class="combo-badge" id="comboBadge" aria-live="polite" hidden></div>
+
+      <div class="start" id="startCard">
+        <div class="oat-scene" aria-hidden="true"><div class="oat-scatter"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="brand-name" id="startLogo"></div>
+        <h2>Stack your<br>breakfast</h2>
+        <div class="gold-swoosh" aria-hidden="true"></div>
+        <p id="startSub">Tap to drop. Stack 8 packs!</p>
+        <div class="range-shots" id="startPacks" aria-label="White’s Toasted Oats and Oaty Bar"></div>
+        <button class="btn primary" id="playBtn" type="button" disabled>Loading packs…</button>
+      </div>
+
+      <div class="card" id="winCard" hidden>
+        <div class="oat-scene" aria-hidden="true"><div class="oat-scatter"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="confetti" id="confetti" aria-hidden="true"></div>
+        <div class="card-logo" id="logoSlot"></div>
+        <div class="result" aria-live="polite"><div class="big" id="endHeading">A towering<br>start!</div><div class="gold-swoosh" aria-hidden="true"></div><p class="score-line">You stacked <strong id="winVal">8</strong> packs!</p><p id="winLine"></p></div>
+        <div class="range-shots end-range" id="packShot" aria-label="White’s product range"></div>
+        <div class="btns"><button class="btn primary" id="ctaBtn" type="button">Explore the range</button><button class="btn ghost" id="againBtn" type="button">Try again</button></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const screenEl=$('screen'), arena=$('arena'), cv=$('cv'), ctx=cv.getContext('2d');
+
+/* ══ EDIT ME ▸ copy & tuning ══  lengths are world units: 100 = the unzoomed unit's width */
+const CONFIG={
+  sfxVolume:0.35,          // sound is opt-in via the sound button
+  brandName:'White\u2019s Oats',
+  logo:'assets/whites-logo.svg', // official vector paths, brand-red lettering for light start/end cards
+  ctaLabel:'Explore the range', ctaUrl:'https://www.whitesoats.co.uk/products',
+  winLine:'A tower of flavour. Discover your favourite White\u2019s Toasted Oats.',
+  loseLine:'Good things stack up. Try again or explore the White\u2019s range.',
+
+  goal:8,                  // packs to stack for the win
+  roundMs:30000,           // round length; the end card comes up at the goal or when time runs out
+  gameplayZoom:1.2,        // 20% larger gameplay; cards and HUD keep their original size
+  packH:24,                // pack height; the width follows each pack shot's own shape
+  packAspect:0.8,          // width ÷ height of a placeholder pack (no image yet)
+  palletW:46,              // the base the first pack lands on
+
+  swingAmp:30,             // how far the hanging pack swings each side of the middle
+  ropeLen:60,              // rope length (longer = flatter arc)
+  swingMs:2100,            // time for one full swing, there and back
+  swingUp:0.96,            // swing time multiplier per stacked pack (below 1 = faster)
+  swingMin:1500,           // fastest swing
+  gravity:520,             // fall acceleration
+  carry:0,                 // 0 = the pack drops straight down · 1 = it keeps all its sideways swing speed
+
+  perfectTol:2.2,          // within this offset the pack snaps flush: PERFECT
+  tipLimit:0.45,           // a pack stays if its centre is within this share of the pack below; past it, it tips off
+  swayFrom:2,              // the tower starts swaying once it is this many packs high
+  swayPerPack:0.2,         // degrees of sway added per pack above that
+  swayPerOffset:1.5,       // degrees of sway per pack-width of sloppy stacking (a PERFECT takes a little back)
+  swayMax:2.5,             // sway cap, in degrees
+  swayMs:2600,             // time for one full sway
+  nextMs:350,              // pause before the next pack is on the hook
+  missEnds:0,              // 1 = a pack that tips off ends the round · 0 = you only lose the time
+  hintUntil:2,             // "Tap to drop" stays up until this many packs are stacked
+  remotePacks:0,           // optional remote fallback; local assets are the production default
+
+  // Locally bundled Toasted Oats pack shots; repeat the four flavours for an eight-pack tower.
+  packs:[
+    {slug:'toasted-apple-cinnamon', name:'Toasted Oats Apple & Cinnamon', page:'https://www.whitesoats.co.uk/products/toasted-oats-apple-cinnamon-crunch', src:'assets/Toasted-Oats-Apple-Cinnamon-Crunch-2023.png', bounds:{sourceW:280,sourceH:344,x:26,y:13,w:227,h:306}},
+    {slug:'toasted-strawberry-banana', name:'Toasted Oats Strawberry & Banana', page:'https://www.whitesoats.co.uk/products/toasted-oats-strawberry-banana-crunch', src:'assets/Toasted-Oats-Strawberry-Banana-Crunch-small.png', bounds:{sourceW:280,sourceH:344,x:27,y:13,w:226,h:305}},
+    {slug:'toasted-wild-fruit', name:'Toasted Oats Wild Fruit', page:'https://www.whitesoats.co.uk/products/toasted-oats-wild-fruit-crunch', src:'assets/Toasted-Oats-Wild-Fruit-Crunch-2023.png', bounds:{sourceW:280,sourceH:344,x:26,y:13,w:227,h:306}},
+    {slug:'toasted-triple-chocolate', name:'Toasted Oats Triple Chocolate', page:'https://www.whitesoats.co.uk/products/triple-chocolate-crunch-toasted-oats', src:'assets/Whites-oats-toasted-oats-triple-choc-crunch-280-x-344.png', bounds:{sourceW:280,sourceH:344,x:26,y:13,w:228,h:306}},
+  ],
+};
+/* greybox tuning from the URL: any number above can be overridden, e.g. mock.html?swingMs=1800&tipLimit=0.4&missEnds=1 */
+{ const q=new URLSearchParams(location.search); for(const [k,v] of q){ if(k in CONFIG && typeof CONFIG[k]==='number' && v!=='' && isFinite(+v)) CONFIG[k]=+v; } }
+CONFIG.gameplayZoom=Math.max(.8,Math.min(1.5,CONFIG.gameplayZoom));
+const motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
+const reducedMotion=()=>motionPreference.matches;
+const bust = u => { const v = new URLSearchParams(location.search).get('v'); return u && v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };   // the page's ?v reaches the files too (cache-busting)
+
+/* colours for the canvas, read from the brand tokens in :root */
+const tok=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hexA=(h,a)=>'rgba('+parseInt(h.slice(1,3),16)+','+parseInt(h.slice(3,5),16)+','+parseInt(h.slice(5,7),16)+','+a+')';
+const C={brand:tok('--brand'), ink:tok('--ink'), paper:tok('--paper'), gold:tok('--gold')};
+
+/* ══ pack shots ══  local PNG first; if it isn't there yet, the shot on White's site; if that fails too, a plain labelled card.
+   Packs are always drawn whole. Transparent margins around a shot are measured and left out, so the pack's edges are the edges that stack. */
+function trimBox(im,known){
+  const W=im.naturalWidth, H=im.naturalHeight, full={x:0,y:0,w:W,h:H};
+  // Measured local alpha bounds are reliable even when browser canvas readback is blocked.
+  // They remove only the PNG's transparent margins; supplied image bytes remain unchanged.
+  if(known&&W===known.sourceW&&H===known.sourceH)return {x:known.x,y:known.y,w:known.w,h:known.h};
+  try{ const c=document.createElement('canvas'); c.width=W; c.height=H;
+    const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(im,0,0,c.width,c.height);
+    const d=g.getImageData(0,0,c.width,c.height).data; let x0=c.width,y0=c.height,x1=-1,y1=-1;
+    for(let y=0;y<c.height;y++) for(let x=0;x<c.width;x++) if(d[(y*c.width+x)*4+3]>24){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+    if(x1<0) return full;
+    return {x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};
+  }catch(e){ return full; }                                  // a shot from another site can't be measured: use it as it is
+}
+function loadPack(p){
+  return new Promise(resolve=>{
+  const tries=[[bust(p.src),false]];
+  if(CONFIG.remotePacks && p.url){ tries.push([p.url,true]); tries.push([p.url,false]); }
+  (function next(){ const t=tries.shift(); if(!t){ resolve(); return; } const im=new Image(); if(t[1]) im.crossOrigin='anonymous';
+    im.onload=()=>{ p.img=im; p.crop=trimBox(im,p.bounds); p.src=t[0]; resolve(); }; im.onerror=next; im.src=t[0]; })();
+  });
+}
+const ART={};
+const artReady=Promise.all(['platform','clamp'].map(name=>new Promise(resolve=>{const im=new Image(); im.onload=()=>{ART[name]=im;resolve();}; im.onerror=()=>resolve(); im.src=bust('assets/'+(name==='clamp'?'clamp-clean':name)+'.webp');})));
+const packsReady=Promise.all([...CONFIG.packs.map(loadPack),artReady]);
+function deck(){ const ready=CONFIG.packs.filter(p=>p.img); return ready.length?ready:CONFIG.packs; }   // deal real packs as soon as any shot has loaded
+function packW(p){ return CONFIG.packH*(p.img?p.crop.w/p.crop.h:CONFIG.packAspect); }
+
+/* contract: tell the host page where the finger touched (0..1 of the ad unit) → shared/touch.js ripple */
+function emitTap(x,y){ try{ parent.postMessage({iionTap:{x,y}},'*'); }catch(e){} }
+function tapEl(el){ const s=screenEl.getBoundingClientRect(), r=el.getBoundingClientRect(); emitTap((r.left+r.width/2-s.left)/s.width,(r.top+r.height/2-s.top)/s.height); }
+function tapEvent(e){ const s=screenEl.getBoundingClientRect(); emitTap((e.clientX-s.left)/s.width,(e.clientY-s.top)/s.height); }
+function tapArena(xu,yu){ const s=screenEl.getBoundingClientRect(), a=arena.getBoundingClientRect(), u=a.width/100*CONFIG.gameplayZoom; emitTap((a.left-s.left+a.width/2+(xu-50)*u)/s.width,(a.top-s.top+yu*u)/s.height); }   // a point in zoomed arena units
+
+/* ══ game sound (WebAudio: no files) — unlocked by the first tap ══ */
+let actx=null, masterGain=null, soundOn=false;
+function setSound(on){
+  if(on && !actx){
+    try{
+      actx=new (window.AudioContext||window.webkitAudioContext)();
+      masterGain=actx.createGain(); masterGain.gain.value=0; masterGain.connect(actx.destination);
+    }catch(e){ actx=null; masterGain=null; }
+  }
+  soundOn=!!on && !!actx;
+  if(masterGain) masterGain.gain.setValueAtTime(soundOn?1:0,actx.currentTime);
+  if(soundOn && actx.state==='suspended') actx.resume().catch(()=>{});
+}
+function sfx(freq,dur,type,slide,delay){ if(!soundOn||!actx) return; const o=actx.createOscillator(), g=actx.createGain(), t=actx.currentTime+(delay||0);
+  o.type=type||'sine'; o.frequency.setValueAtTime(freq,t); o.frequency.exponentialRampToValueAtTime(freq*(slide||1.9),t+dur);
+  g.gain.setValueAtTime(CONFIG.sfxVolume,t); g.gain.exponentialRampToValueAtTime(.001,t+dur); o.connect(g).connect(masterGain); o.start(t); o.stop(t+dur); }
+
+/* ══ slot timeline (autopilot demo) ══ */
+const SLOT_MS=27000, T_AUTO_PLAY=1600, T_AUTO_CTA=2600;    // autopilot taps "Tap to play" at 1.6 s, the CTA 2.6 s after the end card
+const AUTO_OFFSET={2:.30, 5:-.24};                         // scripted demo: the 3rd and 6th packs land off-centre (share of a pack width) and stay crooked
+const AUTO_MISS={4:.72};                                   // …and the first try at the 5th pack goes too far over the edge and tips off, once
+const AUTO_PASS={1:2, 6:2};                                // …and on these packs the bot lets the pack swing by once before dropping
+const demoMode=new URLSearchParams(location.search).get('demo')==='1';
+const autoBox={checked:demoMode};
+let clock=0, lastNow=0, t0=0, raf=0, mode='start', playAt=0, endAt=0, finishAt=0, ctaDone=false, soundUnlocked=false;
+
+/* ══ stack state ══
+   Arena coordinates are world units (50 = middle, y down); the camera scales them by gameplayZoom. The tower has y up from the pallet top;
+   it leans as one piece about the middle of the pallet. */
+let tower=[], hang=null, fall=null, debris=[], err=0, combo=0, perfects=0, misses=0, spawnAt=0;
+let phase=0, cam=0, zoom=1, swayAmp=0, kick={a:0,at:-1e9}, winAt=0, camWin=0, botMissed={};
+let particles=[], rings=[], impactAt=-1e9, impactPower=0, comboUntil=0, transitionTimer=0, transitionToken=0;
+let safeSwingAmp=CONFIG.swingAmp;
+const R=Math.PI/180, TAU=Math.PI*2;
+function arenaH(){ return arena.clientHeight/(arena.clientWidth/100*CONFIG.gameplayZoom||1); }
+const groundY=()=>arenaH()-17/CONFIG.gameplayZoom;           // retain the tabletop position after zooming
+const pivotY=()=>16-CONFIG.ropeLen;                         // inset keeps the rotated clamp clear of the HUD
+const anchorY=60/CONFIG.gameplayZoom;                        // preserve the aiming line while enlarging the packs
+const armLen=()=>CONFIG.ropeLen+CONFIG.packH/2;
+const thetaMax=()=>Math.asin(Math.min(.95,safeSwingAmp/armLen()));
+function fitSwing(){
+  const w=Math.max(...deck().map(packW)), edge=50/CONFIG.gameplayZoom-1.5;
+  let lo=0,hi=Math.min(CONFIG.swingAmp,armLen()*.95);
+  for(let i=0;i<16;i++){const a=(lo+hi)/2,s=a/armLen(),extent=a+w/2*Math.sqrt(1-s*s)+CONFIG.packH/2*s;if(extent<=edge)lo=a;else hi=a;}
+  safeSwingAmp=lo;
+}
+const swingPeriod=()=>Math.max(CONFIG.swingMin,CONFIG.swingMs*Math.pow(CONFIG.swingUp,tower.length));
+const theta=()=>thetaMax()*Math.sin(phase);
+function hangPos(){ const th=theta(), L=armLen(); return {x:50+L*Math.sin(th), y:pivotY()+L*Math.cos(th), th}; }   // centre of the hanging pack
+function phiAt(t){ let a=swayAmp*Math.sin(t/CONFIG.swayMs*TAU); const k=t-kick.at; if(k>=0 && k<1600) a+=kick.a*Math.exp(-k/420)*Math.sin(k/150); return a*R; }   // tower lean (radians) at a clock time
+function tw(lx,ly,t){ const f=phiAt(t===undefined?clock:t), oy=groundY()+cam; return {x:50+(lx-50)*Math.cos(f)+ly*Math.sin(f), y:oy+(lx-50)*Math.sin(f)-ly*Math.cos(f)}; }   // tower frame → screen
+const support=()=>tower.length?tower[tower.length-1]:{x:50,w:CONFIG.palletW};
+const topY=()=>tower.length*CONFIG.packH;
+
+function resetTower(){ tower=[]; hang=null; fall=null; debris=[]; particles=[]; rings=[]; impactAt=-1e9; comboUntil=0; $('comboBadge').hidden=true; err=0; combo=0; perfects=0; misses=0; cam=0; zoom=1; swayAmp=0; kick={a:0,at:-1e9}; winAt=0; botMissed={}; spawnAt=clock; }
+function spawnHang(){ const d=deck(), def=d[tower.length%d.length]; hang={def, w:packW(def), bornAt:clock, passes:0, prevX:hangPos().x}; }
+function drop(atX){
+  if(mode!=='play' || !hang) return false;
+  const h=hangPos(), sp=armLen()*Math.cos(h.th)*thetaMax()*Math.cos(phase)*TAU/swingPeriod()*1000;      // sideways swing speed, units per second
+  fall={def:hang.def, w:hang.w, x:atX===undefined?h.x:atX, y:h.y, vx:sp*CONFIG.carry, vy:0, rot:-h.th,trail:[]}; hang=null; sfx(300,.08,'sine',.6);
+  return true;
+}
+function animateOnce(el,name){el.classList.remove(name);void el.offsetWidth;el.classList.add(name);}
+function showFeedback(text){$('comboBadge').textContent=text;$('comboBadge').hidden=false;comboUntil=clock+1300;animateOnce($('comboBadge'),'pop');}
+function landingFX(x,y,perfect){
+  animateOnce($('popVal'),'score-pop');
+  if(perfect&&combo>=2)showFeedback((combo>=5?'STACK STAR':'ON A ROLL')+' ×'+combo);
+  if(reducedMotion())return;
+  impactAt=clock;impactPower=perfect?.65:.4;
+  rings.push({x,y,at:clock,perfect});
+  const count=perfect?12+Math.min(combo,5)*2:8;
+  for(let i=0;i<count;i++){const angle=Math.PI*(.12+Math.random()*.76),speed=10+Math.random()*20;particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,rot:Math.random()*TAU,spin:(Math.random()-.5)*9,size:.5+Math.random()*.7,at:clock,life:500+Math.random()*350,gold:i%3===0});}
+  particles=particles.slice(-100);
+}
+function land(){
+  const f=fall, sup=support(), H=CONFIG.packH, S=tw(sup.x,topY()), dx=f.x-S.x, a=Math.abs(dx); fall=null; spawnAt=clock;
+  if(a<=CONFIG.perfectTol){                                                         // dead centre: snap flush, steady the tower
+    combo++; perfects++; err=Math.max(0,err-.15);
+    tower.push({def:f.def,w:f.w,x:sup.x,landAt:clock,flash:true});
+    showFeedback('PERFECT!'); sfx(520+Math.min(combo,8)*70,.16,'sine',1.6);
+    landingFX(sup.x,topY()-H,true);
+  }else if(a<=CONFIG.tipLimit*sup.w){                                               // off-centre: it stays where it landed, whole, and the tower gets wobblier
+    combo=0; err+=a/sup.w;
+    tower.push({def:f.def,w:f.w,x:sup.x+dx,landAt:clock});
+    if(tower.length>1) kick={a:Math.max(-2.5,Math.min(2.5,dx/sup.w*4)),at:clock};
+    sfx(200,.14,'triangle',.6);
+    showFeedback('NICE STACK!');landingFX(sup.x+dx,topY()-H,false);
+  }else{                                                                            // too far over (or clean past): the pack tips off
+    combo=0; misses++; const touching=a<(sup.w+f.w)/2, s=Math.sign(dx);
+    debris.push({def:f.def,w:f.w,x:f.x,y:f.y,vx:touching?s*16:f.vx,vy:touching?-30:f.vy,rot:f.rot,vr:touching?s*3.2:0,at:clock});
+    sfx(180,.22,'triangle',.5);
+    showFeedback('SO CLOSE!');
+    if(CONFIG.missEnds) finishAt=clock+800;
+    return;
+  }
+  if(tower.length>=CONFIG.goal){ winAt=clock; camWin=cam; finishAt=clock+2000; sfx(660,.14,'sine',1.2,.12); sfx(880,.14,'sine',1.2,.24); sfx(1320,.22,'sine',1.1,.36); }
+}
+
+function takeOver(){ autoBox.checked=false; }
+function unlockSound(){ if(soundOn && actx && actx.state==='suspended') actx.resume().catch(()=>{}); }      // tap to play unlocks the sound
+function paintHud(){
+  const n=mode==='start'||mode==='starting'?0:tower.length;
+  $('popVal').textContent=n; $('scoreBar').style.width=Math.min(100,n/CONFIG.goal*100)+'%';
+  $('timeVal').textContent=mode==='play'?Math.max(0,Math.ceil((CONFIG.roundMs-(clock-playAt))/1000)):mode==='end'?0:Math.round(CONFIG.roundMs/1000);
+  document.querySelector('.hud').classList.toggle('urgent',mode==='play'&&!winAt&&CONFIG.roundMs-(clock-playAt)<=5000);
+}
+function play(){
+  if($('playBtn').disabled||mode==='leaving'||mode==='play')return;
+  const outgoing=!$('startCard').hidden?$('startCard'):!$('winCard').hidden?$('winCard'):null;
+  mode='leaving';$('hint').hidden=true;
+  if(outgoing){outgoing.classList.add('leaving');outgoing.inert=true;}
+  const token=++transitionToken;clearTimeout(transitionTimer);
+  const begin=()=>{
+    if(token!==transitionToken)return;
+    for(const card of [$('startCard'),$('winCard')]){card.hidden=true;card.classList.remove('leaving');card.inert=false;}
+    mode='play';playAt=clock;finishAt=0;resetTower();spawnHang();$('hint').hidden=false;
+    animateOnce(document.querySelector('.hud'),'hud-enter');
+  };
+  if(reducedMotion())begin();else transitionTimer=setTimeout(begin,280);
+}
+function finish(){
+  mode='end'; endAt=clock; finishAt=0; hang=null; const n=tower.length, won=n>=CONFIG.goal;
+  $('hint').hidden=true; $('comboBadge').hidden=true; $('startCard').hidden=true; $('winVal').textContent=n; $('winLine').textContent=won?CONFIG.winLine:CONFIG.loseLine;
+  $('endHeading').innerHTML=won?'A towering<br>start!':'Good things<br>stack up';
+  $('confetti').replaceChildren();
+  if(won&&!reducedMotion()) for(let i=0;i<22;i++){const flake=document.createElement('i'); flake.style.setProperty('--left',(i*37%100)+'%'); flake.style.setProperty('--delay',(-i*.08)+'s'); $('confetti').appendChild(flake);}
+  $('winCard').hidden=false;
+}
+
+function populateRange(id){
+  const slot=$(id); slot.replaceChildren();
+  const products=id==='startPacks'?[CONFIG.packs[0],{src:bust('assets/whites-oats-high-fibre-oaty-bar.png'),name:'White’s Oaty Bar Original',img:true,displayClass:'oaty-bar'},CONFIG.packs[2]]:CONFIG.packs;
+  products.filter(p=>p.img).forEach(p=>{ const im=new Image(); im.src=p.src; im.alt=p.name; im.className=p.displayClass||''; slot.appendChild(im); });
+}
+
+$('playBtn').addEventListener('click',e=>{ e.stopPropagation(); tapEvent(e); takeOver(); unlockSound(); play(); });
+
+$('againBtn').addEventListener('click',e=>{ tapEvent(e); takeOver(); play(); });
+$('ctaBtn').addEventListener('click',e=>{ tapEvent(e); takeOver(); ctaDone=true; try{ window.open(window.clickTag||CONFIG.ctaUrl,'_blank','noopener,noreferrer'); }catch(_){} });
+$('game').addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; if(mode==='play'){ tapEvent(e); takeOver(); unlockSound(); drop(); } });
+$('soundBtn').addEventListener('click',e=>{e.stopPropagation(); soundUnlocked=true; setSound(!soundOn); $('soundBtn').setAttribute('aria-pressed',String(soundOn)); $('soundBtn').setAttribute('aria-label',soundOn?'Mute sound':'Enable sound'); $('soundWaves').setAttribute('d',soundOn?'M17 8c3 2 3 6 0 8M20 5c5 4 5 10 0 14':'m17 9 5 6m0-6-5 6');});
+$('ctaBtn').textContent=CONFIG.ctaLabel;
+$('startSub').textContent='Tap to drop. Stack '+CONFIG.goal+' packs!'; $('goalVal').textContent=CONFIG.goal;
+for(const id of ['startLogo','logoSlot']){
+  const slot=$(id);
+  if(CONFIG.logo){const im=new Image();im.alt=CONFIG.brandName;im.width=223;im.height=85;im.onerror=()=>{slot.textContent=CONFIG.brandName;};im.src=bust(CONFIG.logo);slot.appendChild(im);}
+  else slot.textContent=CONFIG.brandName;
+}
+
+/* ══ simulation ══ */
+function step(dt){
+  const s=dt/1000, H=CONFIG.packH, n=tower.length;
+  phase+=dt/swingPeriod()*TAU;
+  const swayTo=Math.max(0,Math.min(CONFIG.swayMax,Math.max(0,n-CONFIG.swayFrom)*CONFIG.swayPerPack+err*CONFIG.swayPerOffset));
+  swayAmp+=(swayTo-swayAmp)*Math.min(1,s*1.5);
+  if(mode==='play' && !hang && !fall && !finishAt && !winAt && clock-spawnAt>=CONFIG.nextMs) spawnHang();
+  if(hang){
+    const h=hangPos();
+    if(mode==='play' && autoBox.checked && clock-hang.bornAt>250){                 // the bot: drop so the pack meets the tower top where the top will be when it lands
+      const sup=support(), S=tw(sup.x,topY()), tf=Math.sqrt(2*Math.max(0,S.y-(h.y+H/2))/CONFIG.gravity);
+      const miss=AUTO_MISS[n] && !botMissed[n], off=(miss?AUTO_MISS[n]:(AUTO_OFFSET[n]||0))*sup.w;
+      const target=Math.max(50-safeSwingAmp+1,Math.min(50+safeSwingAmp-1,tw(sup.x,topY(),clock+tf*1000).x+off));
+      if((hang.prevX-target)*(h.x-target)<=0){ hang.passes++; if(hang.passes>=(AUTO_PASS[n]||1)){ if(miss) botMissed[n]=true; tapArena(h.x,h.y); drop(target); } }
+    }
+    if(hang) hang.prevX=h.x;
+  }
+  if(fall){
+    const f=fall; f.vy+=CONFIG.gravity*s; f.y+=f.vy*s; f.x+=f.vx*s; f.rot+=(phiAt(clock)-f.rot)*Math.min(1,s*12);
+    if(!reducedMotion()){f.trail.push({x:f.x,y:f.y});if(f.trail.length>7)f.trail.shift();}
+    if(f.y+H/2>=tw(support().x,topY()).y) land();
+  }
+  for(const d of debris){ d.vy+=CONFIG.gravity*s; d.x+=d.vx*s; d.y+=d.vy*s; d.rot+=d.vr*s; }
+  debris=debris.filter(d=>clock-d.at<1500);
+  for(const p of particles){p.x+=p.vx*s;p.y+=p.vy*s;p.vy-=65*s;p.rot+=p.spin*s;}
+  particles=particles.filter(p=>clock-p.at<p.life);rings=rings.filter(r=>clock-r.at<450);
+  if(comboUntil&&clock>=comboUntil){$('comboBadge').hidden=true;comboUntil=0;}
+  if(reducedMotion()){particles=[];rings=[];}
+  if(winAt){                                                                        // the win beat: pull back to show the whole tower
+    const p=Math.max(0,Math.min(1,(clock-winAt-250)/800)), e=p*p*(3-2*p), fit=Math.min(1,(groundY()-10)/(topY()+4));
+    zoom=reducedMotion()?fit:1+(fit-1)*e; cam=reducedMotion()?0:camWin*(1-e);
+  }else{
+    cam+=(Math.max(0,topY()-(groundY()-anchorY))-cam)*Math.min(1,s*6);              // keep the tower top at the anchor once it gets there
+  }
+}
+
+/* ══ drawing (flat brand colours; the packs are the real shots, drawn whole, with a soft shadow) ══ */
+let U=1, DPR=1;
+function fit(){ const w=arena.clientWidth, h=screenEl.clientHeight; DPR=Math.min(2.5,window.devicePixelRatio||1); const pw=Math.round(w*DPR), ph=Math.round(h*DPR);
+  if(cv.width!==pw||cv.height!==ph){ cv.width=pw; cv.height=ph; } U=w/100*CONFIG.gameplayZoom; }
+function rr(x,y,w,h,r){ ctx.beginPath(); if(w<=0||h<=0) return; r=Math.max(0,Math.min(r,w/2,h/2)); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function wrap(text,maxW){ const out=[]; let line=''; for(const word of text.split(' ')){ const t=line?line+' '+word:word; if(line && ctx.measureText(t).width>maxW){ out.push(line); line=word; } else line=t; } if(line) out.push(line); return out; }
+function drawPack(def,cx,top,w,h){                                                  // a pack with its bottom edge on top+h, centred on cx — the whole shot, fitted, never cut
+  ctx.shadowColor=hexA(C.ink,.2); ctx.shadowBlur=1.8*U*DPR; ctx.shadowOffsetY=.7*U*DPR;
+  if(def.img){ const c=def.crop, k=Math.min(w/c.w,h/c.h), dw=c.w*k, dh=c.h*k; ctx.drawImage(def.img,c.x,c.y,c.w,c.h,cx-dw/2,top+h-dh,dw,dh); ctx.shadowColor='transparent'; return; }
+  rr(cx-w/2,top,w,h,1); ctx.fillStyle=C.paper; ctx.fill(); ctx.shadowColor='transparent';
+  ctx.fillStyle=C.brand; ctx.fillRect(cx-w/2+1.2,top+1.4,w-2.4,h*.16);
+  ctx.font='700 2.2px Inter,system-ui,sans-serif'; ctx.fillStyle=C.ink; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const lines=wrap(def.name,w-2.4).slice(0,5); lines.forEach((l,i)=>ctx.fillText(l,cx,top+h*.62+(i-(lines.length-1)/2)*2.7));
+}
+function draw(){
+  fit(); const AH=arenaH(), H=CONFIG.packH, gy=groundY(), oy=gy+cam, phi=phiAt(clock);
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
+  // A full-height canvas lets the wire reach the top; gameplay keeps its arena origin.
+  ctx.setTransform(DPR*U,0,0,DPR*U,cv.width/2-50*DPR*U,(screenEl.clientHeight-arena.clientHeight)*DPR);
+  ctx.save();
+  const impactAge=clock-impactAt;
+  if(!reducedMotion()&&impactAge<220)ctx.translate(0,Math.sin(impactAge/220*Math.PI)*impactPower);
+  ctx.save(); ctx.translate(50,gy); ctx.scale(zoom,zoom); ctx.translate(-50,-gy);   // win pull-back, about the pallet
+  ctx.fillStyle=hexA(C.ink,.025); ctx.fillRect(-200,oy+2.4,500,400);                 // floor
+  if(ART.platform){ const im=ART.platform; ctx.drawImage(im,im.naturalWidth*.036,im.naturalHeight*.34,im.naturalWidth*.927,im.naturalHeight*.44,50-CONFIG.palletW/2,oy,CONFIG.palletW,7); }else{ rr(50-CONFIG.palletW/2,oy,CONFIG.palletW,2.4,1.2); ctx.fillStyle=C.ink; ctx.fill(); }   // pallet
+  ctx.save(); ctx.translate(50,oy); ctx.rotate(phi);                                // the tower, leaning as one piece
+  for(let i=0;i<tower.length;i++){ const b=tower[i], p=Math.min(1,(clock-b.landAt)/380), spring=reducedMotion()?0:Math.pow(1-p,2)*Math.cos(p*Math.PI*2.5), h=H*(1-.14*spring);
+    drawPack(b.def,b.x-50,-(i+1)*H+(H-h),b.w*(1+.08*spring),h);
+    if(b.flash && p<1){ const g=p*3; ctx.strokeStyle=hexA(C.brand,1-p); ctx.lineWidth=.8; rr(b.x-50-b.w/2-g,-(i+1)*H-g,b.w+2*g,H+2*g,1+g); ctx.stroke(); } }
+  ctx.restore();
+  for(const r of rings){const p=(clock-r.at)/450,s=tw(r.x,r.y);ctx.save();ctx.globalAlpha=(1-p)*.65;ctx.strokeStyle=r.perfect?C.gold:C.paper;ctx.lineWidth=.7*(1-p);ctx.beginPath();ctx.ellipse(s.x,s.y,3+p*13,.6+p*2.8,0,0,TAU);ctx.stroke();ctx.restore();}
+  for(const p of particles){const age=(clock-p.at)/p.life,s=tw(p.x,p.y);ctx.save();ctx.globalAlpha=Math.min(1,(1-age)*3);ctx.translate(s.x,s.y);ctx.rotate(p.rot);ctx.fillStyle=p.gold?C.gold:'#f8df99';ctx.beginPath();ctx.ellipse(0,0,p.size,p.size*.42,0,0,TAU);ctx.fill();ctx.restore();}
+  for(const d of debris){ ctx.save(); ctx.globalAlpha=Math.max(0,1-(clock-d.at)/1300); ctx.translate(d.x,d.y); ctx.rotate(d.rot); drawPack(d.def,0,-H/2,d.w,H); ctx.restore(); }
+  if(fall){
+    if(!reducedMotion())for(let i=1;i<fall.trail.length;i++){const a=fall.trail[i-1],b=fall.trail[i];ctx.strokeStyle=hexA(C.gold,i/fall.trail.length*.32);ctx.lineWidth=1.1;ctx.lineCap='round';for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(a.x+side*fall.w*.38,a.y-H*.4);ctx.lineTo(b.x+side*fall.w*.38,b.y-H*.4);ctx.stroke();}}
+    ctx.save();ctx.translate(fall.x,fall.y);ctx.rotate(fall.rot);const stretch=reducedMotion()?1:1+Math.min(.055,fall.vy/2500);ctx.scale(1/stretch,stretch);drawPack(fall.def,0,-H/2,fall.w,H);ctx.restore();
+  }
+  ctx.restore();
+  if(mode!=='end'){                                                                 // rope + clamp (+ the pack on it); it lifts away on the win
+    const th=theta(), L=CONFIG.ropeLen, px=50, py=pivotY(), ex=px+L*Math.sin(th), ey=py+L*Math.cos(th), lift=winAt?Math.min(1,(clock-winAt)/500):0;
+    ctx.save(); ctx.globalAlpha=1-lift; ctx.translate(0,-lift*20);
+    ctx.strokeStyle=hexA(C.ink,.55); ctx.lineWidth=.5; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(ex,ey); ctx.stroke();
+    ctx.translate(ex,ey); ctx.rotate(-th); if(ART.clamp){const im=ART.clamp;ctx.drawImage(im,im.naturalWidth*.25,im.naturalHeight*.56,im.naturalWidth*.5,im.naturalHeight*.2,-6,-7.2,12,7.2);}else{rr(-4.5,-1.4,9,2.2,1.1); ctx.fillStyle=C.ink; ctx.fill();}
+    if(hang){ const pop=reducedMotion()?1:Math.min(1,(clock-hang.bornAt)/240),sc=1-Math.pow(1-pop,3)*.4;ctx.globalAlpha=(1-lift)*Math.min(1,pop*3);ctx.translate(0,H/2);ctx.scale(sc,sc);drawPack(hang.def,0,-H/2,hang.w,H); }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function start(){
+  cancelAnimationFrame(raf);
+  clearTimeout(transitionTimer);transitionToken++;
+  for(const card of [$('startCard'),$('winCard')]){card.classList.remove('leaving');card.inert=false;}
+  t0=clock; mode='start'; finishAt=0; ctaDone=false; autoBox.checked=demoMode;
+  resetTower(); spawnHang();                                                        // attract: a pack swings on the hook behind the start card
+  $('startCard').hidden=false; $('winCard').hidden=true; $('hint').hidden=true; $('ctaBtn').classList.remove('press'); $('playBtn').classList.remove('press');
+  lastNow=0; raf=requestAnimationFrame(tick);
+}
+function tick(now){
+  const dt=lastNow?Math.min(50,now-lastNow):16; lastNow=now; clock+=dt;             // game clock: a hidden tab doesn't skip time
+  const t=clock-t0;
+  if(t>=SLOT_MS && autoBox.checked){ start(); return; }                             // the demo loops; a viewer who took over keeps playing
+  if(mode==='start' && autoBox.checked && t>=T_AUTO_PLAY){ mode='starting'; tapEl($('playBtn')); $('playBtn').classList.add('press'); setTimeout(()=>{ if(mode==='starting') play(); },160); }
+  step(dt);
+  if(mode==='play'){
+    if(finishAt && clock>=finishAt) finish();
+    else if(!finishAt && !fall && clock-playAt>=CONFIG.roundMs) finish();
+    else if(tower.length>=CONFIG.hintUntil) $('hint').hidden=true;
+  }
+  if(mode==='end' && autoBox.checked && !ctaDone && clock-endAt>T_AUTO_CTA){ ctaDone=true; tapEl($('ctaBtn')); $('ctaBtn').classList.add('press'); setTimeout(()=>$('ctaBtn').classList.remove('press'),180); }
+  paintHud(); draw();
+  raf=requestAnimationFrame(tick);
+}
+
+window.DEMO={ start, slotMs:SLOT_MS, setAuto:v=>{autoBox.checked=!!v;}, setSound:on=>setSound(on) };
+packsReady.then(()=>{
+  fitSwing();
+  populateRange('startPacks'); populateRange('packShot');
+  const lineup=new Image(); lineup.alt='White’s oats product range'; lineup.className='lineup'; lineup.onload=()=>{ $('packShot').replaceChildren(lineup); }; lineup.src='assets/stockest-fg-v1@2x.png';
+  $('playBtn').disabled=false; $('playBtn').textContent='Let’s stack';
+  start();
+});
+</script>
+</body>
+</html>
