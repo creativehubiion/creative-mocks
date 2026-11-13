@@ -95,7 +95,9 @@ def wait_live(folders, limit=180):
         url = f'https://{DOMAIN}/{folder}/index.html'; t0 = time.time()
         while True:
             try:
-                with urllib.request.urlopen(urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'port-to-r2'}), timeout=10) as r:
+                # a plain GET, the way a browser asks: a HEAD skips Cloudflare's cache and saw 200 while visitors still got the
+                # cached 404 (Summer Slide, 2026-11-13)
+                with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (port-to-r2)'}), timeout=10) as r:
                     if r.status == 200: break
             except Exception: pass
             if time.time() - t0 > limit: print(f'  {url} still not answering 200 after {limit}s; telling the bot anyway (it retries)'); break
