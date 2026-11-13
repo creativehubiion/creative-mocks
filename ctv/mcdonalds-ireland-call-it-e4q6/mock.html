@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Call It . McDonald's Ireland . interactive CTV mock</title>
+<link rel="preload" href="assets/fonts/Speedee-Bold.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="assets/fonts/Speedee-Regular.otf" as="font" type="font/otf" crossorigin>
+</head>
+<body>
+<script src="vote-core.js"></script>
+<script>
+/* Call It, McDonald's-themed build of the l-band greybox (03-greyboxes/l-band). At 3 s the spot scales uniformly to
+   74%, flush top right, over 0.9 s: a plain rectangle, nothing drawn on it. One red ground runs under the whole L, lit
+   from the corner where the column meets the band, darkening to the spot's own end-card maroon at the edges, so the L
+   and the end card read as one world. The left column (26cqw) holds the arches, the rule as the headline, the vote bar
+   and later the outcome and the hero; the bottom band (26cqh) holds the four treats standing on the ground, with the
+   key hint in the corner right beside them. At 27 s the spot returns to full frame for its own red end card.
+   All sizes here are cqw/cqh of the TV; every piece of text sits inside the 5% safe area (?safe shows it). */
+VoteCore.run({
+  id: 'l-band',
+  title: 'L-BAND',
+  squeeze: 0.74,
+  /* the vote-row picture box (height 15cqh; slot widths are set per picture by the core) and the tiles' total width */
+  stage: { w: 16, h: 15 },
+  tilesW: 68,
+  /* the hero picture, in cqw / cqh of the TV: its float box (w x h) inside .hstage, the picture's bottom edge in the
+     column, the area under the arches it is centred in, the status block above it while the vote counts, the largest
+     result height and the gap between the result picture and the outcome line. stickerMaxX keeps the round tag (text)
+     inside the column, clear of the squeezed spot */
+  heroPic: { w: 24, h: 40.3, stickerMaxX: 21.6, picBottom: 85.8, areaTop: 24.5, areaBottom: 93.5,
+    statusBlock: 12.7, statusMin: 28, preMax: 4, resMax: 30, textGap: 4.6 },
+  /* bar geometry in cqh: the fill's full height, the part hidden behind the settled treat, the clear gap under each
+     percentage */
+  bar: { max: 10.2, hidden: 3.7, gap: 0.9 },
+  css: [
+    '.lcol{left:0;top:0;width:26cqw;height:100cqh}',
+    '.lband{left:26cqw;top:74cqh;width:74cqw;height:26cqh}',
+
+    /* the column is one centred stack on its own axis (13cqw, half of the 26cqw bar); the arches (9cqw wide) sit 7cqh
+       from the top with the same 7cqh below them before the headline */
+    '.lcol .logo{left:0;width:26cqw;top:7cqh;height:14cqh;display:flex;justify-content:center}',
+    '.lcol .rule,.lcol .status,.hero .hstack{left:5cqw;width:16cqw;text-align:center}',
+    '.lcol .rule{top:28cqh;font-size:4.8cqh}',
+    '.lcol .timer{left:5cqw;top:56cqh;width:16cqw;height:5cqh}',
+    '.lcol .status{font-size:4.4cqh;--sblock:12.7cqh}',
+    '.ph-reveal .lcol .status,.g-res .lcol .status{font-size:6cqh}',
+    '.lcol .keys{left:13cqw;top:78.5cqh;transform:translateX(-50%)}',
+
+    '.hero .hstage{left:.5cqw;width:25cqw;top:44.5cqh;height:45.5cqh}',
+    '.hero .hfloat{left:.5cqw;right:.5cqw}',
+    /* the outcome line: the largest sizes that fit the 16cqw text width */
+    '.hstack.win .hout{font-size:5.9cqh}',
+    '.hstack.own .hout{font-size:5.3cqh}',
+
+    /* the vote row: treats 15cqh on one baseline (90.9cqh); focused x1.08 its top stays clear of the spot's edge (74cqh) */
+    '.lband .tiles{left:1cqw;top:0;width:68cqw;height:21cqh;--settle:3.4cqh}',
+    '.lband .stage{top:1.9cqh;height:15cqh;transform-origin:50% 100%;margin-left:calc((var(--slotw,17cqw) - .8cqw) / -2)}',
+    '.lband .tile .name{top:17.4cqh}',
+    /* the tally: settled treats 7.5cqh (bottom 94.3cqh), bars from behind them, each percentage above its own bar */
+    '.lband .bar{bottom:4.5cqh;width:8.4cqw;height:11.2cqh;margin-left:-4.2cqw}',
+    '.lband .bar .fill{left:1cqw;right:1cqw;top:1cqh;height:10.2cqh;transform:translateY(10.2cqh)}',
+    '.lband .tpct{bottom:4.5cqh}'
+  ].join('\n'),
+  html: function (P) {
+    return P.ground +
+      '<div class="lcol">' + P.logo + P.rule + P.timer + P.status + P.keys + P.hero + '</div>' +
+      '<div class="lband">' + P.tiles + '</div>' + P.fx;
+  }
+});
+</script>
+</body>
+</html>
