@@ -1,9 +1,12 @@
 # iion creative mocks
 
-Brand-facing preview pages for iion's ad formats, one folder per format and one per brand,
-served by GitHub Pages:
+Brand-facing preview pages for iion's ad formats, one folder per format and one per brand, hosted on Cloudflare at
 
-    https://creativehubiion.github.io/creative-mocks/<format>/<brand>/
+    https://creative-mocks.iion.media/<format>/<brand>/index.html
+
+GitHub keeps a full copy (github.io pages redirect to the address above).
+
+**Hosting a playable preview: [docs/HOSTING.md](docs/HOSTING.md)** (the structure, the keys, and the steps from game file to link).
 
 | Format | Folder | Device |
 |---|---|---|
@@ -40,4 +43,4 @@ See [docs/PLAYBOOK.md](docs/PLAYBOOK.md) for the full rules and the one-command 
 1. Copy the format's `_template/` (or an existing brand) to `<format>/<brand>/`. CTV video ads start from `ctv/_template-video/`;
    several mocks for one brand get a `showcase/<brand>/` page from `showcase/_template/` that links to them.
 2. Replace `mock.html` / `assets/`, and set the page's eyebrow (`<Format> · <Brand>`) and H1.
-3. Commit and push; Pages updates in a minute or two.
+3. Commit, run `python tools/port-to-r2.py <format>/<brand> --redirect`, commit the redirect line, push ([docs/HOSTING.md](docs/HOSTING.md)).

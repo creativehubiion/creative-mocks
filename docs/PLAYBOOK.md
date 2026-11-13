@@ -153,8 +153,8 @@ Builds only the formats you give inputs for, plus a showcase for 2+. Pre-roll ga
 python tools/rangeserver.py "<repo folder>" 8767 0.0.0.0
 ```
 A static server with byte ranges (plain `http.server` breaks video seeking). Open `http://127.0.0.1:8767/<format>/<name>/`; with
-`0.0.0.0` it is reachable from phones on the same network. Iterate locally and push when the mock is approved. For a playable or
-hybrid, section 12 comes before the push.
+`0.0.0.0` it is reachable from phones on the same network. Iterate locally and push when the mock is approved. Section 14 comes before every push (and for a playable or
+hybrid, section 12 before that).
 
 ## 12. Playables and hybrids load from Cloudflare
 
@@ -162,12 +162,8 @@ GitHub keeps the review page, the link and a full copy of the game. Viewers load
 `mocks/<format>/<name>/`, the same path as the repo. Both must always hold the same game. Claude Code sessions get these steps
 automatically from `.claude/rules/cloudflare-upload.md`.
 
-**A new playable or hybrid:**
-1. In `index.html`, set the iframe `src` and `data-full` to `https://campaign-creatives.iion.media/mocks/<format>/<name>/mock.html`
-   and remove `data-ripple`.
-2. Upload: `python tools/upload-mock.py <format>/<name>` (`--dry-run` shows what it would do).
-3. Open that URL and play it through.
-4. Push the whole folder to GitHub, game files included, always after the upload.
+**Since 2026-11-13 new playables and hybrids don't use this bucket:** they load their own `mock.html`, and the whole folder goes to
+creative-mocks.iion.media (section 14, `docs/HOSTING.md`). This section is for the older ones whose `index.html` still points here.
 
 **Updating one:** change the files, run the same upload command (it sends only what changed, `mock.html` last), then push. Cloudflare
 can keep the old files for up to 10 minutes, and a new `?v=` on the link doesn't skip that for code files.
@@ -226,3 +222,28 @@ Roblox's controls redrawn as SVG on the recording's own pixel grid ("?", ✕, sp
 Learn More, progress bar; each within 1 px of the recording); then the Learn More end screen (last frame under 77% black, centred
 button, ✕) for 2.6 s, and it loops. One command: `new-video-mocks.py --roblox-ad <wide video> --click-url <site>`. On localhost,
 `mock.html?ref=ad` or `?ref=end` lays the recording's frame over ours (difference blend) for pixel checks.
+
+## 14. Where mocks live: creative-mocks.iion.media
+
+Every mock's home is `https://creative-mocks.iion.media/<format>/<name>/index.html`: Cloudflare R2, bucket `creative-mocks`, the same
+folders as this repo (`playable/`, `hybrid/`, `ctv/`, `rewarded/`, `roblox-billboard/`, `showcase/` …). That is the link we send.
+GitHub keeps a full copy as the fallback, and each github.io page carries one redirect line to the same page on the new domain.
+
+The full walk-through for a playable, from game file to link, is [docs/HOSTING.md](HOSTING.md).
+
+**Adding or updating a mock by hand (this repo):**
+1. Build it in its folder and check it on localhost (section 11).
+2. An older playable or hybrid that loads its game from campaign-creatives: the game upload in section 12 first.
+3. `python tools/port-to-r2.py <format>/<name> --redirect` copies the folder's tracked files to the bucket and adds the redirect line
+   to the github.io page. Commit first if the folder is new: the tool copies what git tracks (`--local` sends files from disk).
+4. Commit and push (the redirect line included).
+5. Open `https://creative-mocks.iion.media/<format>/<name>/index.html` and send that link. The bucket has no folder index, so links
+   always end in `index.html`.
+
+**Keys (once per machine):** a private file `~/cloudflare-creative-mocks.env` (outside the repo, never committed, never pasted in chat or
+Slack), one per line: `R2_ENDPOINT=…`, `R2_BUCKET=creative-mocks`, `R2_ACCESS_KEY_ID=…`, `R2_SECRET_ACCESS_KEY=…`, plus the
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` lines section 12 uses. The values are in the team's password manager ("Creative
+Mocks"); the blank file is `tools/cloudflare-creative-mocks.env.example`.
+
+**Most mocks don't need this repo at all:** the Mock Builder (mock-builder-jet.vercel.app) makes the standard formats from files or a
+game link and publishes them straight to creative-mocks.iion.media. Use this repo for bespoke builds.

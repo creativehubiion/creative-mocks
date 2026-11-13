@@ -16,7 +16,8 @@ The redirect (--redirect): one script, first in each page's <head>, that sends a
 creative-mocks.iion.media with its ?query and #hash. It runs only on github.io and only when the page is the top window, so the
 copies can't loop and a page shown inside another is left alone. The files stay here as a working fallback. Idempotent.
 
-Keys: R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY from the environment or from ../mock-builder/.env.local.
+Keys: R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY from the environment, from ~/cloudflare-creative-mocks.env
+(one KEY=value per line, the same private file upload-mock.py reads; never in this repo) or from ../mock-builder/.env.local.
 """
 import concurrent.futures as cf, mimetypes, os, re, subprocess, sys
 from pathlib import Path
@@ -24,7 +25,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DOMAIN = 'creative-mocks.iion.media'
 FORMATS = ('afg-video', 'afg-video-mobile', 'ctv', 'display-interstitial', 'hybrid', 'ingame-display', 'ingame-video', 'playable',
-           'rewarded', 'rewarded-endcard', 'rewarded-playable', 'roblox-billboard', 'roblox-video', 'showcase')
+           'rewarded', 'rewarded-endcard', 'rewarded-playable', 'roblox-billboard', 'roblox-rewarded', 'roblox-video', 'showcase')
 MARK = 'iion-r2-redirect'
 REDIRECT = ('<script id="' + MARK + '">/* this mock lives on ' + DOMAIN + ' now (tools/port-to-r2.py); the copy here stays as a fallback */'
             "if(/github\\.io$/.test(location.hostname)&&window.top===window){var p=location.pathname.replace(/^\\/creative-mocks/,'');"
@@ -39,15 +40,18 @@ OLD_AFG = "location.replace(q.has('desktop')?u+'?desktop'+(vv?'&'+vv:''):u+'mock
 NEW_AFG = "const f=u.replace(/index\\.html$/,'');location.replace(q.has('desktop')?f+'index.html?desktop'+(vv?'&'+vv:''):f+'mock.html?full=1'+(vv?'&'+vv:''));"
 
 
+KEY_FILES = (Path.home() / 'cloudflare-creative-mocks.env', REPO.parent / 'mock-builder' / '.env.local')
+
+
 def env():
     vals = dict(os.environ)
-    f = REPO.parent / 'mock-builder' / '.env.local'
-    if f.exists():
-        for line in f.read_text(encoding='utf-8').splitlines():
-            if '=' in line and not line.startswith('#'):
-                k, v = line.split('=', 1); vals.setdefault(k, v)
+    for f in KEY_FILES:
+        if f.exists():
+            for line in f.read_text(encoding='utf-8').splitlines():
+                if '=' in line and not line.strip().startswith('#'):
+                    k, v = line.split('=', 1); vals.setdefault(k.strip(), v.strip().strip('"'))
     need = ['R2_ENDPOINT', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY']
-    if any(not vals.get(k) for k in need): sys.exit('STOP: bucket keys not found (R2_* in the environment or ../mock-builder/.env.local)')
+    if any(not vals.get(k) for k in need): sys.exit(f'STOP: bucket keys not found. Put R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in {KEY_FILES[0]} (from the "Creative Mocks" entry in Passbolt; template: tools/cloudflare-creative-mocks.env.example; never commit them)')
     return {k: vals[k] for k in need}
 
 
