@@ -87,6 +87,21 @@ def strip_redirect(s):
     return re.sub(r'<script id="' + MARK + r'">.*?</script>', '', s, flags=re.S)
 
 
+def wait_live(folders, limit=180):
+    """Hold the bot notice until each new page answers 200 at its plain address (the link people click). Cloudflare can serve a
+    stale 404 for a minute or two when the address was requested before the upload (Call It, 2026-11-13)."""
+    import time, urllib.request
+    for folder in folders:
+        url = f'https://{DOMAIN}/{folder}/index.html'; t0 = time.time()
+        while True:
+            try:
+                with urllib.request.urlopen(urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'port-to-r2'}), timeout=10) as r:
+                    if r.status == 200: break
+            except Exception: pass
+            if time.time() - t0 > limit: print(f'  {url} still not answering 200 after {limit}s; telling the bot anyway (it retries)'); break
+            print(f'  waiting for {url} to go live…'); time.sleep(10)
+
+
 def notify_bot(folders):
     """Tell the Creative Hub bot these mocks are on creative-mocks.iion.media (it drafts them in #bot-review; same signed call as the
     Mock Builder's publish). Only for named folders that were NOT live before this upload (new mocks, never updates: an update made a
@@ -148,7 +163,9 @@ def main():
             done += 1
             if done % 100 == 0: print(f'  {done}/{len(files)}')
     print(f'uploaded {done} files to {DOMAIN}')
-    if new_folders: notify_bot(new_folders)
+    if new_folders:
+        wait_live(new_folders)
+        notify_bot(new_folders)
     elif args: print('updated mocks that were already live: the bot is not told (it only drafts new mocks)')
 
     if redirect:
