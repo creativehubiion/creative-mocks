@@ -159,7 +159,7 @@
       nextLabel: 'Next up',
       /* the one-word shout above a first-time drink's name, by tier */
       shouts: ['Fizz!', 'Zing!', 'Classic!', 'Shake it!', 'Tropical!', 'Iced!', 'Summer, served!'],
-      playPrompt: 'Slide to play',
+      playPrompt: 'Tap to play',
       chain2: 'Double mix!',
       chain3: 'Summer streak!',
       dangerHint: 'Keep the table cool',
@@ -168,7 +168,8 @@
       failTitle: 'So close.',
       failLine: 'Your summer drink is waiting at McDonald’s.',
       retry: 'Try again',
-      cta: 'See the drinks'
+      again: 'Play again',
+      cta:'See the drinks'
     },
 
     /* McDonald's Ireland's cold drinks menu (the page the drink pictures come from) */

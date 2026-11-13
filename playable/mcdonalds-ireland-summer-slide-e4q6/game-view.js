@@ -2,7 +2,7 @@
   Summer Mix, McDonald's-themed build: perspective drawing, input, interface, effects, sound, events and the in-page bots.
   Built on 03-greyboxes/game-view.js (same rounds, input, switches and track() events); the look is new.
 
-  Switches: ?seed=N ?bot=greedy|random ?speed=N ?debug=1 ?nonav=1 ?mute ?cam=nearY,farY,nearHalfW,farHalfW
+  Switches: ?end=win|fail ?seed=N ?bot=greedy|random ?speed=N ?debug=1 ?nonav=1 ?mute ?cam=nearY,farY,nearHalfW,farHalfW
   Sound: nothing is created before the player's first touch; ?mute keeps everything silent always.
 */
 (function () {
@@ -38,6 +38,9 @@
   var BOT = params.get('bot');
   var SPEED = Math.max(0.1, parseFloat(params.get('speed') || '1') || 1);
   var NONAV = params.get('nonav') === '1';
+  /* ?end=win or ?end=fail (or just ?end): open straight on that end card, for looking at it */
+  var END = params.has('end') ? (params.get('end') === 'fail' ? 'fail' : 'win') : null;
+  var endJumped = false;
   var DEBUG = params.get('debug') === '1';
   var MUTE = params.has('mute') && params.get('mute') !== '0';
   var ALIGN = params.get('align') === '1';
@@ -154,7 +157,14 @@
       if (master) master.gain.setTargetAtTime(on ? 0.55 : 0, ac.currentTime, 0.02);
     }
 
-    return { init: init, play: play, toggle: toggle, isOn: function () { return on; } };
+    /* Called inside a finished tap (pointerup or click), the only place a phone lets sound start. A touch going
+       down is not enough on phones, so a context made there stays silent until it is resumed here. */
+    function unlock() {
+      init();
+      if (ac && ac.state === 'suspended') { try { ac.resume(); } catch (e) { } }
+    }
+
+    return { init: init, unlock: unlock, play: play, toggle: toggle, isOn: function () { return on; } };
   })();
 
   /* ---------- canvas and scaling (2:3 fitted; the scene fills the rest of the window) ---------- */
@@ -351,6 +361,9 @@
   var game = null;
   var bot = null;
   var hintOn = true;
+  /* play begins on the first finished tap ("Tap to play"); the test players start at once */
+  var started = !!BOT;
+  var startTap = false;
   var hintT = 0;
   var hintOut = -1;
   var endShown = false;
@@ -570,6 +583,13 @@
   function retry() {
     round = 2;
     track('retry', {});
+    newRound();
+  }
+
+  /* from the win card: a fresh table with a new seed; the HUD is already up and the start demo does not run again */
+  function playAgain() {
+    round += 1;
+    track('play_again', { round: round });
     newRound();
   }
 
@@ -1127,6 +1147,8 @@
       }
       return;
     }
+    /* the start: one tap anywhere begins play (and lets sound start); it does not slide a drink */
+    if (!started) { startTap = true; return; }
     if (demo) endDemo();
     if (BOT || game.state !== 'play') return;
     try { canvas.setPointerCapture(ev.pointerId); } catch (e) { }
@@ -1141,13 +1163,34 @@
     if (dragging) aimFromScreen(toGame(ev));
   });
 
+  function startPlay() {
+    if (started) return;
+    started = true;
+    startTap = false;
+    Sound.unlock();
+    if (demo) endDemo();
+    if (hintOn) hintOut = nowS();
+    hintOn = false;
+    game.touch();
+    Sound.play('pop', 3);
+    track('tap_to_play', {});
+  }
+
   canvas.addEventListener('pointerup', function (ev) {
+    if (ready) Sound.unlock();
+    if (startTap) { startPlay(); return; }
     if (!dragging) return;
     dragging = false;
     aimFromScreen(toGame(ev));
     if (!game.launch() && game.state === 'play' && game.held == null && game.cooldown < 0.25) queuedLaunch = true;
   });
   canvas.addEventListener('pointercancel', function () { dragging = false; });
+  /* a backstop: some browsers only count the click itself as the tap that may start sound */
+  canvas.addEventListener('click', function () {
+    if (!ready) return;
+    Sound.unlock();
+    if (startTap) startPlay();
+  });
 
   /* ---------- effects ---------- */
   var MAX_PARTS = 110;
@@ -2315,6 +2358,27 @@
     buttons.push({ x: cx - w / 2, y: cy - h / 2, w: w, h: h, fn: fn });
   }
 
+  /* the quiet second button under the main one: a white pill, red keyline and red label, no pulse */
+  function drawSecondButton(c, label, cx, cy, fn) {
+    var size = 22;
+    var w = measureRich(c, label, size, 700) + 56, h = 40;
+    c.save();
+    c.fillStyle = 'rgba(90,10,4,0.3)';
+    rr(c, cx - w / 2, cy - h / 2 + 3, w, h, h / 2);
+    c.fill();
+    c.fillStyle = '#FFFFFF';
+    rr(c, cx - w / 2, cy - h / 2, w, h, h / 2);
+    c.fill();
+    c.lineWidth = 2.5;
+    c.strokeStyle = COL.red;
+    c.stroke();
+    c.fillStyle = COL.red;
+    fillRich(c, label, cx, cy + 1, size, 700, 'center');
+    c.restore();
+    /* a taller touch area than the pill itself */
+    buttons.push({ x: cx - w / 2 - 12, y: cy - h / 2 - 4, w: w + 24, h: h + 12, fn: fn });
+  }
+
   function drawBackdrop(c, alpha) {
     var f = fullRect();
     var im = IMG.backdrop;
@@ -2340,7 +2404,9 @@
     c.restore();
   }
 
-  var HERO_END = { x: W / 2, y: 662, h: 340 };
+  /* where the hero drink stands on the win card (its foot); the lose card keeps the lower spot, under its extra line */
+  var HERO_END = { x: W / 2, y: 606, h: 340 };
+  var HERO_FAIL_Y = 662;
 
   /* one line, or two balanced lines split at the space nearest the middle when it does not fit maxW */
   function balanced(c, text, size, maxW) {
@@ -2449,6 +2515,294 @@
     c.restore();
   }
 
+  /*
+    The hero drink's name on the end cards: no plate. Big yellow Speedee with the deep-red outline, set on a slant
+    across the foot of the cup; it punches in with an overshoot and then rocks very slightly.
+  */
+  function drawNameSlash(c, text, cx, cy, k) {
+    if (k <= 0) return;
+    var size = fitSize(c, text, 540, 46, 700, 24);
+    var t = nowS();
+    var sc = (0.6 + 0.4 * easeOutBack(k)) * (1 + (FX && k >= 1 ? 0.018 * Math.sin(t * 3.1) : 0));
+    var rot = -0.075 + (FX && k >= 1 ? 0.008 * Math.sin(t * 1.7) : 0) - (1 - k) * 0.1;
+    c.save();
+    c.translate(cx, cy);
+    c.rotate(rot);
+    c.scale(sc, sc);
+    c.lineJoin = 'round';
+    c.lineWidth = size * 0.26;
+    c.strokeStyle = 'rgba(40,5,2,0.45)';
+    fillCap(c, text, 0, size * 0.09, size, 700, 'center', true);
+    c.strokeStyle = DEEP_RED;
+    fillCap(c, text, 0, 0, size, 700, 'center', true);
+    c.fillStyle = COL.yellow;
+    fillCap(c, text, 0, 0, size, 700, 'center');
+    c.restore();
+  }
+
+  /*
+    The win card. One slant runs through the lettering, and the cup leans the other way against it:
+    the headline in two staggered lines that slam in from either side, the cup tipping and growing out of its rise
+    pose into a pink splash, its name punched across its foot, the supporting line on a full-width level red band
+    that wipes in, then the button pops and Play again fades up. Each piece arrives a beat after the last.
+  */
+  var WIN_SLANT = -0.087;
+
+  /*
+    The front wall of the splash picture, cut out once along the picture's own inner rim: the dark wavy line where the
+    near wall of the crown ends, with its dip in the middle and the finger of liquid on the right. The points (in the
+    picture's own pixels, 320 x 192) were traced by eye, then snapped to the far edge of that dark line by reading the
+    picture (about one point every 2 px), so the outline itself stays on the front layer. Drawn over the cup,
+    the cup stands behind that rim, inside the splash. Only the pink splash (the hero's) has a trace.
+  */
+  var SPLASH_RIM = {
+    pink: [
+      [67.1, 82.8], [69.6, 85.3], [71.9, 87.6], [73.7, 90.0], [75.2, 92.4], [76.3, 94.5], [77.5, 96.7], [79.0, 99.1], [80.7, 101.6],
+      [82.6, 103.9], [84.2, 105.8], [85.7, 107.3], [87.6, 109.0], [90.1, 110.6], [92.6, 112.0], [94.6, 112.8], [97.3, 113.2], [100.0, 113.1],
+      [102.6, 112.3], [104.8, 111.0], [106.8, 109.2], [108.8, 106.9], [111.5, 104.4], [113.3, 103.4], [115.4, 102.8], [117.4, 102.5], [119.5, 102.7],
+      [121.4, 103.1], [123.3, 104.0], [126.4, 106.2], [128.5, 108.5], [130.1, 110.9], [131.7, 113.2], [133.6, 115.5], [135.5, 117.9], [137.5, 120.1],
+      [139.6, 122.1], [142.0, 123.7], [144.8, 125.2], [147.6, 126.5], [150.4, 127.3], [153.1, 128.0], [155.8, 128.3], [158.5, 128.3], [161.1, 127.9],
+      [163.8, 126.9], [166.3, 125.3], [168.3, 123.6], [170.1, 121.9], [171.8, 119.8], [173.9, 117.4], [176.4, 115.1], [179.1, 113.1], [182.2, 111.8],
+      [185.7, 111.1], [189.0, 110.8], [191.5, 110.3], [193.5, 109.6], [195.2, 108.4], [197.1, 106.6], [198.9, 104.0], [200.2, 101.6], [201.1, 98.9],
+      [201.9, 96.0], [202.4, 93.1], [203.2, 90.0], [204.9, 87.1], [207.8, 85.2], [211.3, 84.8], [214.6, 86.5], [216.2, 89.7], [215.9, 93.2],
+      [214.6, 96.1], [212.8, 98.7], [211.3, 101.3], [210.5, 104.1], [210.6, 107.0], [211.5, 109.6], [213.1, 111.6], [215.0, 112.5], [217.2, 112.9],
+      [219.8, 112.6], [221.7, 111.9], [223.8, 110.7], [225.7, 109.4], [227.6, 107.8], [229.6, 105.8], [231.5, 103.7], [233.4, 101.7], [235.3, 99.6],
+      [237.5, 97.6], [239.8, 95.7], [242.2, 94.0], [244.7, 92.4], [247.4, 90.7], [250.4, 89.3], [253.4, 87.8], [256.2, 86.2], [258.9, 84.8],
+      [261.4, 83.3], [263.6, 81.9], [264.1, 81.6]
+    ]
+  };
+  var splashFronts = {};
+  function splashFront(kind) {
+    if (kind in splashFronts) return splashFronts[kind];
+    var im = IMG.fx.splash[kind], rim = SPLASH_RIM[kind];
+    if (!im || !rim) { splashFronts[kind] = null; return null; }
+    var w = im.naturalWidth, h = im.naturalHeight;
+    var kx = w / 320, ky = h / 192, up = 0;
+    var cv = makeCanvas(w, h), g = cv.getContext('2d');
+    g.drawImage(im, 0, 0);
+    g.globalCompositeOperation = 'destination-in';
+    g.shadowColor = '#000';
+    g.shadowBlur = 0.7 * ky;
+    g.fillStyle = '#000';
+    g.beginPath();
+    g.moveTo(-10, h + 10);
+    g.lineTo(-10, rim[0][1] * ky - up);
+    g.lineTo(rim[0][0] * kx, rim[0][1] * ky - up);
+    for (var i = 1; i < rim.length - 1; i++) {
+      var mx = (rim[i][0] + rim[i + 1][0]) / 2 * kx, my = (rim[i][1] + rim[i + 1][1]) / 2 * ky - up;
+      g.quadraticCurveTo(rim[i][0] * kx, rim[i][1] * ky - up, mx, my);
+    }
+    var last = rim[rim.length - 1];
+    g.lineTo(last[0] * kx, last[1] * ky - up);
+    g.lineTo(w + 10, last[1] * ky - up);
+    g.lineTo(w + 10, h + 10);
+    g.closePath();
+    g.fill();
+    splashFronts[kind] = cv;
+    return cv;
+  }
+
+  /*
+    The end cards' main button: brand red with a thick white edge and white lettering, so it stands off the yellow and
+    red rays; a dark shadow under it, a gold halo that breathes behind it, and a shine that sweeps across.
+  */
+  function drawCtaButton(c, label, cx, cy, w, fn, live) {
+    var t = nowS();
+    var h = Math.round(w * 0.33), r = h / 2;
+    var sc = 1 + (live && FX ? 0.045 * Math.sin(t * 4.2) : 0);
+    c.save();
+    c.translate(cx, cy);
+    if (live && FX) {
+      c.save();
+      c.globalAlpha *= 0.55 + 0.35 * Math.sin(t * 4.2);
+      c.drawImage(SPR.goldGlow, -w * 0.72, -h * 1.15, w * 1.44, h * 2.3);
+      c.restore();
+    }
+    c.scale(sc, sc);
+    c.fillStyle = 'rgba(70,8,2,0.45)';
+    rr(c, -w / 2 - 4, -h / 2 + 5, w + 8, h + 8, r + 4);
+    c.fill();
+    c.fillStyle = '#FFFFFF';
+    rr(c, -w / 2 - 5, -h / 2 - 5, w + 10, h + 10, r + 5);
+    c.fill();
+    c.fillStyle = DEEP_RED;
+    rr(c, -w / 2, -h / 2, w, h, r);
+    c.fill();
+    var g = c.createLinearGradient(0, -h / 2, 0, h / 2);
+    g.addColorStop(0, '#F0402F');
+    g.addColorStop(1, COL.red);
+    c.fillStyle = g;
+    rr(c, -w / 2, -h / 2, w, h - 7, r - 3);
+    c.fill();
+    if (live && FX) {
+      /* the shine: a slanted light bar crossing every 2.4 s, kept inside the face */
+      var p = (t % 2.4) / 0.7;
+      if (p < 1) {
+        c.save();
+        rr(c, -w / 2, -h / 2, w, h - 7, r - 3);
+        c.clip();
+        c.translate(-w / 2 - 60 + (w + 120) * p, 0);
+        c.transform(1, 0, -0.45, 1, 0, 0);
+        c.fillStyle = 'rgba(255,255,255,0.32)';
+        c.fillRect(-22, -h, 44, h * 2);
+        c.restore();
+      }
+    }
+    var bsz = fitSize(c, label, w * 0.8, Math.round(h * 0.42), 700, 16);
+    c.fillStyle = 'rgba(90,8,2,0.5)';
+    fillCap(c, label, 0, -1, bsz, 700, 'center');
+    c.fillStyle = '#FFFFFF';
+    fillCap(c, label, 0, -4, bsz, 700, 'center');
+    c.restore();
+    buttons.push({ x: cx - w / 2 - 6, y: cy - h / 2 - 6, w: w + 12, h: h + 14, fn: fn });
+  }
+  function winK(start, dur) { return clamp01((overlayT - start) / dur); }
+
+  function drawWinCard(c) {
+    var t = nowS(), T = overlayT;
+    var won = overlay === 'win';
+    var fadeA = won ? 1 : clamp01(overlayT / 0.35);
+    var kc = easeOutCubic(winK(0, 0.55));
+    var bob = FX ? Math.sin(t * 1.8) * 6 : 0;
+    /*
+      Spare height. On a screen taller than 2:3 (most phones) there is empty space above and below the frame: et and
+      eb are how much, in game units (capped; the bottom one less the phone's home-bar inset). The card spreads into
+      it: the arches and the headline move up, the cup grows into the room that opens, the band, the button and Play
+      again move down, each by its own share, so every gap opens up. At exactly 2:3 nothing moves.
+    */
+    var fr = fullRect();
+    var inset = (safeProbe ? safeProbe.offsetHeight : 0) / view.s;
+    var et = Math.max(0, Math.min(150, -fr.y - 2));
+    var eb = Math.max(0, Math.min(150, fr.y + fr.h - 2 - H - inset));
+    var grow = 1 + 0.2 * Math.min(1, et / 100) * kc;
+    var h = HERO_END.h * (1 - 0.05 * kc) * grow, w = h / ratioOf(HERO);
+    var cx = HERO_END.x + 22 * kc, foot = HERO_END.y + 52 * kc + 0.1 * eb * kc;
+    var lean = 0.1 * kc + (FX ? 0.012 * Math.sin(t * 1.3) : 0);
+
+    /* light behind the cup */
+    c.save();
+    c.globalAlpha = fadeA;
+    c.translate(cx, foot - h * 0.5);
+    c.rotate(t * 0.12);
+    c.drawImage(SPR.rays, -560, -560, 1120, 1120);
+    c.restore();
+    c.save();
+    c.globalAlpha = 0.9 * fadeA;
+    c.drawImage(SPR.glow, cx - h * 0.8, foot - h * 1.25, h * 1.6, h * 1.6);
+    c.restore();
+
+    /* the headline, behind the cup's rim */
+    var title = won ? CONFIG.words.winTitle : CONFIG.words.failTitle;
+    var bandLine = won ? CONFIG.words.winLine : CONFIG.words.failLine;
+    var words = title.split(' ');
+    var lines = words.length === 2 ? words : [title];
+    c.save();
+    c.translate(W / 2, 208 - 0.62 * et);
+    c.rotate(WIN_SLANT);
+    for (var i = 0; i < lines.length; i++) {
+      var kl = winK(0.05 + i * 0.12, 0.38);
+      if (kl <= 0) continue;
+      var size = fitSize(c, lines[i], lines.length === 2 ? 400 : W * 0.84, lines.length === 2 ? 102 : 84, 700, 40);
+      var from = (i === 0 ? -1 : 1) * (1 - easeOutBack(kl)) * 260;
+      var lx = lines.length === 2 ? (i === 0 ? -62 : 66) : 0;
+      var ly = lines.length === 2 ? (i === 0 ? -44 : 44) : 0;
+      c.save();
+      c.globalAlpha = clamp01(kl * 3);
+      outlinedText(c, lines[i], lx + from, ly, size, 0.2);
+      c.restore();
+    }
+    c.restore();
+
+    /* the splash the cup lands in */
+    var ks = winK(0.15, 0.45);
+    var sp = IMG.fx.splash[TH.splashByTier[HERO - 1]];
+    var sw = 0, sh = 0;
+    if (sp && ks > 0) {
+      sw = 430 * grow * (0.5 + 0.5 * easeOutBack(ks));
+      sh = sw * sp.naturalHeight / sp.naturalWidth;
+      c.save();
+      c.globalAlpha = clamp01(ks * 2.5) * 0.95;
+      c.drawImage(sp, cx - sw / 2, foot + 16 * grow - sh * 0.86, sw, sh);
+      c.restore();
+    }
+
+    /* the cup, leaning against the slant, turning about its foot */
+    drawCastShadow(c, cx, baseCentreY(foot - 6, w), w / (2 * K), 1 - bob / 80, 0.32 * (1 - bob / 80), SH_A * 1.1 * fadeA);
+    c.save();
+    c.globalAlpha = fadeA;
+    c.translate(cx, foot + bob);
+    c.rotate(lean);
+    drawPic(c, HERO, 0, -8, w, 1, 0);
+    c.restore();
+
+    /* the splash's front wall again, over the cup's foot, so the cup stands inside the splash */
+    var spf = sp && ks > 0 ? splashFront(TH.splashByTier[HERO - 1]) : null;
+    if (spf) {
+      c.save();
+      c.globalAlpha = clamp01(ks * 2.5);
+      c.drawImage(spf, cx - sw / 2, foot + 16 * grow - sh * 0.86, sw, sh);
+      c.restore();
+    }
+
+    drawEndSparkles(c, 1);
+    drawLogoPlate(c, { x: HUD.logo.x, y: HUD.logo.y - 0.8 * et, w: HUD.logo.w, h: HUD.logo.h });
+
+    /* the name, punched across the cup's foot, arriving from the right */
+    var kn = winK(0.35, 0.4);
+    if (kn > 0) {
+      c.save();
+      c.globalAlpha = clamp01(kn * 3);
+      drawNameSlash(c, CONFIG.tiers[HERO - 1].name, W / 2 - 6 + (1 - easeOutCubic(kn)) * 180, 664 + 0.1 * eb + 14 * (grow - 1) / 0.2, kn);
+      c.restore();
+    }
+
+    /* the supporting line on a full-width band that wipes in from the left */
+    var kb = easeOutCubic(winK(0.5, 0.4));
+    if (kb > 0) {
+      var f = fullRect();
+      var bx = f.x - 60 - W / 2, bw = f.w + 120, bh = 42;
+      c.save();
+      /* the band is level (owner): the slant stays in the headline and the name */
+      c.translate(W / 2, 754 + 0.5 * eb);
+      c.beginPath();
+      c.rect(bx, -bh, bw * kb, bh * 2);
+      c.clip();
+      c.fillStyle = 'rgba(90,10,4,0.28)';
+      c.fillRect(bx, -bh / 2 + 5, bw, bh);
+      c.fillStyle = COL.red;
+      c.fillRect(bx, -bh / 2, bw, bh);
+      c.fillStyle = COL.yellow;
+      c.fillRect(bx, -bh / 2 + 4, bw, 2.5);
+      c.fillRect(bx, bh / 2 - 6.5, bw, 2.5);
+      var ls = fitSize(c, bandLine, W - 64, 24, 700, 16);
+      c.fillStyle = '#FFFFFF';
+      fillRich(c, bandLine, 0, 1, ls, 700, 'center');
+      c.restore();
+    }
+
+    /* the button pops, then Play again fades up */
+    var kq = winK(0.7, 0.35);
+    if (kq > 0) {
+      var bs = 0.6 + 0.4 * easeOutBack(kq);
+      c.save();
+      c.globalAlpha = clamp01(kq * 3);
+      var cty = 841 + 0.7 * eb;
+      c.translate(W / 2, cty);
+      c.scale(bs, bs);
+      c.translate(-W / 2, -cty);
+      /* win: the drinks page leads and Play again is the quiet one; lose: Play again leads */
+      drawCtaButton(c, won ? CONFIG.words.cta : CONFIG.words.again, W / 2, cty, 284 + Math.min(26, eb * 0.3), won ? clickOut : playAgain, kq >= 1);
+      c.restore();
+    }
+    var ka = winK(0.95, 0.3);
+    if (ka > 0) {
+      c.save();
+      c.globalAlpha = ka;
+      drawSecondButton(c, won ? CONFIG.words.again : CONFIG.words.cta, W / 2, 928 + 0.88 * eb, won ? playAgain : clickOut);
+      c.restore();
+    }
+  }
+
   function drawWinRise(c) {
     var hz = game.hero;
     var k = hz.k;
@@ -2512,8 +2866,10 @@
     }
     /* end cards: a soft, dimmed copy of the scene first, then the sunburst, the arches, the line, the hero, the button */
     drawBackdrop(c, a);
-    var k1 = clamp01((overlayT - 0.1) / 0.4), k2 = clamp01((overlayT - 0.25) / 0.4), k3 = clamp01((overlayT - 0.4) / 0.4);
-    drawHeroOnCard(c, HERO_END.x, HERO_END.y, HERO_END.h, overlay === 'win' ? 1 : a);
+    /* both end cards share one layout; the lose card has its own headline and line and fades its cup in */
+    if (overlay === 'win' || overlay === 'fail') { drawWinCard(c); return; }
+    var k1 =clamp01((overlayT - 0.1) / 0.4), k2 = clamp01((overlayT - 0.25) / 0.4), k3 = clamp01((overlayT - 0.4) / 0.4);
+    drawHeroOnCard(c, HERO_END.x, overlay === 'win' ? HERO_END.y : HERO_FAIL_Y, HERO_END.h, overlay === 'win' ? 1 : a);
     drawEndSparkles(c, a);
     c.save();
     c.globalAlpha = a;
@@ -2523,23 +2879,28 @@
     c.globalAlpha = k1;
     var dy = (1 - easeOutCubic(k1)) * 20;
     if (overlay === 'win') {
-      drawHeadline(c, CONFIG.words.winTitle, W / 2, 196 + dy);
+      drawHeadline(c, CONFIG.words.winTitle, W / 2, 184 + dy);
     } else {
       drawHeadline(c, CONFIG.words.failTitle, W / 2, 184 + dy);
       shadowLines(c, balanced(c, CONFIG.words.failLine, 28, 560), W / 2, 262 + dy, 28, 36, '#FFFFFF');
     }
     c.restore();
     c.save();
-    c.globalAlpha = k2;
-    var ny = 712 + (1 - easeOutCubic(k2)) * 14;
-    var ns = fitSize(c, heroName, 500, 26, 700, 18);
-    namePill(c, heroName, W / 2, ny, ns);
-    if (overlay === 'win') shadowLines(c, balanced(c, CONFIG.words.winLine, 24, 560), W / 2, ny + 46, 24, 30, '#FFFFFF');
+    c.globalAlpha = clamp01(k2 * 2.5);
+    drawNameSlash(c, heroName, W / 2, overlay === 'win' ? 654 : 706, k2);
+    c.restore();
+    c.save();
+    c.globalAlpha = k3;
+    if (overlay === 'win') shadowLines(c, balanced(c, CONFIG.words.winLine, 24, 560), W / 2, 722 + (1 - easeOutCubic(k3)) * 14, 24, 30, '#FFFFFF');
     c.restore();
     if (k3 > 0) {
       c.save();
       c.globalAlpha = k3;
-      drawButtonArt(c, CONFIG.words.cta, W / 2, 858 + (1 - easeOutCubic(k3)) * 16, 300, clickOut, k3 >= 1);
+      var won = overlay === 'win';
+      var by = (1 - easeOutCubic(k3)) * 16;
+      /* the win card: the cup stands higher, so the name, the line, the button and Play again each get clear air */
+      drawCtaButton(c, CONFIG.words.cta, W / 2, 858 + by, 300, clickOut, k3 >= 1);
+      if (won) drawSecondButton(c, CONFIG.words.again, W / 2, 914 + by, playAgain);
       c.restore();
     }
   }
@@ -2551,6 +2912,17 @@
       var r = { outcome: game.result.outcome, drops: game.result.drops, seconds: game.result.seconds, maxTier: game.result.maxTier, round: round, seed: game.seed };
       window.__result = r;
       window.__results.push(r);
+    }
+    if (END && ready && !endJumped) {
+      endJumped = true;
+      demo = null;
+      game = realGame;
+      hintOn = false;
+      started = true;
+      endShown = true;
+      overlay = END;
+      overlayT = 0;
+      return;
     }
     if (endShown) return;
     if (game.state === 'won') {
