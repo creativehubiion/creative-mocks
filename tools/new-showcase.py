@@ -8,7 +8,7 @@ It looks in every format folder for <anything>-<suffix>/index.html and lists the
 (the weekly Creative Hub bot uses them as link text, CLAUDE.md §8d):
   Interactive CTV · CTV video · Rewarded video · Rewarded video + end card · Rewarded video + playable end card · Away from the game video (one tab: the MacBook on a
   computer, the mobile web version on a phone; afg-video-mobile/ is never a tab of its own)
-  · Hybrid playable · Playable · Display interstitial
+  · Hybrid playable · Playable · Display interstitial · In-game display · In-game video · Roblox billboard · Roblox video · Roblox rewarded video
 Writes showcase/<name>/index.html from showcase/_template/ (name defaults to the slug of the first mock found).
 """
 import argparse, io, os, re, sys
@@ -29,6 +29,7 @@ KINDS = [
     ('ingame-video', None, 'In-game video', 'In-game video', 'billboardPlay', 'ingame-video'),
     ('roblox-billboard', None, 'Roblox billboard', 'Roblox', 'roblox', 'roblox'),
     ('roblox-video', None, 'Roblox video', 'Roblox video', 'roblox', 'roblox-video'),
+    ('roblox-rewarded', None, 'Roblox rewarded video', 'Roblox rewarded', 'roblox', 'roblox-rewarded'),
 ]
 
 def rd(p): return io.open(p, encoding='utf-8').read()

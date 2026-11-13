@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Brand · Roblox rewarded video</title>
+<script>{const q=new URLSearchParams(location.search),r=document.documentElement; if(q.has('embed'))r.classList.add('embed'); if(q.has('full'))r.classList.add('full'); if(q.has('round'))r.classList.add('round');}</script>
+<style>
+/* Roblox rewarded video, from a screen recording of the real unit in a Roblox game on an iPhone held sideways (2622×1206 screen).
+   1. Pre-roll: the game itself (the recording, 2.0 s → 5.5 s: "Unlock Premium?", "FREE 10 MINUTES", "Looking for Ads"), full screen.
+   2. The ad sheet slides up from the bottom (≈0.22 s, eased out, as in the recording), timed to finish just as the pre-roll ends,
+      so the game keeps playing behind it and no black frame ever shows.
+   3. The brand's wide video in the unit's 16:9 slot (letterboxed, never cropped), with the unit's own controls redrawn here:
+      "?" · ✕ · speaker · "Reward in N seconds" · Learn More · progress bar.
+   4. The Learn More end screen: the last frame dimmed (77% black), a centred Learn More button, the ✕. Then it loops.
+   Everything sits on the recording's own pixel grid (.stage, 2622×1206), scaled to fit the screen, so placement matches exactly. */
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.unit{position:fixed;inset:0;background:#000;overflow:hidden}
+.pre{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.stage{position:absolute;left:50%;top:50%;width:2622px;height:1206px;transform-origin:0 0}
+.sheet{position:absolute;inset:0;background:#000;transform:translateY(100%)}
+.sheet.in{transform:translateY(0);transition:transform .22s cubic-bezier(.2,.75,.25,1)}
+.slot{position:absolute;left:291px;top:0;width:2043px;height:1149px;background:#000}
+.slot video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;display:block}
+.ui{position:absolute;inset:0;width:2622px;height:1206px;overflow:visible;opacity:0;pointer-events:none}
+.ui.on{opacity:1}
+.ui .hit{pointer-events:auto;cursor:pointer}
+.ui text{font-family:Arial,"Helvetica Neue",Helvetica,sans-serif}
+.during,.ending{transition:none}
+.end-only{display:none}
+.phase-end .end-only{display:inline}
+.phase-end .ad-only{display:none}
+html.round .unit{border-radius:6.1% / 13.2%;overflow:hidden;isolation:isolate;-webkit-mask-image:-webkit-radial-gradient(white,black);mask-image:radial-gradient(white,black)}
+.ref{position:absolute;inset:0;width:2622px;height:1206px;pointer-events:none;mix-blend-mode:difference;display:none}
+</style>
+</head>
+<body>
+<div class="unit" id="unit">
+  <video class="pre" id="pre" muted playsinline preload="auto"></video>
+  <div class="stage" id="stage">
+    <div class="sheet" id="sheet">
+      <div class="slot"><video id="ad" muted playsinline preload="auto"></video></div>
+      <div class="end-only" id="dim" style="position:absolute;inset:0;background:rgba(0,0,0,.77)"></div>
+      <svg class="ui" id="ui" viewBox="0 0 2622 1206" aria-hidden="true">
+        <!-- "?" (info), top left -->
+        <g class="ad-only"><circle cx="221.5" cy="35.5" r="17.3" fill="none" stroke="#fff" stroke-width="3.6"/>
+          <text x="222" y="48" text-anchor="middle" font-size="31" fill="#fff">?</text></g>
+        <!-- ✕ (close), top right: solid grey disc, thin square-ended cross -->
+        <g class="hit" id="close"><circle cx="2364.5" cy="71.5" r="35.5" fill="#48474C"/>
+          <path d="M2348 56 L2380 88 M2380 56 L2348 88" stroke="#fff" stroke-width="4.2" stroke-linecap="butt"/></g>
+        <!-- speaker with one wave, bottom left -->
+        <g class="ad-only hit" id="spk">
+          <!-- the unit's speaker: square + cone, then a solid inner wave and one outer arc, both cut flat at x 252 -->
+          <path id="spkBody" d="M219 1077 h12 l15 -15 v48 l-15 -15 h-12 z" fill="#fff"/>
+          <g id="spkWave" clip-path="url(#spkClip)"><circle cx="247.75" cy="1085.5" r="12.25" fill="#fff"/>
+            <circle cx="245.4" cy="1085.75" r="24.2" fill="none" stroke="#fff" stroke-width="5.8"/></g>
+          <path id="spkMute" d="M254 1075 l16 21 M270 1075 l-16 21" stroke="#fff" stroke-width="5" style="display:none"/></g>
+        <defs><clipPath id="spkClip"><rect x="252" y="1050" width="30" height="70"/></clipPath></defs>
+        <!-- "Reward in N seconds" -->
+        <text class="ad-only" id="reward" x="306.5" y="1096" font-size="35" letter-spacing=".47" fill="#fff">Reward in 15 seconds</text>
+        <!-- Learn More (during the ad), bottom right -->
+        <g class="ad-only hit" id="lm1"><rect x="2072" y="1017" width="328" height="93" rx="10" fill="#45494B"/>
+          <text x="2235" y="1076" text-anchor="middle" font-size="35" letter-spacing=".45" fill="#fff">Learn More</text></g>
+        <!-- progress bar along the bottom of the video -->
+        <g class="ad-only"><rect id="bar" x="186" y="1131" width="0" height="15" fill="#D9D9D9"/></g>
+        <!-- Learn More end screen: centred light button -->
+        <g class="end-only hit" id="lm2"><rect x="1126" y="522" width="370" height="102" rx="10" fill="#BDBDBD"/>
+          <text x="1310.5" y="588" text-anchor="middle" font-size="43" font-weight="700" letter-spacing="-.42" fill="#3C3D40">Learn More</text></g>
+      </svg>
+    </div>
+    <img class="ref" id="ref" alt="">
+  </div>
+</div>
+<script>
+const CONFIG = {
+  preroll: 'assets/preroll.mp4',   // the game before the ad (from the recording)
+  ad: 'assets/ad.mp4',             // the brand's wide video
+  slideMs: 220,                    // the ad sheet sliding up, as in the recording
+  endMs: 2600,                     // the Learn More end screen, then the loop starts again
+  clickUrl: '',                    // Learn More (window.clickTag wins if the tag sets one)
+};
+const Q = new URLSearchParams(location.search);
+const $ = id => document.getElementById(id);
+const unit = $('unit'), stage = $('stage'), sheet = $('sheet'), ui = $('ui'), pre = $('pre'), ad = $('ad');
+const bust = u => { const v = Q.get('v'); return v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };
+for (const v of [pre, ad]) { v.muted = true; v.defaultMuted = true; v.setAttribute('muted', ''); v.playsInline = true; }
+pre.src = bust(CONFIG.preroll); ad.src = bust(CONFIG.ad);
+
+// the recording's 2622×1206 grid, scaled to fit the screen and centred (black around it, like the real unit's letterbox)
+function fit() {
+  const W = unit.clientWidth, H = unit.clientHeight, k = Math.min(W / 2622, H / 1206);
+  stage.style.transform = `translate(${-2622 * k / 2}px, ${-1206 * k / 2}px) scale(${k})`;
+}
+addEventListener('resize', fit); new ResizeObserver(fit).observe(unit); fit();
+
+let sound = false, phase = 'pre', timer = 0;
+const BAR0 = 186, BAR1 = 2334;
+function setPhase(p) { phase = p; unit.className = 'unit phase-' + p; }
+function start() {
+  clearTimeout(timer); setPhase('pre');
+  sheet.classList.remove('in'); ui.classList.remove('on'); $('bar').setAttribute('width', 0);
+  ad.pause(); ad.currentTime = 0; $('reward').textContent = 'Reward in 15 seconds';
+  pre.currentTime = 0; pre.muted = !sound; pre.play().catch(() => {});
+}
+// slide the ad in so it lands exactly as the pre-roll ends: the game keeps moving behind it, nothing black
+function watchPre() {
+  if (phase === 'pre' && pre.duration && pre.currentTime >= pre.duration - CONFIG.slideMs / 1000 - 0.02) {
+    setPhase('ad'); ad.currentTime = 0; ad.muted = !sound; ad.play().catch(() => {});
+    void sheet.offsetWidth; sheet.classList.add('in');
+    setTimeout(() => ui.classList.add('on'), CONFIG.slideMs);
+  }
+  requestAnimationFrame(watchPre);
+}
+requestAnimationFrame(watchPre);
+pre.addEventListener('ended', () => { if (phase === 'pre') { setPhase('ad'); sheet.classList.add('in'); ui.classList.add('on'); ad.play().catch(() => {}); } });
+// the unit's countdown and progress, from the brand video's own length
+ad.addEventListener('timeupdate', () => {
+  if (phase !== 'ad' || !ad.duration) return;
+  const left = Math.max(1, Math.ceil(ad.duration - ad.currentTime));
+  $('reward').textContent = `Reward in ${left} seconds`;
+  $('bar').setAttribute('width', (BAR1 - BAR0) * Math.min(1, ad.currentTime / ad.duration));
+});
+ad.addEventListener('ended', () => { setPhase('end'); timer = setTimeout(start, CONFIG.endMs); });
+
+function paintSpeaker() { $('spkWave').style.display = sound ? '' : 'none'; $('spkMute').style.display = sound ? 'none' : ''; }
+function setSound(on) {
+  sound = !!on; ad.muted = !sound; pre.muted = !sound; if (sound) (phase === 'pre' ? pre : ad).play().catch(() => {});
+  paintSpeaker(); try { parent.postMessage({ iionSound: sound }, '*'); } catch (_) {}
+}
+$('spk').addEventListener('click', () => setSound(!sound));
+const open = () => { const u = window.clickTag || CONFIG.clickUrl; if (u) window.open(u, '_blank'); };
+$('lm1').addEventListener('click', open); $('lm2').addEventListener('click', open);
+$('close').addEventListener('click', start);
+unit.addEventListener('pointerdown', e => { const r = unit.getBoundingClientRect(); try { parent.postMessage({ iionTap: { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height } }, '*'); } catch (_) {} });
+paintSpeaker();
+
+// review aid on localhost: ?ref=ad|end lays the recording's frame over ours (difference blend: matching pixels go black)
+if (Q.get('ref')) {
+  const ref = $('ref'); ref.src = '/_work/roblox-rewarded/ref-' + Q.get('ref') + '.png'; ref.style.display = 'block';
+  if (Q.has('solo')) ref.style.mixBlendMode = 'normal';
+  pre.style.display = 'none'; setPhase(Q.get('ref') === 'end' ? 'end' : 'ad'); sheet.style.transition = 'none'; sheet.classList.add('in'); ui.classList.add('on');
+  ad.removeAttribute('src'); sheet.querySelector('.slot').style.background = '#000'; $('dim').style.background = 'transparent';
+  $('reward').textContent = 'Reward in 13 seconds'; $('bar').setAttribute('width', 600 - BAR0); $('spkWave').style.display = ''; $('spkMute').style.display = 'none';
+} else start();
+
+window.DEMO = { start, slotMs: 0, setAuto: () => {}, setSound };
+</script>
+</body>
+</html>

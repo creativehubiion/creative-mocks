@@ -4,7 +4,7 @@ display interstitial) and,
 when there is more than one, the one-link showcase page. Everything is copied from the templates, so the pages match every other mock:
 
   ctv/_template-video/   rewarded/_template/   rewarded-endcard/_template/   rewarded-playable/_template/
-  display-interstitial/_template/   showcase/_template/
+  display-interstitial/_template/   roblox-rewarded/_template/   showcase/_template/
 
 Example (the VOXI set):
   python tools/new-video-mocks.py --brand VOXI --headline "Unlimited social media." \
@@ -20,7 +20,9 @@ Example (the VOXI set):
   --rp-ad + --rp-playable -> rewarded video + playable end card (portrait: a video that is not vertical is letterboxed in the 9:16 box, never cropped;
   the playable folder is copied in as the end card: a mock folder's files without its index.html page, or a build whose index.html
   is the unit; pre-roll --rp-preroll from tools/video-library/preroll-portrait/: subway-surfer (default; trimmed to the run, 3.5 s, before its Dutch continue screen) or we-are-warriors (Italian on screen)),
-  --display -> display interstitial (the static 2:3 image, 640x960, in the playable's phone; a tap opens --click-url).
+  --display -> display interstitial (the static 2:3 image, 640x960, in the playable's phone; a tap opens --click-url),
+  --roblox-ad -> Roblox rewarded video (landscape phone: the Roblox game from the reference recording, the ad sheet slides up, the wide
+  video in the unit's 16:9 slot (letterboxed, never cropped) with Roblox's own controls redrawn, then the Learn More end screen; Learn More opens --click-url).
   Pre-rolls: the clips in tools/video-library/preroll/ (dragon-city, asphalt-legends, geometry-dash, jurassic-world, rummikub).
 
 Folders: <format>/<slug>-<suffix>/ (random 4-char suffix unless --suffix), showcase/<slug>-<suffix>/ for 2+ formats.
@@ -36,9 +38,10 @@ FORMATS = {  # key: (template folder, format folder, label in the showcase tab, 
     'endcard':  ('rewarded-endcard/_template',  'rewarded-endcard', 'Rewarded video + end card', 'landEnd', 'endcard'),
     'rp':       ('rewarded-playable/_template',  'rewarded-playable', 'Rewarded video + playable end card', 'phonePlay', 'rewarded-playable'),
     'display':  ('display-interstitial/_template', 'display-interstitial', 'Display interstitial', 'phoneImg', 'display'),
+    'roblox':   ('roblox-rewarded/_template',   'roblox-rewarded',  'Roblox rewarded video',     'roblox',  'roblox-rewarded'),
 }
 SHORT = {'Rewarded video': 'Rewarded', 'Rewarded video + end card': 'Rewarded + end card', 'Display interstitial': 'Display',
-         'Rewarded video + playable end card': 'Rewarded + playable'}   # labels in the phone tab bar
+         'Rewarded video + playable end card': 'Rewarded + playable', 'Roblox rewarded video': 'Roblox rewarded'}   # labels in the phone tab bar
 
 def rd(p): return io.open(p, encoding='utf-8').read()
 def wr(p, s): io.open(p, 'w', encoding='utf-8', newline='\n').write(s)
@@ -88,8 +91,16 @@ def endcard(src, dst):
 
 def interstitial(src, dst):
     # the static image as WebP at its own pixel size, at most 640 wide (the 2:3 unit is 320x480 at 2x); CLAUDE.md §8e
-    from PIL import Image
-    im = Image.open(src); im = im.convert('RGBA' if 'A' in im.getbands() else 'RGB')
+    from PIL import Image, ImageSequence
+    im = Image.open(src)
+    if getattr(im, 'is_animated', False):   # an animated GIF stays animated (animated WebP, same timing), user 2026-11-13
+        k = min(1, 640 / im.width); size = (round(im.width * k), round(im.height * k))
+        frames, durs = [], []
+        for f in ImageSequence.Iterator(im):
+            frames.append(f.convert('RGBA').resize(size, Image.LANCZOS)); durs.append(f.info.get('duration', im.info.get('duration', 100)))
+        frames[0].save(dst, 'WEBP', save_all=True, append_images=frames[1:], duration=durs, loop=0, quality=86, method=6)
+        return size
+    im = im.convert('RGBA' if 'A' in im.getbands() else 'RGB')
     if im.width > 640: im = im.resize((640, round(im.height * 640 / im.width)), Image.LANCZOS)
     if abs(im.width / im.height - 2 / 3) > .01: print(f'note: {os.path.basename(src)} is {im.width}x{im.height}, not 2:3; it is shown whole on black')
     im.save(dst, 'WEBP', quality=88, method=6, alpha_quality=95)
@@ -117,6 +128,7 @@ def main():
     a.add_argument('--rp-playable', help='rewarded + playable end card: the playable folder to show as the end card')
     a.add_argument('--rp-preroll', default='subway-surfer'); a.add_argument('--rp-headline')
     a.add_argument('--display', help='display interstitial image, 2:3 (640x960)'); a.add_argument('--display-headline')
+    a.add_argument('--roblox-ad', help='Roblox rewarded video: the brand video (wide, 16:9; anything else is letterboxed)'); a.add_argument('--roblox-headline')
     a.add_argument('--click-url', default='', help='end card / display interstitial tap target')
     a.add_argument('--force', action='store_true', help='overwrite existing folders')
     o = a.parse_args()
@@ -124,8 +136,8 @@ def main():
     slug = o.slug or re.sub(r'[^a-z0-9]+', '-', o.brand.lower()).strip('-')
     sfx = o.suffix or ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(4))
     name = f'{slug}-{sfx}'
-    want = [k for k, on in (('ctv', o.ctv_ad), ('rewarded', o.rewarded_ad), ('endcard', o.endcard), ('rp', o.rp_ad), ('display', o.display)) if on]
-    if not want: sys.exit('give at least one of --ctv-ad, --rewarded-ad, --endcard, --rp-ad, --display')
+    want = [k for k, on in (('ctv', o.ctv_ad), ('rewarded', o.rewarded_ad), ('endcard', o.endcard), ('rp', o.rp_ad), ('display', o.display), ('roblox', o.roblox_ad)) if on]
+    if not want: sys.exit('give at least one of --ctv-ad, --rewarded-ad, --endcard, --rp-ad, --display, --roblox-ad')
     if 'rp' in want and not o.rp_playable: sys.exit('--rp-ad needs --rp-playable (the playable folder for the end card)')
     if 'endcard' in want and not (o.endcard_ad or o.rewarded_ad): sys.exit('--endcard needs --endcard-ad (or --rewarded-ad)')
 
@@ -153,6 +165,12 @@ def main():
             if o.click_url: s = re.sub(r"clickUrl: '',\s*//", lambda m: f"clickUrl: '{js(o.click_url)}',  //", s, count=1)
             wr(mock, s)
             page(dst, o.brand, o.display_headline or o.headline, f'A {o.brand} display interstitial: the static {w}x{h} image full screen in the app, a tap opens the site.')
+        elif k == 'roblox':
+            transcode(o.roblox_ad, ad); secs = duration(ad)
+            mock = os.path.join(dst, 'mock.html'); s = rd(mock)
+            if o.click_url: s = re.sub(r"clickUrl: '',\s*//", lambda m: f"clickUrl: '{js(o.click_url)}',  //", s, count=1)
+            wr(mock, s)
+            page(dst, o.brand, o.roblox_headline or o.headline, f'A Roblox rewarded video: the game, the {secs}-second {o.brand} video with the reward countdown, then the Learn More end screen.')
         elif k == 'ctv':
             transcode(o.ctv_ad, ad); secs = duration(ad)
             page(dst, o.brand, o.ctv_headline or o.headline, f'A {secs}-second {o.brand} spot in a CTV ad break, with the countdown to the programme.')

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Brand · Format</title>
+<script>{const q=new URLSearchParams(location.search); if(q.has('embed'))document.documentElement.classList.add('embed'); if(q.has('full'))document.documentElement.classList.add('full');}</script>
+<style>
+/* One unit for the formats built from a link or a file (tools/new-unit-mock.py, the Mock Builder): playable, hybrid playable,
+   interactive CTV, and the playable end card of rewarded video.
+   · a game link (CONFIG.url): the live game, filling the unit;
+   · an image or GIF (CONFIG.media, type image): shown whole on black (GIFs animate);
+   · a video (type video): loops muted; the page's sound button turns its sound on.
+   CONFIG.ratio is the unit's shape: '2/3' for the phone interstitial, '16/9' for the TV.
+   ?embed=1 (the review page): fills the frame the page already sizes. ?full=1 (a real phone) or on its own: the unit centred on black. */
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent}
+.unit{position:fixed;inset:0;margin:auto;background:#000;overflow:hidden}
+html.embed .unit{width:100vw;height:100vh}
+.unit iframe,.unit img,.unit video{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;object-fit:contain;background:#000}
+.unit img,.unit video{opacity:0;transition:opacity .25s ease}
+.unit .on{opacity:1}
+</style>
+</head>
+<body>
+<div class="unit" id="unit"></div>
+<script>
+const CONFIG = {
+  url: '',          // a live game link, or
+  media: '',        // a file beside this page (assets/…)
+  type: '',         // 'image' (also GIF) | 'video'
+  ratio: '2/3',     // the unit's shape
+  clickUrl: '',     // tap target for an image or video (window.clickTag wins if the tag sets one)
+};
+const Q = new URLSearchParams(location.search), unit = document.getElementById('unit');
+const bust = u => { const v = Q.get('v'); return v ? u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v) : u; };
+const [rw, rh] = CONFIG.ratio.split('/').map(Number);
+if (!document.documentElement.classList.contains('embed') || document.documentElement.classList.contains('full')) {
+  unit.style.width = `min(100vw, calc(100dvh * ${rw} / ${rh}))`; unit.style.aspectRatio = `${rw}/${rh}`; unit.style.height = 'auto';
+}
+let video = null;
+if (CONFIG.url) {
+  const f = document.createElement('iframe');
+  f.src = CONFIG.url; f.title = 'game'; f.allow = 'autoplay; fullscreen; gyroscope; accelerometer'; unit.appendChild(f);
+} else if (CONFIG.type === 'video') {
+  video = document.createElement('video');
+  video.muted = true; video.defaultMuted = true; video.setAttribute('muted', ''); video.playsInline = true; video.setAttribute('playsinline', '');
+  video.autoplay = true; video.loop = true; video.preload = 'auto';
+  video.addEventListener('loadeddata', () => video.classList.add('on'));
+  video.src = bust(CONFIG.media); unit.appendChild(video); video.play().catch(() => {});
+} else if (CONFIG.media) {
+  const img = new Image(); img.alt = ''; img.onload = () => img.classList.add('on'); img.src = bust(CONFIG.media); unit.appendChild(img);
+}
+// taps on an image or video: the page draws its finger ripple (shared/touch.js), then the click-through opens; a live game handles its own
+if (!CONFIG.url) {
+  unit.addEventListener('pointerdown', e => { const r = unit.getBoundingClientRect(); try { parent.postMessage({ iionTap: { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height } }, '*'); } catch (_) {} });
+  unit.addEventListener('click', () => { const u = window.clickTag || CONFIG.clickUrl; if (u) window.open(u, '_blank'); });
+}
+// the page contract every mock speaks
+window.DEMO = { start: () => {}, slotMs: 0, setAuto: () => {}, setSound: on => { if (video) { video.muted = !on; if (on) video.play().catch(() => {}); } } };
+</script>
+</body>
+</html>

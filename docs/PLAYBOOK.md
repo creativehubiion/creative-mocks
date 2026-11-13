@@ -32,6 +32,7 @@ landscape templates stay for older mocks; `new-video-mocks.py --landscape` still
 | In-game video | `ingame-video/` | `ingame-video/_template/` | portrait or landscape phone | gameplay video (or a screenshot) with the brand's video playing on the billboard (§13) |
 | Roblox billboard | `roblox-billboard/` | `roblox-billboard/_template/` | MacBook | a Roblox world with the brand's image on an in-experience billboard, Roblox's Ad icon on top (§13) |
 | Roblox video | `roblox-video/` | `roblox-video/_template/` | MacBook | a Roblox video screen (static or animated world) playing the brand's video, with Roblox's mute, expand and Ad icons (§13) |
+| Roblox rewarded video | `roblox-rewarded/` | `roblox-rewarded/_template/` | Landscape phone | a Roblox game, Roblox's rewarded ad sheet slides up, the brand's wide video with the reward countdown, then the Learn More end screen (§13) |
 | Several mocks, one link | `showcase/` | `showcase/_template/` | the mocks' own pages | one page with a tab (or menu) per mock |
 
 Never call a hybrid a "playable" or the other way round: a hybrid is video + game, a playable is game only.
@@ -135,7 +136,7 @@ python tools/new-showcase.py --brand "<Brand>" --suffix <sfx>
 python tools/new-video-mocks.py --brand VOXI --headline "Unlimited social media." \
     --ctv-ad tv-spot.mp4 --ctv-headline "The fun never ends." \
     --rewarded-ad mobile-spot.mp4 --rewarded-preroll asphalt-legends \
-    --endcard banner.jpg --endcard-preroll geometry-dash \n    --rp-ad spot.mp4 --rp-playable playable/<name> \n    --display interstitial-640x960.png --display-headline "Value menu." --click-url https://example.com/
+    --endcard banner.jpg --endcard-preroll geometry-dash \n    --rp-ad spot.mp4 --rp-playable playable/<name> \n    --display interstitial-640x960.png --display-headline "Value menu." --click-url https://example.com/ \n    --roblox-ad wide-spot.mp4
 ```
 Builds only the formats you give inputs for, plus a showcase for 2+. Pre-roll game clips are in `tools/video-library/preroll/` (landscape) and `tools/video-library/preroll-portrait/` (portrait).
 
@@ -217,3 +218,11 @@ repeats inside it. A screenshot scene (or the static Roblox video scene) keeps t
 averaged over the scene's billboards. Lowest wins; a scene that doesn't fit the device adds a little; for in-game video a real gameplay
 video wins a near tie. Billboard shapes run from tall (0.49) to long strips (6.8), so most creatives find a slot under 10%.
 
+**Roblox rewarded video (2026-11-13).** Rebuilt from a screen recording of the real unit in a Roblox game on an iPhone held sideways
+(2622×1206). `roblox-rewarded/_template/`: the game from the recording is the pre-roll (`assets/preroll.mp4`, 3.5 s, with the
+"Unlock Premium?" dialog and "Looking for Ads"); our own ad sheet slides up over its last 0.22 s (eased out, as in the recording), so the game
+keeps moving behind it and no black frame shows; the brand's wide video plays in the unit's 16:9 slot (letterboxed, never cropped) with
+Roblox's controls redrawn as SVG on the recording's own pixel grid ("?", ✕, speaker, "Reward in N seconds" from the video's length,
+Learn More, progress bar; each within 1 px of the recording); then the Learn More end screen (last frame under 77% black, centred
+button, ✕) for 2.6 s, and it loops. One command: `new-video-mocks.py --roblox-ad <wide video> --click-url <site>`. On localhost,
+`mock.html?ref=ad` or `?ref=end` lays the recording's frame over ours (difference blend) for pixel checks.
