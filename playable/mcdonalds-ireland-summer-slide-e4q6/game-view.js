@@ -2,7 +2,7 @@
   Summer Mix, McDonald's-themed build: perspective drawing, input, interface, effects, sound, events and the in-page bots.
   Built on 03-greyboxes/game-view.js (same rounds, input, switches and track() events); the look is new.
 
-  Switches: ?end=win|fail ?seed=N ?bot=greedy|random ?speed=N ?debug=1 ?nonav=1 ?mute ?cam=nearY,farY,nearHalfW,farHalfW
+  Switches: ?end=win|fail|loop ?seed=N ?bot=greedy|random ?speed=N ?debug=1 ?nonav=1 ?mute ?cam=nearY,farY,nearHalfW,farHalfW
   Sound: nothing is created before the player's first touch; ?mute keeps everything silent always.
 */
 (function () {
@@ -38,8 +38,10 @@
   var BOT = params.get('bot');
   var SPEED = Math.max(0.1, parseFloat(params.get('speed') || '1') || 1);
   var NONAV = params.get('nonav') === '1';
-  /* ?end=win or ?end=fail (or just ?end): open straight on that end card, for looking at it */
-  var END = params.has('end') ? (params.get('end') === 'fail' ? 'fail' : 'win') : null;
+  /* ?end=win or ?end=fail (or just ?end): open straight on that end card, for looking at it.
+     ?end=loop: the winning rise into the win card, over and over, for looking at the transition */
+  var END = params.has('end') ? (params.get('end') === 'fail' ? 'fail' : (params.get('end') === 'loop' ? 'loop' : 'win')) : null;
+  var loopWinAt = -1;
   var endJumped = false;
   var DEBUG = params.get('debug') === '1';
   var MUTE = params.has('mute') && params.get('mute') !== '0';
@@ -2663,7 +2665,7 @@
     var won = overlay === 'win';
     var fadeA = won ? 1 : clamp01(overlayT / 0.35);
     var kc = easeOutCubic(winK(0, 0.55));
-    var bob = FX ? Math.sin(t * 1.8) * 6 : 0;
+    var bob = FX ? Math.sin(t * 1.8) * 6 * kc : 0;
     /*
       Spare height. On a screen taller than 2:3 (most phones) there is empty space above and below the frame: et and
       eb are how much, in game units (capped; the bottom one less the phone's home-bar inset). The card spreads into
@@ -2677,7 +2679,7 @@
     var grow = 1 + 0.2 * Math.min(1, et / 100) * kc;
     var h = HERO_END.h * (1 - 0.05 * kc) * grow, w = h / ratioOf(HERO);
     var cx = HERO_END.x + 22 * kc, foot = HERO_END.y + 52 * kc + 0.1 * eb * kc;
-    var lean = 0.1 * kc + (FX ? 0.012 * Math.sin(t * 1.3) : 0);
+    var lean = (0.1 + (FX ? 0.012 * Math.sin(t * 1.3) : 0)) * kc;
 
     /* light behind the cup */
     c.save();
@@ -2688,7 +2690,8 @@
     c.restore();
     c.save();
     c.globalAlpha = 0.9 * fadeA;
-    c.drawImage(SPR.glow, cx - h * 0.8, foot - h * 1.25, h * 1.6, h * 1.6);
+    var gk = won ? kc : 1;
+    c.drawImage(SPR.glow, cx - h * (0.75 + 0.05 * gk), foot - h * (1.2 + 0.05 * gk), h * (1.5 + 0.1 * gk), h * (1.5 + 0.1 * gk));
     c.restore();
 
     /* the headline, behind the cup's rim */
@@ -2727,12 +2730,13 @@
     }
 
     /* the cup, leaning against the slant, turning about its foot */
-    drawCastShadow(c, cx, baseCentreY(foot - 6, w), w / (2 * K), 1 - bob / 80, 0.32 * (1 - bob / 80), SH_A * 1.1 * fadeA);
+    var lift = won ? 14 - 6 * kc : 8;
+    drawCastShadow(c, cx, baseCentreY(foot - lift + 2 * kc, w), w / (2 * K), 1 - bob / 80, 0.32 * (1 - bob / 80), SH_A * (1 + 0.1 * gk) * fadeA);
     c.save();
     c.globalAlpha = fadeA;
     c.translate(cx, foot + bob);
     c.rotate(lean);
-    drawPic(c, HERO, 0, -8, w, 1, 0);
+    drawPic(c, HERO, 0, -lift, w, 1, 0);
     c.restore();
 
     /* the splash's front wall again, over the cup's foot, so the cup stands inside the splash */
@@ -2744,8 +2748,8 @@
       c.restore();
     }
 
-    drawEndSparkles(c, 1);
-    drawLogoPlate(c, { x: HUD.logo.x, y: HUD.logo.y - 0.8 * et, w: HUD.logo.w, h: HUD.logo.h });
+    drawEndSparkles(c, clamp01(T / 0.6));
+    drawLogoPlate(c, { x: HUD.logo.x, y: HUD.logo.y - 0.8 * et * (won ? kc : 1), w: HUD.logo.w, h: HUD.logo.h });
 
     /* the name, punched across the cup's foot, arriving from the right */
     var kn = winK(0.35, 0.4);
@@ -2865,6 +2869,17 @@
       return;
     }
     /* end cards: a soft, dimmed copy of the scene first, then the sunburst, the arches, the line, the hero, the button */
+    /*
+      The hand-over from the rise: the rise leaves the table dimmed red with the cup standing at HERO_END. The card
+      keeps that dim under the backdrop while the backdrop fades in, so the table never flashes back to full
+      brightness, and the cup, its light and its shadow start exactly where the rise left them.
+    */
+    if (overlay === 'win' && a < 1) {
+      c.save();
+      c.fillStyle = 'rgba(120,16,6,0.55)';
+      c.fillRect(f.x, f.y, f.w, f.h);
+      c.restore();
+    }
     drawBackdrop(c, a);
     /* both end cards share one layout; the lose card has its own headline and line and fades its cup in */
     if (overlay === 'win' || overlay === 'fail') { drawWinCard(c); return; }
@@ -2913,7 +2928,27 @@
       window.__result = r;
       window.__results.push(r);
     }
-    if (END && ready && !endJumped) {
+    if (END === 'loop' && ready) {
+      if (!endJumped) {
+        endJumped = true;
+        demo = null;
+        game = realGame;
+        hintOn = false;
+        started = true;
+        game.touch();
+        hudT0 = -10;
+        loopWinAt = nowS() + 0.9;
+      }
+      if (loopWinAt > 0 && nowS() >= loopWinAt) { loopWinAt = -1; game.testWin(); }
+      if (overlay === 'win' && overlayT > 3.2) {
+        newRound();
+        game.touch();
+        hudT0 = -10;
+        loopWinAt = nowS() + 0.9;
+        return;
+      }
+    }
+    if (END && END !== 'loop' && ready && !endJumped) {
       endJumped = true;
       demo = null;
       game = realGame;

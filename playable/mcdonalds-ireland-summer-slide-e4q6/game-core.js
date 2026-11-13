@@ -102,7 +102,7 @@
       settleMax: 3,
       winSlowScale: 0.3,
       heroRise: 1.1,
-      endCardDelay: 0.5,
+      endCardDelay: 0.25,
       hardStop: 240
     },
 
@@ -596,6 +596,13 @@
       finish('win');
       emit('win', { drops: g.launches, seconds: g.result.seconds });
     }
+
+    /* For looking at the win sequence only (?end=loop): the hero drink appears mid-table and the win starts. */
+    g.testWin = function () {
+      if (g.state !== 'play') return;
+      for (var t = 1; t <= cfg.heroTier; t++) { g.made[t] = true; g.lit[t] = true; }
+      startWin(makeDrink(cfg.heroTier, Wt / 2, Lt * 0.42, 1));
+    };
 
     function failRound() {
       g.state = 'fail';
