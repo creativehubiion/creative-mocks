@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>KFC Hyper | Keep the Good Vibes Going</title>
+  <meta name="description"
+    content="Jump into a brighter morning with Hyper. Collect Wafflewiches, build your Vibe Meter and unlock a promo code for $2 off Wafflewich Meal." />
+  <meta name="theme-color" content="#E4002B" />
+  <meta name="apple-mobile-web-app-title" content="KFC Hyper" />
+  <meta property="og:title" content="KFC Hyper | Keep the Good Vibes Going" />
+  <meta property="og:description" content="Play till the end to reveal a promo code." />
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      /* White while loading, to match the loading screen. MainMenu switches
+         the page back to black when the game starts; the transition softens
+         the change behind the letterbox bars. */
+      background-color: #fff;
+      transition: background-color 300ms ease;
+      color: rgba(255, 255, 255, 0.87);
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #game-container {
+      position: relative;
+    }
+
+    #ctabtn {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      border: 0;
+      background: transparent;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    canvas {
+      background: transparent;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+      background: transparent;
+    }
+
+    #app #game-container {
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 2 / 3;
+      margin: 0 auto !important;
+    }
+
+    @media (min-aspect-ratio: 1/1) {
+      #app #game-container {
+        width: auto !important;
+        height: 100% !important;
+        aspect-ratio: 2 / 3;
+        margin: 0 auto !important;
+      }
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index.js"></script>
+</head>
+
+<body>
+  <button id="ctabtn"></button>
+
+  <div id="app">
+    <div id="game-container"></div>
+  </div>
+
+
+  <script>
+    // ============================================================
+    // DV360 BUILD - KFC "Keep the Hustle Going" playable
+    // Third-party HTML5 creative served by an iframe tag:
+    //   dv360/KFC_DV360_TAG.html        (standard; use this)
+    //   dv360/KFC_DV360_TAG_MRAID.html  (optional, MRAID in-app supply)
+    // Hosted: https://creativehubiion.github.io/advertiser-creatives/finalbuildfiles/2026/Oct/KFCHustler/index.html
+    // ------------------------------------------------------------
+    // DV360 expands ${...} macros ONLY in the tag it serves, never in this
+    // hosted file. The tag passes them in as query params on the iframe src
+    // and this block reads them back:
+    //   clk              ${CLICK_URL_ENC}       DV360 click tracker (required)
+    //   gdpr             ${GDPR}                filled into the CM360 tracker
+    //   gdpr_consent     ${GDPR_CONSENT_755}    filled into the CM360 tracker
+    //   line_item        ${CAMPAIGN_ID}         optional, forwarded to the DMP
+    //   insertion_order  ${INSERTION_ORDER_ID}  optional, forwarded to the DMP
+    //   creative_id      ${CREATIVE_ID}         optional, forwarded to the DMP
+    //   publisher_id     ${PUBLISHER_ID}        optional, forwarded to the DMP
+    //   app_id_bundle_id ${BUNDLE_ID}           optional, forwarded to the DMP
+    //   page_url         ${SOURCE_URL_ENC}      optional, forwarded to the DMP
+    // A param that is missing, or still a literal ${...} (a preview that
+    // doesn't expand macros), is treated as empty.
+    //
+    // CLICK CHAIN: tap ORDER NOW -> DV360 click (DV360 counts) -> CM360
+    // trackclk (agency counts) -> brand landing page (set agency-side).
+    // Opening uses window.open, proven on iion's DV360 supply (no MRAID).
+    // If window.open is blocked, the page navigates instead. If the MRAID
+    // tag variant announces itself, the click is handed to it for mraid.open.
+    // ============================================================
+    window.option = "";
+    window.bottomtext = "";
+    window.placeNumber = 0;
+    window.language = "";
+    window.country = "";
+    // Web version: true hides ORDER NOW on the end screen (no click-out) and
+    // moves PLAY AGAIN up into its place. The DV360 pages (DV360 zip and
+    // standalone backup) set it to false: there ORDER NOW is the ad's click.
+    window.WEB = true;
+    window.trackingPath = "assets/";
+
+    // ---- Campaign values (edit these) ---------------------------------
+    // DMP tracker, without event_name (added below, always last).
+    var DMP_BASE = "https://staging-dmp-producer.iion.io/tracker/impressions?platform=DV360&campaign_id=2786939";
+    // Agency-provided destination: DoubleClick (CM360) click tracker. Keep its
+    // ${GDPR} / ${GDPR_CONSENT_xxx} macros as-is; they're filled in below.
+    // Phase 2 (Riser) placement, from 2026-10-19.
+    var brandClickTracker = "https://ad.doubleclick.net/ddm/trackclk/N1405.279382DBMXAXISSINGAPORE-3/B37053686.459597945;dc_trk_aid=653696160;dc_trk_cid=266426447;dc_lat=;dc_rdid=;tag_for_child_directed_treatment=;tfua=;gdpr=${GDPR};gdpr_consent=${GDPR_CONSENT_755};ltd=;dc_tdv=1";
+    // --------------------------------------------------------------------
+
+    var tagQuery = null;
+    try { tagQuery = new URLSearchParams(window.location.search); } catch (e) { }
+    function tagParam(name) {
+      var v = "";
+      try { v = (tagQuery && tagQuery.get(name)) || ""; } catch (e) { }
+      return /\$\{[^}]*\}/.test(v) ? "" : v;
+    }
+
+    // DMP tracker: base + whichever optional macros the tag passed.
+    var dmpUrl = DMP_BASE;
+    ["line_item", "insertion_order", "creative_id", "publisher_id",
+      "app_id_bundle_id", "page_url", "gdpr", "gdpr_consent"].forEach(function (k) {
+        var v = tagParam(k);
+        if (v) dmpUrl += "&" + k + "=" + encodeURIComponent(v);
+      });
+    window.trackingType = dmpUrl + "&event_name=";
+
+    // iion review mock (creative-mocks.iion.media): plays here are not
+    // reported. The game only skips reporting on localhost, and DMP_BASE
+    // above is still the Phase 2 (Riser) campaign, so review plays of Hyper
+    // would be counted there. Delete this block to report again.
+    (function () {
+      var send = window.fetch;
+      if (!send) return;
+      window.fetch = function (u) {
+        if (typeof u === "string" && u.indexOf(DMP_BASE) === 0) {
+          return Promise.resolve(new Response(null, { status: 204 }));
+        }
+        return send.apply(this, arguments);
+      };
+    })();
+
+    // DV360 click tracker from the tag (URLSearchParams decodes it once).
+    // Only a real http(s) URL is used; anything else falls back to CM360.
+    var clk = tagParam("clk");
+    if (!/^https?:\/\//i.test(clk)) clk = "";
+    window.setTracker = clk;
+
+    // CM360 tracker with its GDPR macros filled from the tag (empty if absent).
+    var cm360Tracker = brandClickTracker
+      .replace(/\$\{GDPR\}/g, encodeURIComponent(tagParam("gdpr")))
+      .replace(/\$\{GDPR_CONSENT_\d+\}/g, encodeURIComponent(tagParam("gdpr_consent")));
+
+    // Served by DV360: DV360 click + encoded CM360 tracker.
+    // Standalone or preview without clk: the CM360 tracker directly.
+    window.landingPageUrl = clk ? clk + encodeURIComponent(cm360Tracker) : cm360Tracker;
+
+    // Open the landing page from the ORDER NOW tap (called by the game).
+    // MRAID bridge: the MRAID tag variant answers "iion:hello" with
+    // "iion:mraid-ready"; from then on clicks go to it as "iion:open".
+    window.__mraidBridge = false;
+    window.addEventListener("message", function (e) {
+      if (e.source === window.parent && e.source !== window && e.data && e.data.type === "iion:mraid-ready") {
+        window.__mraidBridge = true;
+      }
+    });
+    try { if (window.parent !== window) window.parent.postMessage({ type: "iion:hello" }, "*"); } catch (e) { }
+    window.openLanding = function (url) {
+      if (!url) return;
+      if (window.__mraidBridge) {
+        window.parent.postMessage({ type: "iion:open", url: url }, "*");
+        return;
+      }
+      var w = null;
+      try { w = window.open(url, "_blank"); } catch (e) { }
+      if (!w) {
+        // Popup blocked: navigate instead, so the click is never lost.
+        try { window.top.location.href = url; } catch (e) { window.location.href = url; }
+      }
+    };
+  </script>
+</body>
+
+</html>
